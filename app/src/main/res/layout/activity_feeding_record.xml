@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- 内容区域（含标题、表头、数据、遮罩） -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- 原有的表格内容区域（含标题和表格） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- 顶部标题栏：养殖记录 -->
+            <TextView
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:background="#4CAF50"
+                android:gravity="center"
+            android:text="@string/title_feeding_record"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+            <!-- 表头区域 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/header_fixed_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:gravity="center"
+            android:text="@string/header_date"
+            android:textSize="12sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+
+                <HorizontalScrollView
+                    android:id="@+id/header_scroll"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:scrollbars="none"
+                    android:overScrollMode="never"
+                    android:background="#4CAF50">
+
+                    <LinearLayout
+                        android:id="@+id/header_scroll_container"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:orientation="horizontal" />
+                </HorizontalScrollView>
+            </LinearLayout>
+
+            <!-- 数据区域 -->
+            <ScrollView
+                android:id="@+id/vertical_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true"
+                android:scrollbars="none"
+                android:overScrollMode="never">
+
+                <LinearLayout
+                    android:id="@+id/data_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- 加载遮罩层：覆盖整个内容区域（包括标题），加载完成后自动隐藏 -->
+        <ImageView
+            android:id="@+id/loading_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:src="@drawable/loading_bg"
+            android:scaleType="centerCrop"
+            android:visibility="visible" />
+
+    </FrameLayout>
+
+    <!-- 底部导航栏 -->
+    <LinearLayout
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:background="#FFFFFF"
+        android:elevation="8dp">
+
+        <TextView
+            android:id="@+id/nav_home"
+            style="@style/BottomNavItem"
+            android:text="@string/nav_home" />
+
+        <TextView
+            android:id="@+id/nav_record"
+            style="@style/BottomNavItem"
+            android:text="@string/nav_record"
+            android:textColor="#4CAF50" />
+
+        <TextView
+            android:id="@+id/nav_check"
+            style="@style/BottomNavItem"
+            android:text="@string/nav_check" />
+
+        <TextView
+            android:id="@+id/nav_mix"
+            style="@style/BottomNavItem"
+            android:text="@string/nav_mix" />
+
+        <TextView
+            android:id="@+id/nav_my"
+            style="@style/BottomNavItem"
+            android:text="@string/nav_my" />
+    </LinearLayout>
+
+</LinearLayout>

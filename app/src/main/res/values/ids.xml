@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 固定列容器ID -->
+    <item type="id" name="fixed_column_container" />
+    <item type="id" name="fixed_header_container" />
+    <item type="id" name="fixed_data_container" />
+    <item type="id" name="fixed_footer_container" />
+</resources>

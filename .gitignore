@@ -1,0 +1,10 @@
+/build
+.gradle/
+.idea/
+*.log
+local.properties
+build_err.log
+build_out.log
+lint_err.log
+lint_out.log
+docx_output.txt

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="小棚养虾"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        tools:targetApi="31"
+        tools:ignore="LockedOrientationActivity">
+        <activity
+            android:name=".MainActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:screenOrientation="portrait"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".BasicDataActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="基础数据"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".BatchManageActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="批次管理"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".FeedingRecordActivity"
+            android:label="投喂记录"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".water.WaterQualityActivity"
+            android:label="水质数据"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".checkfeed.CheckFeedActivity"
+            android:label="巡塘检测"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".mixcalc.MixCalcActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="拌料计算"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".analysis.DataAnalysisActivity"
+            android:label="数据分析"
+            android:theme="@style/DataAnalysisTheme"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".backup.BackupActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="备份管理"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".hq.HqActivity"
+            android:label="行情资讯"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".hq.HqChartActivity"
+            android:label="价格走势"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".HelpActivity"
+            android:label="使用帮助"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".ExpertActivity"
+            android:label="专家咨询"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <!-- 轮播图网页详情 -->
+        <activity
+            android:name=".BannerPageActivity"
+            android:label="详情"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <!-- 计划任务 Activity -->
+        <activity
+            android:name=".PlanTaskActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="计划任务"
+            android:windowSoftInputMode="adjustResize|stateHidden"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".CrashReportActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="崩溃报告"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".ProfileActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="我的"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".AssetWebViewActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <service
+            android:name=".PlanTaskService"
+            android:exported="false" />
+    </application>
+</manifest>
