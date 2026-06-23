@@ -1,7 +1,6 @@
 package com.shrimpfarm.app.checkfeed;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -717,7 +716,7 @@ public class CheckFeedActivity extends BaseActivity {
             if (diffMs < 0) return;
             int dayIndex = (int)(diffMs / (24 * 60 * 60 * 1000)) + 1;
 
-            boolean isFourMeals = detectMealCount();
+            boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
             long standardSeconds = FeedingTimeStandard.getStandardSeconds(dayIndex, isFourMeals);
             long avgSeconds = calculateTodayAvgDuration();
             if (avgSeconds <= 0 || standardSeconds <= 0) return;
@@ -1384,7 +1383,7 @@ public class CheckFeedActivity extends BaseActivity {
             return;
         }
 
-        boolean isFourMeals = detectMealCount();
+        boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
         long standardSeconds = FeedingTimeStandard.getStandardSeconds(dayIndex, isFourMeals);
         long avgActualSeconds = calculateTodayAvgDuration();
 
@@ -1419,29 +1418,12 @@ public class CheckFeedActivity extends BaseActivity {
         if (!isValidTimeFormat(startTimeDisplay) || !isValidTimeFormat(endTimeDisplay)) return;
 
         try {
-            String startFull = getFullDateTimeFromTimeString(startTimeDisplay);
-            String endFull = getFullDateTimeFromTimeString(endTimeDisplay);
-            Date startTime = fullDateTimeFormat.parse(startFull);
-            Date endTime = fullDateTimeFormat.parse(endFull);
-            long totalFeedingTime = endTime.getTime() - startTime.getTime();
-            if (totalFeedingTime <= 0) totalFeedingTime += 24 * 60 * 60 * 1000;
+            String stockingDate = dbHelper.getBasicData(currentBatchId, "stocking_date");
+            boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
+            long standardSeconds = FeedCheckAlertModel.getStandardSeconds(stockingDate, isFourMeals);
+            if (standardSeconds <= 0) return;
 
-            int validRowCount = 0;
             int childCount = tableContainer.getChildCount();
-            for (int i = 0; i < childCount; i++) {
-                View child = tableContainer.getChildAt(i);
-                if (child instanceof LinearLayout) {
-                    TextView tvRowNumber = (TextView) ((LinearLayout) child).getChildAt(0);
-                    boolean isExcluded = tvRowNumber.getCurrentTextColor() == COLOR_WHITE_TEXT &&
-                        tvRowNumber.getBackground() instanceof android.graphics.drawable.ColorDrawable &&
-                        ((android.graphics.drawable.ColorDrawable) tvRowNumber.getBackground()).getColor() == COLOR_EXCLUDED_ROW;
-                    if (!isExcluded) validRowCount++;
-                }
-            }
-            if (validRowCount == 0) return;
-
-            long intervalPerRow = totalFeedingTime / validRowCount;
-
             List<Long> durations = new ArrayList<>();
             List<Integer> shedNums = new ArrayList<>();
 
@@ -1462,7 +1444,7 @@ public class CheckFeedActivity extends BaseActivity {
                     durationText.equals("时间格式错误") || durationText.equals("计算错误") ||
                     durationText.equals("时间解析错误") || durationText.equals("无有效行")) continue;
                 long durationMillis = parseDurationToMillis(durationText);
-                if (durationMillis <= intervalPerRow) continue;
+                if (durationMillis <= 0) continue;
                 durations.add(durationMillis);
                 shedNums.add(Integer.parseInt(tvRowNumber.getText().toString()));
             }
@@ -1477,7 +1459,7 @@ public class CheckFeedActivity extends BaseActivity {
             }
 
             FeedCheckAlertModel.TimeoutResult result =
-                FeedCheckAlertModel.checkShedTimeouts(intervalPerRow, durArray, shedArray);
+                FeedCheckAlertModel.checkShedTimeouts(standardSeconds, durArray, shedArray);
 
             if (!result.shedNumbers.isEmpty()) {
                 long hash = 0;
@@ -1498,39 +1480,8 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void showTimeoutWarning(String shedNumbers) {
-        new AlertDialog.Builder(this)
-            .setTitle("吃料异常提醒")
-            .setMessage("注意检查" + shedNumbers + "号棚是否空肠空胃，或其他情况！")
-            .setPositiveButton("知道了", null)
-            .show();
-    }
-
-    private boolean detectMealCount() {
-        try {
-            SQLiteDatabase db = dbHelper.getReadableDatabase();
-            SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
-            Calendar cal = Calendar.getInstance();
-            for (int i = 0; i < 3; i++) {
-                String date = dateFmt.format(cal.getTime());
-                Cursor cursor = db.rawQuery(
-                    "SELECT nightSnack FROM daily_records WHERE batch_id = ? AND date = ?",
-                    new String[]{currentBatchId, date});
-                boolean hasNightSnack = false;
-                if (cursor.moveToFirst()) {
-                    String nightSnack = cursor.getString(0);
-                    hasNightSnack = nightSnack != null && !nightSnack.trim().isEmpty()
-                        && !nightSnack.equals("0") && !nightSnack.equals("0.0");
-                }
-                cursor.close();
-                if (!hasNightSnack) {
-                    return false;
-                }
-                cal.add(Calendar.DAY_OF_YEAR, -1);
-            }
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        showStyledConfirmDialog("吃料异常提醒", "注意检查" + shedNumbers + "号棚是否空肠空胃，或其他情况！",
+            new String[]{"知道了"}, null, null);
     }
 
     private long calculateTodayAvgDuration() {

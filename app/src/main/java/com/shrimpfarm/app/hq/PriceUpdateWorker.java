@@ -30,7 +30,7 @@ public class PriceUpdateWorker extends Worker {
     @Override
     public Result doWork() {
         try {
-            OkHttpClient client = new OkHttpClient();
+            OkHttpClient client = new OkHttpClient.Builder().build();
             Request request = new Request.Builder().url(PRICE_URL).build();
             Response response = client.newCall(request).execute();
 

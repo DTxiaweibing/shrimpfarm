@@ -5,8 +5,13 @@ import android.database.sqlite.SQLiteDatabase;
 
 import com.shrimpfarm.app.DatabaseHelper;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class FeedCheckAlertModel {
 
@@ -47,36 +52,63 @@ public class FeedCheckAlertModel {
         return alerts;
     }
 
-    public static TimeoutResult checkShedTimeouts(long intervalPerRow, long[] durationsMillis, int[] shedNumbers) {
-        List<Integer> singleTimeout = new ArrayList<>();
-        List<Integer> combinedTimeout = new ArrayList<>();
-        long twentyPercent = (long)(intervalPerRow * 0.2);
+    public static boolean isFourMeals(SQLiteDatabase db, String batchId) {
+        try {
+            SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.DAY_OF_YEAR, -1);
+            int nightSnackCount = 0;
+            for (int i = 0; i < 3; i++) {
+                String date = dateFmt.format(cal.getTime());
+                Cursor cursor = db.rawQuery(
+                    "SELECT nightSnack FROM daily_records WHERE batch_id = ? AND date = ?",
+                    new String[]{batchId, date});
+                boolean hasNightSnack = false;
+                if (cursor.moveToFirst()) {
+                    String nightSnack = cursor.getString(0);
+                    hasNightSnack = nightSnack != null && !nightSnack.trim().isEmpty()
+                        && !nightSnack.equals("0") && !nightSnack.equals("0.0");
+                }
+                cursor.close();
+                if (hasNightSnack) nightSnackCount++;
+                cal.add(Calendar.DAY_OF_YEAR, -1);
+            }
+            return nightSnackCount >= 2;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    public static long getStandardSeconds(String stockingDate, boolean isFourMeals) {
+        if (stockingDate == null || stockingDate.isEmpty() || stockingDate.equals("选择日期")) return 0;
+        try {
+            SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
+            Date stocking = dateFmt.parse(stockingDate);
+            if (stocking == null) return 0;
+            Date today = new Date();
+            long diffMs = today.getTime() - stocking.getTime();
+            if (diffMs < 0) return 0;
+            int dayIndex = (int)(diffMs / (24 * 60 * 60 * 1000)) + 1;
+            return FeedingTimeStandard.getStandardSeconds(dayIndex, isFourMeals);
+        } catch (ParseException e) {
+            return 0;
+        }
+    }
+
+    public static TimeoutResult checkShedTimeouts(long standardSeconds, long[] durationsMillis, int[] shedNumbers) {
+        List<Integer> timeoutSheds = new ArrayList<>();
+        long standardMillis = standardSeconds * 1000;
+        long twentyPercent = (long)(standardMillis * 0.2);
 
         for (int i = 0; i < durationsMillis.length; i++) {
-            if (durationsMillis[i] <= intervalPerRow) continue;
-            long overTime = durationsMillis[i] - intervalPerRow;
+            if (durationsMillis[i] <= standardMillis) continue;
+            long overTime = durationsMillis[i] - standardMillis;
             if (overTime >= twentyPercent) {
-                singleTimeout.add(shedNumbers[i]);
-            } else {
-                combinedTimeout.add(shedNumbers[i]);
+                timeoutSheds.add(shedNumbers[i]);
             }
         }
 
-        if (!singleTimeout.isEmpty()) {
-            return new TimeoutResult(singleTimeout, true);
-        }
-
-        long totalOver = 0;
-        for (int i = 0; i < durationsMillis.length; i++) {
-            if (durationsMillis[i] > intervalPerRow) {
-                totalOver += durationsMillis[i] - intervalPerRow;
-            }
-        }
-        if (totalOver >= twentyPercent && combinedTimeout.size() >= 2) {
-            return new TimeoutResult(combinedTimeout, false);
-        }
-
-        return new TimeoutResult(new ArrayList<>(), false);
+        return new TimeoutResult(timeoutSheds, !timeoutSheds.isEmpty());
     }
 
     public static class TimeoutResult {

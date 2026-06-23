@@ -233,7 +233,7 @@ public class WebDavManager {
                 "</d:prop></d:propfind>";
 
         Request request = authRequest(url)
-                .method("PROPFIND", RequestBody.create(MediaType.parse("application/xml"), bodyXml))
+                .method("PROPFIND", RequestBody.create(bodyXml, MediaType.parse("application/xml")))
                 .header("Depth", "1")
                 .build();
 
@@ -245,7 +245,7 @@ public class WebDavManager {
     }
 
     private void execMkcol(String url) throws Exception {
-        Request request = authRequest(url).method("MKCOL", RequestBody.create(null, new byte[0])).build();
+        Request request = authRequest(url).method("MKCOL", RequestBody.create(new byte[0], null)).build();
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 401) throw new Exception("401 Unauthorized");
             if (!response.isSuccessful() && response.code() != 405) throw new Exception("MKCOL failed: " + response.code());
@@ -254,7 +254,7 @@ public class WebDavManager {
 
     private void execPut(String url, File file) throws Exception {
         Request request = authRequest(url)
-                .put(RequestBody.create(MediaType.parse("application/octet-stream"), file))
+                .put(RequestBody.create(file, MediaType.parse("application/octet-stream")))
                 .build();
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 401) throw new Exception("401 Unauthorized");

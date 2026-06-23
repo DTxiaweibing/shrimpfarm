@@ -116,7 +116,7 @@ public class SupabaseAuthManager {
                     .url(SUPABASE_URL + "/auth/v1/token?grant_type=password")
                     .header("apikey", ANON_KEY)
                     .header("Content-Type", "application/json")
-                    .post(RequestBody.create(MediaType.parse("application/json"), body.toString()))
+                    .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
                     .build();
 
             try (Response response = client.newCall(request).execute()) {
@@ -376,7 +376,7 @@ public class SupabaseAuthManager {
                     .header("apikey", ANON_KEY)
                     .header("Authorization", "Bearer " + getToken())
                     .header("Content-Type", "application/json")
-                    .put(RequestBody.create(MediaType.parse("application/json"), body.toString()))
+                    .put(RequestBody.create(body.toString(), MediaType.parse("application/json")))
                     .build();
 
             try (Response response = client.newCall(req).execute()) {
@@ -407,7 +407,7 @@ public class SupabaseAuthManager {
                     .url(SUPABASE_URL + "/auth/v1/signup")
                     .header("apikey", ANON_KEY)
                     .header("Content-Type", "application/json")
-                    .post(RequestBody.create(MediaType.parse("application/json"), body.toString()))
+                    .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
                     .build();
 
             try (Response response = client.newCall(request).execute()) {
@@ -447,7 +447,7 @@ public class SupabaseAuthManager {
                     .url(SUPABASE_URL + "/auth/v1/recover")
                     .header("apikey", ANON_KEY)
                     .header("Content-Type", "application/json")
-                    .post(RequestBody.create(MediaType.parse("application/json"), body.toString()))
+                    .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
                     .build();
 
             try (Response response = client.newCall(request).execute()) {
