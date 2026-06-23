@@ -103,6 +103,7 @@ public class MainActivity extends BaseActivity {
     private static final String PREF_SMART_PREFIX = "smart_agent_";
     private static final String[][] SMART_AGENTS = {
         {"饲料增量检测", "feed_increase"},
+        {"单棚吃料超时提醒", "feed_timeout"},
         {"查料分析", "feed_check"},
         {"水质总调度", "water_quality"},
         {"水质核心检测", "water_core"},
@@ -733,6 +734,43 @@ public class MainActivity extends BaseActivity {
             List<AlertItem> alerts = new ArrayList<>();
             if (sp.getBoolean(PREF_SMART_PREFIX + "feed_increase", true))
                 alerts.addAll(FeedIncreaseAlertModel.check(dbHelper.getReadableDatabase(), batchId));
+            if (sp.getBoolean(PREF_SMART_PREFIX + "feed_timeout", true)) {
+                String today = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
+                String stockingDate = dbHelper.getBasicData(batchId, "stocking_date");
+                boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getReadableDatabase(), batchId);
+                long standardSeconds = FeedCheckAlertModel.getStandardSeconds(stockingDate, isFourMeals);
+                if (standardSeconds > 0) {
+                    List<DatabaseHelper.CheckRecord> records = dbHelper.getCheckRecordsByDate(batchId, today);
+                    long[] durations = new long[records.size()];
+                    int[] shedNums = new int[records.size()];
+                    int validCount = 0;
+                    for (DatabaseHelper.CheckRecord r : records) {
+                        if (!r.excluded && r.durationSeconds > 0) {
+                            durations[validCount] = r.durationSeconds * 1000;
+                            try {
+                                shedNums[validCount] = Integer.parseInt(r.shedNumber);
+                            } catch (NumberFormatException e) {
+                                shedNums[validCount] = r.shedRowIndex + 1;
+                            }
+                            validCount++;
+                        }
+                    }
+                    if (validCount > 0) {
+                        FeedCheckAlertModel.TimeoutResult result = FeedCheckAlertModel.checkShedTimeouts(
+                            standardSeconds,
+                            Arrays.copyOf(durations, validCount),
+                            Arrays.copyOf(shedNums, validCount));
+                        if (!result.shedNumbers.isEmpty()) {
+                            StringBuilder sb = new StringBuilder();
+                            for (int s : result.shedNumbers) {
+                                if (sb.length() > 0) sb.append("、");
+                                sb.append(s);
+                            }
+                            alerts.add(new AlertItem(sb + "号棚吃料超时，请检查", "SHED_TIMEOUT"));
+                        }
+                    }
+                }
+            }
             if (sp.getBoolean(PREF_SMART_PREFIX + "feed_check", true))
                 alerts.addAll(FeedCheckAlertModel.check(dbHelper.getReadableDatabase(), batchId));
             if (sp.getBoolean(PREF_SMART_PREFIX + "feed_time", true)) {
