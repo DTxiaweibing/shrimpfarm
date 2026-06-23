@@ -489,15 +489,19 @@ public class MainActivity extends BaseActivity {
             float density = getResources().getDisplayMetrics().density;
             int screenWidthDp = (int)(getResources().getDisplayMetrics().widthPixels / density);
             int dialogWidthDp = Math.max(180, screenWidthDp / 3);
-            window.setLayout((int)(dialogWidthDp * density), ViewGroup.LayoutParams.WRAP_CONTENT);
             View toolbar = findViewById(R.id.toolbar);
+            View bottomNav = findViewById(R.id.bottom_nav);
             int[] loc = new int[2];
             toolbar.getLocationOnScreen(loc);
-            int toolbarBottomY = loc[1] + toolbar.getHeight();
+            int topY = loc[1] + toolbar.getHeight();
+            bottomNav.getLocationOnScreen(loc);
+            int bottomY = loc[1];
+            int dialogHeight = bottomY - topY;
+            window.setLayout((int)(dialogWidthDp * density), dialogHeight);
             WindowManager.LayoutParams lp = window.getAttributes();
             lp.gravity = Gravity.START | Gravity.TOP;
             lp.x = 0;
-            lp.y = toolbarBottomY;
+            lp.y = topY;
             lp.dimAmount = 0f;
             window.setAttributes(lp);
         }
