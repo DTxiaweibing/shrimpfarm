@@ -643,8 +643,12 @@ public class MainActivity extends BaseActivity {
             if (!sp.getBoolean("plan_task_day_switch", true)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
-        } else if (hour >= 17 && (hour < 22 || (hour == 22 && minute <= 30))) {
+        } else if (hour >= 17 && (hour < 23 || (hour == 23 && minute < 30))) {
             if (!sp.getBoolean("plan_task_night_switch", true)) {
+                scrollTaskBars.setVisibility(View.INVISIBLE); return;
+            }
+        } else if ((hour == 23 && minute >= 30) || hour < 6) {
+            if (!sp.getBoolean("plan_task_midnight_switch", false)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
         } else {

@@ -109,7 +109,8 @@
     <string name="webdav_test_and_save">测试连接并保存</string>
     <string name="plan_task_switch">计划任务总开关</string>
     <string name="plan_day_feeding">日间提醒 (6:00–17:00)</string>
-    <string name="plan_night_feeding">晚间提醒 (17:00–22:30)</string>
+    <string name="plan_night_feeding">晚间提醒 (17:00–23:30)</string>
+    <string name="plan_midnight_feeding">夜间提醒 (23:30–06:00)</string>
     <string name="select_animal">选择动保</string>
     <string name="hint_input">请输入</string>
     <string name="feed_total_amount">总投喂量</string>

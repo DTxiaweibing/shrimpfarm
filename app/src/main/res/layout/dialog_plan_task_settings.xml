@@ -60,6 +60,19 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
+        android:background="#F0F0F0" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/sw_midnight"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/plan_midnight_feeding"
+        android:textSize="16sp"
+        android:padding="12dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
         android:background="#E0E0E0" />
 
     <LinearLayout

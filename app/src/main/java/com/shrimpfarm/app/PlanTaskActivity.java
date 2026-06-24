@@ -161,9 +161,11 @@ public class PlanTaskActivity extends BaseActivity {
         SwitchCompat swMaster = view.findViewById(R.id.sw_master);
         SwitchCompat swDay = view.findViewById(R.id.sw_day);
         SwitchCompat swNight = view.findViewById(R.id.sw_night);
+        SwitchCompat swMidnight = view.findViewById(R.id.sw_midnight);
         swMaster.setChecked(prefs.getBoolean("plan_task_master_switch", true));
         swDay.setChecked(prefs.getBoolean("plan_task_day_switch", true));
         swNight.setChecked(prefs.getBoolean("plan_task_night_switch", true));
+        swMidnight.setChecked(prefs.getBoolean("plan_task_midnight_switch", false));
 
         LinearLayout buttonLayout = view.findViewById(R.id.layout_buttons);
         String[] btnTexts = {"取消", "确定"};
@@ -174,6 +176,7 @@ public class PlanTaskActivity extends BaseActivity {
                     .putBoolean("plan_task_master_switch", swMaster.isChecked())
                     .putBoolean("plan_task_day_switch", swDay.isChecked())
                     .putBoolean("plan_task_night_switch", swNight.isChecked())
+                    .putBoolean("plan_task_midnight_switch", swMidnight.isChecked())
                     .apply();
                 Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show();
             }

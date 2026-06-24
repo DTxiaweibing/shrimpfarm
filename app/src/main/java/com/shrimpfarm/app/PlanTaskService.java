@@ -69,8 +69,10 @@ public class PlanTaskService extends Service {
         int minute = cal.get(Calendar.MINUTE);
         if (hour >= 6 && hour < 17) {
             if (!sp.getBoolean("plan_task_day_switch", true)) return;
-        } else if (hour >= 17 && (hour < 22 || (hour == 22 && minute <= 30))) {
+        } else if (hour >= 17 && (hour < 23 || (hour == 23 && minute < 30))) {
             if (!sp.getBoolean("plan_task_night_switch", true)) return;
+        } else if ((hour == 23 && minute >= 30) || hour < 6) {
+            if (!sp.getBoolean("plan_task_midnight_switch", false)) return;
         } else {
             return;
         }
