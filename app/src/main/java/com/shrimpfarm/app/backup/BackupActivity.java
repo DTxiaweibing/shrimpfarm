@@ -2,6 +2,7 @@ package com.shrimpfarm.app.backup;
 
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -184,6 +185,26 @@ public class BackupActivity extends AppCompatActivity {
 
     private boolean checkStoragePermission() {
         return StoragePermissionHelper.requestIfNeeded(this);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == StoragePermissionHelper.REQUEST_CODE_MANAGE) {
+            if (StoragePermissionHelper.hasStoragePermission(this)) {
+                if (pendingRestoreEntry != null) {
+                    BackupEntry entry = pendingRestoreEntry;
+                    pendingRestoreEntry = null;
+                    showRestoreOptions(entry);
+                } else {
+                    doLocalBackup();
+                }
+            } else {
+                String msg = pendingRestoreEntry != null ? "需要存储权限才能还原本地备份" : "需要存储权限才能备份到本地";
+                pendingRestoreEntry = null;
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     @Override
