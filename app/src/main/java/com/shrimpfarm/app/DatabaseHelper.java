@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 import com.shrimpfarm.app.model.PriceCategory;
 import com.shrimpfarm.app.model.PriceData;
@@ -15,11 +16,9 @@ import com.shrimpfarm.app.utils.EncryptUtils;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -82,7 +81,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_ORP = "orp";
 
     // ==================== 基础数据表字段 ====================
-    public static final String COLUMN_BD_KEY = "key";
+    public static final String COLUMN_BD_KEY = "`key`";
     public static final String COLUMN_BD_VALUE = "value";
 
     // ==================== 拌料动保预设表字段 ====================
@@ -133,19 +132,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         public long createdAt;
     }
 
-    public static class CheckSummary {
-        public List<DailyCheckSummary> dailySummaries;
-    }
-
-    public static class DailyCheckSummary {
-        public String date;
-        public int shedCount;
-        public long avgDuration;
-        public long minDuration;
-        public long maxDuration;
-    }
-
-    // ==================== 新增内部类 ====================
+    // ==================== 内部类 ====================
     public static class DailyFeedSummary {
         public String date;
         public float totalFeed;
@@ -196,16 +183,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             return withoutPrefix.substring(plusIndex + 1);
         }
         return withoutPrefix;
-    }
-
-    public static String extractTagContent(String storedValue) {
-        if (storedValue == null) return "";
-        String withoutPrefix = removeUsagePrefix(storedValue);
-        int plusIndex = withoutPrefix.indexOf('+');
-        if (plusIndex >= 0) {
-            return withoutPrefix.substring(0, plusIndex);
-        }
-        return "";
     }
 
     // ==================== 建表SQL ====================
@@ -400,56 +377,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return encrypted;
     }
 
-    // ==================== 每日记录表操作 ====================
-    public void saveRecord(String batchId, FeedingRecordActivity.DayRecord record) {
-        SQLiteDatabase db = getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_DATE, record.date);
-        values.put(COLUMN_BATCH_ID, batchId);
-        values.put(COLUMN_BREAKFAST, record.breakfast);
-        values.put(COLUMN_LUNCH, record.lunch);
-        values.put(COLUMN_DINNER, record.dinner);
-        values.put(COLUMN_NIGHT_SNACK, record.nightSnack);
-        values.put(COLUMN_WATER_MIX1, record.waterMix1);
-        values.put(COLUMN_WATER_MIX2, record.waterMix2);
-        values.put(COLUMN_WATER_MIX3, record.waterMix3);
-        values.put(COLUMN_WATER_MIX4, record.waterMix4);
-        values.put(COLUMN_MIX1, record.mix1);
-        values.put(COLUMN_MIX2, record.mix2);
-        values.put(COLUMN_MIX3, record.mix3);
-        values.put(COLUMN_MIX4, record.mix4);
-        values.put(COLUMN_REMARK, record.remark);
-
-        ContentValues encryptedValues = encryptContentValues(values);
-        db.insertWithOnConflict(TABLE_DAILY_RECORDS, null, encryptedValues, SQLiteDatabase.CONFLICT_REPLACE);
-    }
-
-    public FeedingRecordActivity.DayRecord getRecordByDate(String batchId, String date) {
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_DAILY_RECORDS, null,
-                COLUMN_BATCH_ID + "=? AND " + COLUMN_DATE + "=?",
-                new String[]{batchId, date}, null, null, null);
-        FeedingRecordActivity.DayRecord record = new FeedingRecordActivity.DayRecord();
-        record.date = date;
-        if (cursor.moveToFirst()) {
-            record.breakfast = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BREAKFAST)));
-            record.lunch = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LUNCH)));
-            record.dinner = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DINNER)));
-            record.nightSnack = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NIGHT_SNACK)));
-            record.waterMix1 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WATER_MIX1)));
-            record.waterMix2 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WATER_MIX2)));
-            record.waterMix3 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WATER_MIX3)));
-            record.waterMix4 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WATER_MIX4)));
-            record.mix1 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MIX1)));
-            record.mix2 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MIX2)));
-            record.mix3 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MIX3)));
-            record.mix4 = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MIX4)));
-            record.remark = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_REMARK)));
-        }
-        cursor.close();
-        return record;
-    }
-
     // ==================== 统计表操作 ====================
     public void insertFeedingStats(String batchId, String date, long avgDurationMillis, long recordTime) {
         SQLiteDatabase db = getWritableDatabase();
@@ -459,13 +386,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_AVG_DURATION, avgDurationMillis);
         values.put(COLUMN_RECORD_TIME, recordTime);
         db.insert(TABLE_FEEDING_STATS, null, values);
-    }
-
-    public Cursor getFeedingStatsByDate(String batchId, String date) {
-        SQLiteDatabase db = getReadableDatabase();
-        return db.query(TABLE_FEEDING_STATS, null,
-                COLUMN_BATCH_ID + "=? AND " + COLUMN_STATS_DATE + "=?",
-                new String[]{batchId, date}, null, null, COLUMN_RECORD_TIME + " ASC");
     }
 
     // ==================== 查料分析表操作 ====================
@@ -478,14 +398,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_FCA_STANDARD, standardSeconds);
         values.put(COLUMN_RECORD_TIME, System.currentTimeMillis());
         db.insert(TABLE_FEEDING_CHECK_ANALYSIS, null, values);
-    }
-
-    public Cursor getFeedingCheckAnalysis(String batchId, int limit) {
-        SQLiteDatabase db = getReadableDatabase();
-        return db.query(TABLE_FEEDING_CHECK_ANALYSIS, null,
-                COLUMN_BATCH_ID + "=?", new String[]{batchId},
-                null, null, COLUMN_RECORD_TIME + " DESC",
-                String.valueOf(limit));
     }
 
     // ==================== 水质检测表操作 ====================
@@ -580,24 +492,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return tags != null ? tags : "";
     }
 
-    public List<String> getAllMixPresetNames(String batchId) {
-        List<String> list = new ArrayList<>();
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_MIX_PRESETS, new String[]{COLUMN_MIX_NAME},
-                COLUMN_BATCH_ID + "=?", new String[]{batchId},
-                null, null, COLUMN_MIX_ROW + " ASC");
-        while (cursor.moveToNext()) {
-            String fullName = EncryptUtils.decrypt(cursor.getString(0));
-            if (fullName != null && !fullName.isEmpty()) {
-                String pure = removeUsagePrefix(fullName);
-                list.add(pure);
-            }
-        }
-        cursor.close();
-        list.add("");
-        return list;
-    }
-
     public Map<String, String> getMixPresetTagsMap(String batchId) {
         Map<String, String> map = new HashMap<>();
         SQLiteDatabase db = getReadableDatabase();
@@ -664,24 +558,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return tags != null ? tags : "";
     }
 
-    public List<String> getAllWaterPresetNames(String batchId) {
-        List<String> list = new ArrayList<>();
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_WATER_PRESETS, new String[]{COLUMN_WATER_NAME},
-                COLUMN_BATCH_ID + "=?", new String[]{batchId},
-                null, null, COLUMN_WATER_ROW + " ASC");
-        while (cursor.moveToNext()) {
-            String fullName = EncryptUtils.decrypt(cursor.getString(0));
-            if (fullName != null && !fullName.isEmpty()) {
-                String pure = removeUsagePrefix(fullName);
-                list.add(pure);
-            }
-        }
-        cursor.close();
-        list.add("");
-        return list;
-    }
-
     public Map<String, String> getWaterPresetTagsMap(String batchId) {
         Map<String, String> map = new HashMap<>();
         SQLiteDatabase db = getReadableDatabase();
@@ -709,6 +585,140 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         cursor.close();
         return map;
+    }
+
+    // ==================== 投喂记录优化：排序 / 批量查询 / 事务 ====================
+
+    public static class PresetItem {
+        public String displayName;
+        public String tagContent;
+    }
+
+    public List<PresetItem> getMixPresetsSorted(String batchId) {
+        return sortPresetItems(getMixPresetTagsMap(batchId));
+    }
+
+    public List<PresetItem> getWaterPresetsSorted(String batchId) {
+        return sortPresetItems(getWaterPresetTagsMap(batchId));
+    }
+
+    private List<PresetItem> sortPresetItems(Map<String, String> rawMap) {
+        List<PresetItem> list = new ArrayList<>();
+        for (Map.Entry<String, String> entry : rawMap.entrySet()) {
+            PresetItem item = new PresetItem();
+            item.displayName = entry.getKey();
+            item.tagContent = entry.getValue();
+            list.add(item);
+        }
+        java.text.Collator collator = java.text.Collator.getInstance(java.util.Locale.CHINA);
+        list.sort((o1, o2) -> collator.compare(o1.displayName, o2.displayName));
+        return list;
+    }
+
+    public List<FeedingRecordActivity.DayRecord> getRecordsByPage(String batchId, int limit, int offset) {
+        List<FeedingRecordActivity.DayRecord> result = new ArrayList<>();
+        String waterPrepDate = getBasicData(batchId, "water_prep_date");
+        if (waterPrepDate == null || waterPrepDate.isEmpty() || "选择日期".equals(waterPrepDate)) return result;
+        String startDate = standardizeDate(waterPrepDate);
+        String endDate = addMonths(startDate);
+        SQLiteDatabase db = getReadableDatabase();
+        String sql = "SELECT * FROM " + TABLE_DAILY_RECORDS +
+            " WHERE " + COLUMN_BATCH_ID + "=? AND " + COLUMN_DATE + " BETWEEN ? AND ?" +
+            " ORDER BY " + COLUMN_DATE + " ASC LIMIT ? OFFSET ?";
+        Cursor cursor = db.rawQuery(sql, new String[]{batchId, startDate, endDate, String.valueOf(limit), String.valueOf(offset)});
+        Map<String, FeedingRecordActivity.DayRecord> recordMap = new LinkedHashMap<>();
+        while (cursor.moveToNext()) {
+            FeedingRecordActivity.DayRecord r = new FeedingRecordActivity.DayRecord();
+            r.date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+            r.breakfast = decryptField(cursor, COLUMN_BREAKFAST);
+            r.lunch = decryptField(cursor, COLUMN_LUNCH);
+            r.dinner = decryptField(cursor, COLUMN_DINNER);
+            r.nightSnack = decryptField(cursor, COLUMN_NIGHT_SNACK);
+            r.waterMix1 = decryptField(cursor, COLUMN_WATER_MIX1);
+            r.waterMix2 = decryptField(cursor, COLUMN_WATER_MIX2);
+            r.waterMix3 = decryptField(cursor, COLUMN_WATER_MIX3);
+            r.waterMix4 = decryptField(cursor, COLUMN_WATER_MIX4);
+            r.mix1 = decryptField(cursor, COLUMN_MIX1);
+            r.mix2 = decryptField(cursor, COLUMN_MIX2);
+            r.mix3 = decryptField(cursor, COLUMN_MIX3);
+            r.mix4 = decryptField(cursor, COLUMN_MIX4);
+            r.remark = decryptField(cursor, COLUMN_REMARK);
+            recordMap.put(r.date, r);
+        }
+        cursor.close();
+        Calendar cal = parseDate(startDate);
+        Calendar endCal = parseDate(endDate);
+        while (!cal.after(endCal)) {
+            String dateStr = String.format(Locale.CHINA, "%d/%02d/%02d",
+                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));
+            FeedingRecordActivity.DayRecord r = recordMap.get(dateStr);
+            if (r == null) { r = new FeedingRecordActivity.DayRecord(); r.date = dateStr; }
+            result.add(r);
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return result;
+    }
+
+    public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_DATE, record.date);
+        values.put(COLUMN_BATCH_ID, batchId);
+        values.put(COLUMN_BREAKFAST, record.breakfast);
+        values.put(COLUMN_LUNCH, record.lunch);
+        values.put(COLUMN_DINNER, record.dinner);
+        values.put(COLUMN_NIGHT_SNACK, record.nightSnack);
+        values.put(COLUMN_WATER_MIX1, record.waterMix1);
+        values.put(COLUMN_WATER_MIX2, record.waterMix2);
+        values.put(COLUMN_WATER_MIX3, record.waterMix3);
+        values.put(COLUMN_WATER_MIX4, record.waterMix4);
+        values.put(COLUMN_MIX1, record.mix1);
+        values.put(COLUMN_MIX2, record.mix2);
+        values.put(COLUMN_MIX3, record.mix3);
+        values.put(COLUMN_MIX4, record.mix4);
+        values.put(COLUMN_REMARK, record.remark);
+        ContentValues encrypted = encryptContentValues(values);
+        db.beginTransaction();
+        try {
+            db.insertWithOnConflict(TABLE_DAILY_RECORDS, null, encrypted, SQLiteDatabase.CONFLICT_REPLACE);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    private String decryptField(Cursor c, String column) {
+        int idx = c.getColumnIndex(column);
+        if (idx < 0) return "";
+        String raw = c.getString(idx);
+        return (raw != null) ? EncryptUtils.decrypt(raw) : "";
+    }
+
+    private String standardizeDate(String dateStr) {
+        String[] parts = dateStr.split("/");
+        if (parts.length != 3) parts = dateStr.split("-");
+        if (parts.length != 3) parts = dateStr.split("\\.");
+        if (parts.length == 3) return String.format(Locale.CHINA, "%s/%02d/%02d", parts[0], Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+        return dateStr;
+    }
+
+    private String addMonths(String startDate) {
+        Calendar cal = parseDate(startDate);
+        cal.add(Calendar.MONTH, 6);
+        return String.format(Locale.CHINA, "%d/%02d/%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));
+    }
+
+    private Calendar parseDate(String dateStr) {
+        String[] parts = dateStr.split("/");
+        if (parts.length != 3) parts = dateStr.split("-");
+        if (parts.length != 3) parts = dateStr.split("\\.");
+        Calendar cal = Calendar.getInstance();
+        if (parts.length == 3) {
+            cal.set(Calendar.YEAR, Integer.parseInt(parts[0]));
+            cal.set(Calendar.MONTH, Integer.parseInt(parts[1]) - 1);
+            cal.set(Calendar.DAY_OF_MONTH, Integer.parseInt(parts[2]));
+        }
+        return cal;
     }
 
     // ==================== 查料记录相关方法（完整实现） ====================
@@ -809,68 +819,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    public CheckSummary getCheckRecordsSummary(String batchId, String startDate, String endDate) {
-        CheckSummary summary = new CheckSummary();
-        SQLiteDatabase db = getReadableDatabase();
-        String countSql = "SELECT record_date, COUNT(*) as shed_count " +
-                "FROM " + TABLE_FEEDING_CHECK_RECORDS + " " +
-                "WHERE batch_id = ? AND record_date BETWEEN ? AND ? AND is_excluded = 0 " +
-                "GROUP BY record_date ORDER BY record_date ASC";
-        Cursor countCursor = db.rawQuery(countSql, new String[]{batchId, startDate, endDate});
-        List<CheckRecord> allRecords = new ArrayList<>();
-        Cursor detailCursor = db.query(TABLE_FEEDING_CHECK_RECORDS, null,
-                "batch_id = ? AND record_date BETWEEN ? AND ? AND is_excluded = 0",
-                new String[]{batchId, startDate, endDate}, null, null, "record_date ASC, shed_row_index ASC");
-        while (detailCursor.moveToNext()) {
-            CheckRecord record = new CheckRecord();
-            record.recordDate = detailCursor.getString(detailCursor.getColumnIndexOrThrow("record_date"));
-            String encDuration = detailCursor.getString(detailCursor.getColumnIndexOrThrow("duration_seconds"));
-            if (encDuration != null && !encDuration.isEmpty()) {
-                try {
-                    record.durationSeconds = Long.parseLong(EncryptUtils.decrypt(encDuration));
-                } catch (NumberFormatException e) {
-                    record.durationSeconds = 0;
-                }
-            }
-            allRecords.add(record);
-        }
-        detailCursor.close();
-
-        Map<String, List<Long>> dateDurationMap = new HashMap<>();
-        for (CheckRecord rec : allRecords) {
-            if (!dateDurationMap.containsKey(rec.recordDate)) {
-                dateDurationMap.put(rec.recordDate, new ArrayList<Long>());
-            }
-            dateDurationMap.get(rec.recordDate).add(rec.durationSeconds);
-        }
-
-        summary.dailySummaries = new ArrayList<>();
-        if (countCursor.moveToFirst()) {
-            do {
-                String date = countCursor.getString(0);
-                int shedCount = countCursor.getInt(1);
-                DailyCheckSummary daily = new DailyCheckSummary();
-                daily.date = date;
-                daily.shedCount = shedCount;
-                List<Long> durations = dateDurationMap.get(date);
-                if (durations != null && !durations.isEmpty()) {
-                    long sum = 0, min = Long.MAX_VALUE, max = Long.MIN_VALUE;
-                    for (long d : durations) {
-                        sum += d;
-                        if (d < min) min = d;
-                        if (d > max) max = d;
-                    }
-                    daily.avgDuration = sum / durations.size();
-                    daily.minDuration = min;
-                    daily.maxDuration = max;
-                }
-                summary.dailySummaries.add(daily);
-            } while (countCursor.moveToNext());
-        }
-        countCursor.close();
-        return summary;
-    }
-
     public List<DailyFeedSummary> getDailyFeedSummary(String batchId, String startDate, String endDate) {
         List<DailyFeedSummary> list = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
@@ -897,23 +845,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    public List<DurationSummary> getFeedingDurationSummary(String batchId, String startDate, String endDate) {
-        List<DurationSummary> list = new ArrayList<>();
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_FEEDING_STATS,
-                new String[]{COLUMN_STATS_DATE, COLUMN_AVG_DURATION},
-                COLUMN_BATCH_ID + "=? AND " + COLUMN_STATS_DATE + " BETWEEN ? AND ?",
-                new String[]{batchId, startDate, endDate},
-                null, null, COLUMN_STATS_DATE + " ASC");
-        while (cursor.moveToNext()) {
-            String date = cursor.getString(0);
-            long duration = cursor.getLong(1);
-            list.add(new DurationSummary(date, duration));
-        }
-        cursor.close();
-        return list;
-    }
-
     public List<DurationByShedSummary> getFeedingDurationByShed(String batchId, String shedNumber, String startDate, String endDate) {
         List<DurationByShedSummary> list = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
@@ -935,12 +866,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 int isExcluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded"));
                 if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
                     long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
-                    if (!dateDurationMap.containsKey(date)) {
-                        dateDurationMap.put(date, new ArrayList<Long>());
-                    }
-                    dateDurationMap.get(date).add(duration);
+                    dateDurationMap.computeIfAbsent(date, k -> new ArrayList<>()).add(duration);
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShed", e); }
         }
         cursor.close();
         for (Map.Entry<String, List<Long>> entry : dateDurationMap.entrySet()) {
@@ -973,7 +901,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
         }
         cursor.close();
-        Collections.sort(list, (a, b) -> {
+        list.sort((a, b) -> {
             try { return Integer.parseInt(a) - Integer.parseInt(b); }
             catch (NumberFormatException e) { return a.compareTo(b); }
         });
@@ -997,12 +925,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
                     long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
                     String shedNumber = EncryptUtils.decrypt(encShedNumber);
-                    if (!shedDurationMap.containsKey(shedNumber)) {
-                        shedDurationMap.put(shedNumber, new ArrayList<Long>());
-                    }
-                    shedDurationMap.get(shedNumber).add(duration);
+                    shedDurationMap.computeIfAbsent(shedNumber, k -> new ArrayList<>()).add(duration);
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShedGrouped", e); }
         }
         cursor.close();
         for (Map.Entry<String, List<Long>> entry : shedDurationMap.entrySet()) {
@@ -1013,7 +938,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             long avg = total / durations.size();
             list.add(new ShedDurationSummary(entry.getKey(), avg));
         }
-        Collections.sort(list, (a, b) -> {
+        list.sort((a, b) -> {
             try { return Integer.parseInt(a.shedNumber) - Integer.parseInt(b.shedNumber); }
             catch (NumberFormatException e) { return a.shedNumber.compareTo(b.shedNumber); }
         });
@@ -1312,30 +1237,4 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[]{batchId}, null, null, COLUMN_CREATED_AT + " ASC");
     }
 
-    public String getMainTaskName(long subTaskId) {
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor c = db.query(TABLE_PLAN_TASKS, new String[]{COLUMN_PARENT_ID},
-                COLUMN_TASK_ID + "=?", new String[]{String.valueOf(subTaskId)}, null, null, null);
-        long parentId = -1;
-        if (c.moveToFirst()) parentId = c.getLong(0);
-        c.close();
-        if (parentId == -1) return "";
-        c = db.query(TABLE_PLAN_TASKS, new String[]{COLUMN_TASK_NAME},
-                COLUMN_TASK_ID + "=?", new String[]{String.valueOf(parentId)}, null, null, null);
-        String name = "";
-        if (c.moveToFirst()) name = c.getString(0);
-        c.close();
-        return name;
-    }
-
-    public int getActiveTaskCount(String batchId) {
-        Cursor c = getReadableDatabase().rawQuery(
-                "SELECT COUNT(*) FROM " + TABLE_PLAN_TASKS +
-                        " WHERE " + COLUMN_BATCH_ID + "=? AND " + COLUMN_IS_ACTIVE + "=1 AND " + COLUMN_PARENT_ID + "=-1",
-                new String[]{batchId});
-        int count = 0;
-        if (c.moveToFirst()) count = c.getInt(0);
-        c.close();
-        return count;
-    }
 }
