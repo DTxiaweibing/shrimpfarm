@@ -802,9 +802,9 @@ public class MainActivity extends BaseActivity {
                     if (stdSec > 0) {
                         double ratio = (avgSec - stdSec) / stdSec;
                         if (ratio > 0.20) {
-                            alerts.add(new AlertItem("查料用时超20%，请优化查料流程", "FEED_TIME"));
+                            alerts.add(new AlertItem("整体吃料超时20%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！", "FEED_TIME"));
                         } else if (ratio > 0.10) {
-                            alerts.add(new AlertItem("查料用时超10%，注意提高效率", "FEED_TIME"));
+                            alerts.add(new AlertItem("整体吃料超时10%以上，减缓加料幅度，或适度减料！", "FEED_TIME"));
                         }
                     }
                 }
@@ -931,7 +931,7 @@ public class MainActivity extends BaseActivity {
         TextView tvMsg = new TextView(this);
         tvMsg.setText(alert.message);
         tvMsg.setTextColor(0xFFFFFFFF);
-        tvMsg.setTextSize(13);
+        tvMsg.setTextSize(16);
         tvMsg.setSingleLine(true);
         tvMsg.setEllipsize(TextUtils.TruncateAt.MARQUEE);
         tvMsg.setMarqueeRepeatLimit(-1);
