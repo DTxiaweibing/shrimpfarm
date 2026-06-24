@@ -1106,14 +1106,17 @@ public class MainActivity extends BaseActivity {
     private double calculateTotalFeed(String batchId) {
         double total = 0;
         try {
+            Calendar cal = Calendar.getInstance();
+            String todayStr = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(cal.getTime());
             Cursor cursor = dbHelper.getReadableDatabase().rawQuery(
                     "SELECT " + DatabaseHelper.COLUMN_BREAKFAST + ", " +
                     DatabaseHelper.COLUMN_LUNCH + ", " +
                     DatabaseHelper.COLUMN_DINNER + ", " +
                     DatabaseHelper.COLUMN_NIGHT_SNACK +
                     " FROM " + DatabaseHelper.TABLE_DAILY_RECORDS +
-                    " WHERE " + DatabaseHelper.COLUMN_BATCH_ID + " = ?",
-                    new String[]{batchId});
+                    " WHERE " + DatabaseHelper.COLUMN_BATCH_ID + "=? AND " +
+                    DatabaseHelper.COLUMN_DATE + "<=?",
+                    new String[]{batchId, todayStr});
             while (cursor.moveToNext()) {
                 for (int i = 0; i < 4; i++) {
                     String encVal = cursor.getString(i);
