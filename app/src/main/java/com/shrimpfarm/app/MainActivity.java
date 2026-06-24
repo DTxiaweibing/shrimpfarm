@@ -434,6 +434,16 @@ public class MainActivity extends BaseActivity {
     private void showConsentDialog() {
         WebView webView = new WebView(this);
         webView.getSettings().setJavaScriptEnabled(true);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        if (Build.VERSION.SDK_INT >= 21) {
+            getWindow().setStatusBarColor(0);
+            webView.setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        }
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
