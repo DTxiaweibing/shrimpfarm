@@ -622,10 +622,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String startDate = standardizeDate(waterPrepDate);
         String endDate = addMonths(startDate);
         SQLiteDatabase db = getReadableDatabase();
+        // 查询该批次所有记录（无分页），用于填充缺失日期
         String sql = "SELECT * FROM " + TABLE_DAILY_RECORDS +
             " WHERE " + COLUMN_BATCH_ID + "=? AND " + COLUMN_DATE + " BETWEEN ? AND ?" +
-            " ORDER BY " + COLUMN_DATE + " ASC LIMIT ? OFFSET ?";
-        Cursor cursor = db.rawQuery(sql, new String[]{batchId, startDate, endDate, String.valueOf(limit), String.valueOf(offset)});
+            " ORDER BY " + COLUMN_DATE + " ASC";
+        Cursor cursor = db.rawQuery(sql, new String[]{batchId, startDate, endDate});
         Map<String, FeedingRecordActivity.DayRecord> recordMap = new LinkedHashMap<>();
         while (cursor.moveToNext()) {
             FeedingRecordActivity.DayRecord r = new FeedingRecordActivity.DayRecord();
@@ -648,15 +649,34 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         Calendar cal = parseDate(startDate);
         Calendar endCal = parseDate(endDate);
+        int skipCount = 0;
         while (!cal.after(endCal)) {
             String dateStr = String.format(Locale.CHINA, "%d/%02d/%02d",
                 cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));
-            FeedingRecordActivity.DayRecord r = recordMap.get(dateStr);
-            if (r == null) { r = new FeedingRecordActivity.DayRecord(); r.date = dateStr; }
-            result.add(r);
+            if (skipCount >= offset && result.size() < limit) {
+                FeedingRecordActivity.DayRecord r = recordMap.get(dateStr);
+                if (r == null) { r = new FeedingRecordActivity.DayRecord(); r.date = dateStr; }
+                result.add(r);
+            }
+            skipCount++;
             cal.add(Calendar.DAY_OF_MONTH, 1);
         }
         return result;
+    }
+
+    public int getTotalDaysInBatch(String batchId) {
+        String waterPrepDate = getBasicData(batchId, "water_prep_date");
+        if (waterPrepDate == null || waterPrepDate.isEmpty() || "选择日期".equals(waterPrepDate)) return 0;
+        String startDate = standardizeDate(waterPrepDate);
+        String endDate = addMonths(startDate);
+        Calendar cal = parseDate(startDate);
+        Calendar endCal = parseDate(endDate);
+        int count = 0;
+        while (!cal.after(endCal)) {
+            count++;
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return count;
     }
 
     public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {

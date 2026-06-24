@@ -8,8 +8,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.Editable;
 import android.text.InputFilter;
 import android.text.Spanned;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -110,8 +112,6 @@ public class FeedingRecordActivity extends BaseActivity {
         loadInitialData();
 
         setupBottomNavigation();
-
-        new Handler().postDelayed(this::scrollToYesterday, 100);
     }
 
     @Override
@@ -222,8 +222,9 @@ public class FeedingRecordActivity extends BaseActivity {
     private void loadInitialData() {
         if (loadingOverlay != null) loadingOverlay.setVisibility(View.VISIBLE);
         new Thread(() -> {
-            List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, PAGE_SIZE, 0);
-            hasMoreData = records.size() >= PAGE_SIZE;
+            int totalDays = dbHelper.getTotalDaysInBatch(currentBatchId);
+            List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, totalDays, 0);
+            hasMoreData = false;
             runOnUiThread(() -> {
                 allRecords.addAll(records);
                 adapter.notifyItemRangeInserted(0, records.size());
@@ -286,7 +287,7 @@ public class FeedingRecordActivity extends BaseActivity {
             int finalTarget = targetIndex;
             recordRecyclerView.post(() -> {
                 LinearLayoutManager lm = (LinearLayoutManager) recordRecyclerView.getLayoutManager();
-                if (lm != null) lm.scrollToPositionWithOffset(finalTarget, 50);
+                if (lm != null) lm.scrollToPositionWithOffset(finalTarget, 0);
             });
         }
     }
@@ -671,6 +672,10 @@ public class FeedingRecordActivity extends BaseActivity {
 
         private void bindNumberCell(View root, int cellId, String value, DayRecord record, String field, boolean enabled) {
             final EditText et = root.findViewById(cellId);
+            Object tag = et.getTag(R.id.tag_watcher);
+            if (tag instanceof TextWatcher) {
+                et.removeTextChangedListener((TextWatcher) tag);
+            }
             et.setOnFocusChangeListener(null);
             et.setText(value);
             et.setEnabled(enabled);
@@ -689,6 +694,16 @@ public class FeedingRecordActivity extends BaseActivity {
             }
             if (et.isFocused()) et.setSelection(et.length());
             if (enabled) {
+                TextWatcher watcher = new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                    @Override public void afterTextChanged(Editable s) {
+                        setDayRecordField(record, field, s.toString().trim());
+                        scheduleSave(record);
+                    }
+                };
+                et.addTextChangedListener(watcher);
+                et.setTag(R.id.tag_watcher, watcher);
                 et.setOnFocusChangeListener((v, hasFocus) -> {
                     if (!hasFocus) {
                         String s = et.getText().toString().trim();
@@ -697,12 +712,12 @@ public class FeedingRecordActivity extends BaseActivity {
                                 double val = Double.parseDouble(s);
                                 double rounded = Math.round(val * 10.0) / 10.0;
                                 String formatted = (rounded == (long) rounded) ? String.valueOf((long) rounded) : String.valueOf(rounded);
+                                et.removeTextChangedListener(watcher);
                                 et.setText(formatted);
                                 et.setSelection(formatted.length());
+                                et.addTextChangedListener(watcher);
                             } catch (NumberFormatException ignored) {}
                         }
-                        setDayRecordField(record, field, et.getText().toString().trim());
-                        scheduleSave(record);
                     }
                 });
             }
