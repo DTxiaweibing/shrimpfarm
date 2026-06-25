@@ -406,7 +406,13 @@ public class FeedingRecordActivity extends BaseActivity {
             cellBorderCache = new android.graphics.drawable.GradientDrawable();
             cellBorderCache.setStroke(2, 0xFF000000);
         }
-        android.graphics.drawable.GradientDrawable d = (android.graphics.drawable.GradientDrawable) cellBorderCache.getConstantState().newDrawable().mutate();
+        android.graphics.drawable.GradientDrawable.ConstantState cs = cellBorderCache.getConstantState();
+        android.graphics.drawable.GradientDrawable d;
+        if (cs != null) {
+            d = (android.graphics.drawable.GradientDrawable) cs.newDrawable().mutate();
+        } else {
+            d = new android.graphics.drawable.GradientDrawable();
+        }
         d.setColor(color);
         return d;
     }
@@ -416,7 +422,13 @@ public class FeedingRecordActivity extends BaseActivity {
             headerBorderCache = new android.graphics.drawable.GradientDrawable();
             headerBorderCache.setStroke(2, 0xFF000000);
         }
-        android.graphics.drawable.GradientDrawable d = (android.graphics.drawable.GradientDrawable) headerBorderCache.getConstantState().newDrawable().mutate();
+        android.graphics.drawable.GradientDrawable.ConstantState cs = headerBorderCache.getConstantState();
+        android.graphics.drawable.GradientDrawable d;
+        if (cs != null) {
+            d = (android.graphics.drawable.GradientDrawable) cs.newDrawable().mutate();
+        } else {
+            d = new android.graphics.drawable.GradientDrawable();
+        }
         d.setColor(color);
         return d;
     }
@@ -464,7 +476,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
         @Override
         @SuppressLint("ClickableViewAccessibility")
-        public RecordViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        public @NonNull RecordViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LinearLayout root = new LinearLayout(FeedingRecordActivity.this);
             root.setOrientation(LinearLayout.HORIZONTAL);
             root.setLayoutParams(new RecyclerView.LayoutParams(
