@@ -2,6 +2,7 @@ package com.shrimpfarm.app;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -10,13 +11,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.text.Editable;
 import android.text.InputFilter;
-import android.text.Spanned;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -25,6 +27,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -44,7 +47,6 @@ public class FeedingRecordActivity extends BaseActivity {
 
     private RecyclerView recordRecyclerView;
     private HorizontalScrollView headerScrollContainer;
-    private TextView headerFixedDate;
     private FrameLayout loadingOverlay;
     private DatabaseHelper dbHelper;
     private String currentBatchId;
@@ -58,9 +60,9 @@ public class FeedingRecordActivity extends BaseActivity {
     private boolean isSyncingScroll = false;
 
     private RecordAdapter adapter;
-    private List<DayRecord> allRecords = new ArrayList<>();
-    private Handler debounceHandler = new Handler();
-    private Map<String, Runnable> pendingSaves = new HashMap<>();
+    private final List<DayRecord> allRecords = new ArrayList<>();
+    private final Handler debounceHandler = new Handler();
+    private final Map<String, Runnable> pendingSaves = new HashMap<>();
 
     private volatile boolean isLoadingMore = false;
     private volatile boolean hasMoreData = true;
@@ -76,7 +78,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
         dbHelper = new DatabaseHelper(this);
 
-        headerFixedDate = findViewById(R.id.header_fixed_date);
+        TextView headerFixedDate = findViewById(R.id.header_fixed_date);
         headerScrollContainer = findViewById(R.id.header_scroll_container);
         recordRecyclerView = findViewById(R.id.record_recycler_view);
         loadingOverlay = findViewById(R.id.loading_overlay);
@@ -89,7 +91,7 @@ public class FeedingRecordActivity extends BaseActivity {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) headerFixedDate.getLayoutParams();
         params.width = cellWidth;
         headerFixedDate.setLayoutParams(params);
-        headerFixedDate.setBackground(createCellBorder(0xFF4CAF50));
+        headerFixedDate.setBackground(createCellBorder(0xFF2D8C42));
         headerFixedDate.setTextColor(0xFFFFFFFF);
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
@@ -167,12 +169,12 @@ public class FeedingRecordActivity extends BaseActivity {
         headerRow.setLayoutParams(new HorizontalScrollView.LayoutParams(
                 HorizontalScrollView.LayoutParams.WRAP_CONTENT,
                 HorizontalScrollView.LayoutParams.MATCH_PARENT));
-        headerRow.addView(createHeaderCell("早餐", cellWidth, 0xFF4CAF50));
-        headerRow.addView(createHeaderCell("午餐", cellWidth, 0xFF4CAF50));
-        headerRow.addView(createHeaderCell("晚餐", cellWidth, 0xFF4CAF50));
-        headerRow.addView(createHeaderCell("夜宵", cellWidth, 0xFF4CAF50));
-        headerRow.addView(createHeaderCell("调水", cellWidth * 2, 0xFF4CAF50));
-        headerRow.addView(createHeaderCell("备注", remarkWidth, 0xFF4CAF50));
+        headerRow.addView(createHeaderCell("早餐", cellWidth, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("午餐", cellWidth, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("晚餐", cellWidth, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("夜宵", cellWidth, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("调水", cellWidth * 2, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("备注", remarkWidth, 0xFF2D8C42));
         headerScrollContainer.addView(headerRow);
 
         headerScrollContainer.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
@@ -184,7 +186,7 @@ public class FeedingRecordActivity extends BaseActivity {
         });
     }
 
-    private TextView createHeaderCell(String text, int width, int bgColor) {
+    private TextView createHeaderCell(String text, int width, @SuppressWarnings("SameParameterValue") int bgColor) {
         TextView tv = new TextView(this);
         tv.setText(text);
         tv.setTextSize(12);
@@ -205,7 +207,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
         recordRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
                 if (lm == null) return;
                 int lastVisible = lm.findLastVisibleItemPosition();
@@ -373,8 +375,10 @@ public class FeedingRecordActivity extends BaseActivity {
         });
         dialog.show();
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        dialog.getWindow().setLayout(screenWidth / 2, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(screenWidth / 2, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
     }
 
     private void setDayRecordField(DayRecord record, String field, String value) {
@@ -460,7 +464,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
         @Override
         @SuppressLint("ClickableViewAccessibility")
-        public RecordViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        public RecordViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LinearLayout root = new LinearLayout(FeedingRecordActivity.this);
             root.setOrientation(LinearLayout.HORIZONTAL);
             root.setLayoutParams(new RecyclerView.LayoutParams(
@@ -500,8 +504,8 @@ public class FeedingRecordActivity extends BaseActivity {
             upperRow.addView(buildFeedEdit(R.id.cell_lunch));
             upperRow.addView(buildFeedEdit(R.id.cell_dinner));
             upperRow.addView(buildFeedEdit(R.id.cell_night_snack));
-            upperRow.addView(buildProductEdit(R.id.cell_water_mix1, "waterMix1"));
-            upperRow.addView(buildProductEdit(R.id.cell_water_mix2, "waterMix2"));
+            upperRow.addView(buildProductEdit(R.id.cell_water_mix1));
+            upperRow.addView(buildProductEdit(R.id.cell_water_mix2));
 
             // Lower row: mix1, mix2, mix3, mix4, waterMix3, waterMix4
             LinearLayout lowerRow = new LinearLayout(FeedingRecordActivity.this);
@@ -509,12 +513,12 @@ public class FeedingRecordActivity extends BaseActivity {
             lowerRow.setLayoutParams(new LinearLayout.LayoutParams(cellWidth * 6, rowHeight));
             lowerRow.setGravity(Gravity.CENTER_VERTICAL);
 
-            lowerRow.addView(buildProductEdit(R.id.cell_mix1, "mix1"));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix2, "mix2"));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix3, "mix3"));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix4, "mix4"));
-            lowerRow.addView(buildProductEdit(R.id.cell_water_mix3, "waterMix3"));
-            lowerRow.addView(buildProductEdit(R.id.cell_water_mix4, "waterMix4"));
+            lowerRow.addView(buildProductEdit(R.id.cell_mix1));
+            lowerRow.addView(buildProductEdit(R.id.cell_mix2));
+            lowerRow.addView(buildProductEdit(R.id.cell_mix3));
+            lowerRow.addView(buildProductEdit(R.id.cell_mix4));
+            lowerRow.addView(buildProductEdit(R.id.cell_water_mix3));
+            lowerRow.addView(buildProductEdit(R.id.cell_water_mix4));
 
             LinearLayout middleArea = new LinearLayout(FeedingRecordActivity.this);
             middleArea.setOrientation(LinearLayout.VERTICAL);
@@ -535,6 +539,11 @@ public class FeedingRecordActivity extends BaseActivity {
             remark.setPadding(0, 0, 0, 0);
             remark.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
             remark.setVerticalScrollBarEnabled(true);
+            remark.setOnClickListener(v -> {
+                remark.requestFocus();
+                InputMethodManager imm = (InputMethodManager) FeedingRecordActivity.this.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(remark, InputMethodManager.SHOW_IMPLICIT);
+            });
             remark.setLayoutParams(new LinearLayout.LayoutParams(remarkWidth, rowHeight * 2));
             scrollContent.addView(remark);
 
@@ -581,7 +590,6 @@ public class FeedingRecordActivity extends BaseActivity {
         @Override
         public void onBindViewHolder(RecordViewHolder holder, int position) {
             final DayRecord record = allRecords.get(position);
-            final int pos = position;
 
             holder.dateView.setText(formatDateDisplay(record.date));
 
@@ -593,14 +601,14 @@ public class FeedingRecordActivity extends BaseActivity {
             bindNumberCell(holder.itemView, R.id.cell_night_snack, record.nightSnack, record, "nightSnack", afterStocking);
 
             // --- Bind product cells ---
-            bindProductCell(holder.itemView, R.id.cell_water_mix1, record.waterMix1, record, "waterMix1", pos);
-            bindProductCell(holder.itemView, R.id.cell_water_mix2, record.waterMix2, record, "waterMix2", pos);
-            bindProductCell(holder.itemView, R.id.cell_mix1, record.mix1, record, "mix1", pos);
-            bindProductCell(holder.itemView, R.id.cell_mix2, record.mix2, record, "mix2", pos);
-            bindProductCell(holder.itemView, R.id.cell_mix3, record.mix3, record, "mix3", pos);
-            bindProductCell(holder.itemView, R.id.cell_mix4, record.mix4, record, "mix4", pos);
-            bindProductCell(holder.itemView, R.id.cell_water_mix3, record.waterMix3, record, "waterMix3", pos);
-            bindProductCell(holder.itemView, R.id.cell_water_mix4, record.waterMix4, record, "waterMix4", pos);
+            bindProductCell(holder.itemView, R.id.cell_water_mix1, record.waterMix1, record, "waterMix1", position);
+            bindProductCell(holder.itemView, R.id.cell_water_mix2, record.waterMix2, record, "waterMix2", position);
+            bindProductCell(holder.itemView, R.id.cell_mix1, record.mix1, record, "mix1", position);
+            bindProductCell(holder.itemView, R.id.cell_mix2, record.mix2, record, "mix2", position);
+            bindProductCell(holder.itemView, R.id.cell_mix3, record.mix3, record, "mix3", position);
+            bindProductCell(holder.itemView, R.id.cell_mix4, record.mix4, record, "mix4", position);
+            bindProductCell(holder.itemView, R.id.cell_water_mix3, record.waterMix3, record, "waterMix3", position);
+            bindProductCell(holder.itemView, R.id.cell_water_mix4, record.waterMix4, record, "waterMix4", position);
 
             // --- Bind remark ---
             EditText remarkEt = holder.itemView.findViewById(R.id.cell_remark);
@@ -608,7 +616,9 @@ public class FeedingRecordActivity extends BaseActivity {
             remarkEt.setText(record.remark);
             if (remarkEt.isFocused()) remarkEt.setSelection(remarkEt.length());
             remarkEt.setOnFocusChangeListener((v, hasFocus) -> {
-                if (!hasFocus) {
+                if (hasFocus) {
+                    ((EditText) v).setSelection(((EditText) v).length());
+                } else {
                     record.remark = ((EditText) v).getText().toString();
                     scheduleSave(record);
                 }
@@ -632,25 +642,22 @@ public class FeedingRecordActivity extends BaseActivity {
             et.setOverScrollMode(View.OVER_SCROLL_NEVER);
             et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
             et.setSingleLine(true);
+            et.setImeOptions(EditorInfo.IME_ACTION_NEXT);
             et.setFilters(new InputFilter[]{
-                    new InputFilter() {
-                        @Override
-                        public CharSequence filter(CharSequence source, int start, int end,
-                                                   Spanned dest, int dstart, int dend) {
-                            String newText = dest.toString().substring(0, dstart)
-                                    + source.toString()
-                                    + dest.toString().substring(dend);
-                            if (newText.isEmpty()) return null;
-                            if (!newText.matches("^\\d*(\\.\\d{0,1})?$")) return "";
-                            return null;
-                        }
+                    (source, start, end, dest, dstart, dend) -> {
+                        String newText = dest.toString().substring(0, dstart)
+                                + source.toString()
+                                + dest.toString().substring(dend);
+                        if (newText.isEmpty()) return null;
+                        if (!newText.matches("^\\d*(\\.\\d?)?$")) return "";
+                        return null;
                     }
             });
             et.setLayoutParams(new LinearLayout.LayoutParams(cellWidth, rowHeight));
             return et;
         }
 
-        private EditText buildProductEdit(int id, final String columnId) {
+        private EditText buildProductEdit(int id) {
             final EditText et = new EditText(FeedingRecordActivity.this);
             et.setId(id);
             et.setTextSize(12);
@@ -749,6 +756,7 @@ public class FeedingRecordActivity extends BaseActivity {
         public String mix4 = "";
         public String remark = "";
 
+        @SuppressWarnings("unused")
         public ContentValues toContentValues() {
             ContentValues cv = new ContentValues();
             cv.put("date", date);
@@ -768,6 +776,7 @@ public class FeedingRecordActivity extends BaseActivity {
             return cv;
         }
 
+        @SuppressWarnings("unused")
         public JSONObject toJson() {
             JSONObject json = new JSONObject();
             try {
@@ -786,11 +795,12 @@ public class FeedingRecordActivity extends BaseActivity {
                 json.put("mix4", mix4);
                 json.put("remark", remark);
             } catch (JSONException e) {
-                e.printStackTrace();
+                android.util.Log.e("DayRecord", "toJson failed", e);
             }
             return json;
         }
 
+        @SuppressWarnings("unused")
         public void fromJson(JSONObject json) {
             date = json.optString("date", "");
             breakfast = json.optString("breakfast", "");

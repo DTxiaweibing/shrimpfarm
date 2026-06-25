@@ -1,6 +1,5 @@
 package com.shrimpfarm.app;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -157,7 +156,7 @@ public class MainActivity extends BaseActivity {
         setupToolbar();
         setupDrawer();
         startupManager = new com.shrimpfarm.app.startup.AppStartupManager(this,
-            () -> showUpdateAvailableUI());
+            this::showUpdateAvailableUI);
         startupManager.run();
 
         setBannerHeight();
@@ -437,12 +436,10 @@ public class MainActivity extends BaseActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        if (Build.VERSION.SDK_INT >= 21) {
-            getWindow().setStatusBarColor(0);
-            webView.setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-        }
+        getWindow().setStatusBarColor(0);
+        webView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -647,12 +644,11 @@ public class MainActivity extends BaseActivity {
             if (!sp.getBoolean("plan_task_night_switch", true)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
-        } else if ((hour == 23 && minute >= 30) || hour < 6) {
+        } else {
+            // 深夜段 23:30-05:59
             if (!sp.getBoolean("plan_task_midnight_switch", false)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
-        } else {
-            scrollTaskBars.setVisibility(View.INVISIBLE); return;
         }
 
         int stockingDay = dbHelper.getStockingDay(batchId);

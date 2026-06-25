@@ -12,7 +12,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="40dp"
-        android:background="#FF4CAF50"
+        android:background="#FF2D8C42"
         android:gravity="center"
         android:text="@string/title_feeding_record"
         android:textColor="#FFFFFFFF"
@@ -24,7 +24,7 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:orientation="horizontal"
-        android:background="#FF4CAF50">
+        android:background="#FF2D8C42">
 
         <TextView
             android:id="@+id/header_fixed_date"
