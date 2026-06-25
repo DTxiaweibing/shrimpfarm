@@ -91,7 +91,7 @@ public class FeedingRecordActivity extends BaseActivity {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) headerFixedDate.getLayoutParams();
         params.width = cellWidth;
         headerFixedDate.setLayoutParams(params);
-        headerFixedDate.setBackground(createCellBorder(0xFF2D8C42));
+        headerFixedDate.setBackground(createCellBorder(0xFF2D84C2));
         headerFixedDate.setTextColor(0xFFFFFFFF);
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
@@ -169,12 +169,12 @@ public class FeedingRecordActivity extends BaseActivity {
         headerRow.setLayoutParams(new HorizontalScrollView.LayoutParams(
                 HorizontalScrollView.LayoutParams.WRAP_CONTENT,
                 HorizontalScrollView.LayoutParams.MATCH_PARENT));
-        headerRow.addView(createHeaderCell("早餐", cellWidth, 0xFF2D8C42));
-        headerRow.addView(createHeaderCell("午餐", cellWidth, 0xFF2D8C42));
-        headerRow.addView(createHeaderCell("晚餐", cellWidth, 0xFF2D8C42));
-        headerRow.addView(createHeaderCell("夜宵", cellWidth, 0xFF2D8C42));
-        headerRow.addView(createHeaderCell("调水", cellWidth * 2, 0xFF2D8C42));
-        headerRow.addView(createHeaderCell("备注", remarkWidth, 0xFF2D8C42));
+        headerRow.addView(createHeaderCell("早餐", cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell("午餐", cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell("晚餐", cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell("夜宵", cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell("调水", cellWidth * 2, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell("备注", remarkWidth, 0xFF2D84C2));
         headerScrollContainer.addView(headerRow);
 
         headerScrollContainer.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
