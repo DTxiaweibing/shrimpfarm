@@ -44,9 +44,8 @@ import com.shrimpfarm.app.analysis.DataAnalysisActivity;
 import com.shrimpfarm.app.banner.BannerManager;
 import com.shrimpfarm.app.model.AlertItem;
 import com.shrimpfarm.app.model.ExcelBasedFeedConversion;
-import com.shrimpfarm.app.model.FeedCheckAlertModel;
-import com.shrimpfarm.app.model.FeedIncreaseAlertModel;
-import com.shrimpfarm.app.model.WaterQualityAlertModel;
+import com.shrimpfarm.app.home.AlertGenerator;
+import com.shrimpfarm.app.home.TaskScheduler;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import java.text.SimpleDateFormat;
@@ -629,198 +628,18 @@ public class MainActivity extends BaseActivity {
         if (dbHelper == null) dbHelper = new DatabaseHelper(this);
 
         SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        if (!sp.getBoolean("plan_task_master_switch", true)) {
+        if (!TaskScheduler.isTaskTimeVisible(sp)) {
             scrollTaskBars.setVisibility(View.INVISIBLE); return;
         }
 
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
-        int minute = cal.get(java.util.Calendar.MINUTE);
-        if (hour >= 6 && hour < 17) {
-            if (!sp.getBoolean("plan_task_day_switch", true)) {
-                scrollTaskBars.setVisibility(View.INVISIBLE); return;
-            }
-        } else if (hour >= 17 && (hour < 23 || minute < 30)) {
-            if (!sp.getBoolean("plan_task_night_switch", true)) {
-                scrollTaskBars.setVisibility(View.INVISIBLE); return;
-            }
-        } else {
-            // 深夜段 23:30-05:59
-            if (!sp.getBoolean("plan_task_midnight_switch", false)) {
-                scrollTaskBars.setVisibility(View.INVISIBLE); return;
-            }
-        }
-
-        int stockingDay = dbHelper.getStockingDay(batchId);
-        if (stockingDay <= 0) { scrollTaskBars.setVisibility(View.INVISIBLE); return; }
-
-        List<View> overdueViews = new ArrayList<>();
-        List<View> todayViews = new ArrayList<>();
-        List<View> tomorrowViews = new ArrayList<>();
-
-        Cursor c = dbHelper.getAllSubTasks(batchId);
-        if (c != null) {
-            while (c.moveToNext()) {
-                long taskId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
-                long parentId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_PARENT_ID));
-                String subName = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_NAME));
-                int unitType = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
-                int startValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
-                int endValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
-                double intervalValue = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
-                int lastTriggerDay = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
-                double lastTriggerFeed = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
-
-                String mainName = subName;
-                if (parentId > 0) {
-                    Cursor pc = dbHelper.getReadableDatabase().query(
-                            DatabaseHelper.TABLE_PLAN_TASKS,
-                            new String[]{DatabaseHelper.COLUMN_TASK_NAME},
-                            DatabaseHelper.COLUMN_TASK_ID + "=?", new String[]{String.valueOf(parentId)},
-                            null, null, null);
-                    if (pc.moveToFirst()) mainName = pc.getString(0);
-                    pc.close();
-                }
-                if (mainName == null || mainName.isEmpty()) mainName = "任务";
-
-                boolean showOverdue = false;
-                boolean showToday = false;
-                boolean showTomorrow = false;
-
-                if (unitType == 0) {
-                    int inter = (int) intervalValue;
-                    if (inter <= 0) inter = 1;
-                    boolean isPast17 = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) >= 17;
-
-                    // 今天
-                    if (stockingDay >= startValue && stockingDay <= endValue &&
-                            (stockingDay - startValue) % inter == 0 && stockingDay > lastTriggerDay) {
-                        if (isPast17) {
-                            showOverdue = true;
-                        } else {
-                            showToday = true;
-                        }
-                    }
-                    // 明天
-                    if (stockingDay + 1 >= startValue && stockingDay + 1 <= endValue &&
-                            (stockingDay + 1 - startValue) % inter == 0) {
-                        showTomorrow = true;
-                    }
-                    // 超期：最近一个到期日 < 今天且未完成
-                    int intervalsPast = (stockingDay - 1 - startValue) / inter;
-                    if (intervalsPast >= 0) {
-                        int lastPastDue = startValue + intervalsPast * inter;
-                        if (lastPastDue >= startValue && lastPastDue <= endValue && lastPastDue > lastTriggerDay) {
-                            showOverdue = true;
-                        }
-                    }
-                } else {
-                    double currentFeed = dbHelper.getAccumulatedFeed(batchId, startValue, stockingDay);
-                    double nextThreshold = lastTriggerFeed + intervalValue;
-                    if (currentFeed >= nextThreshold) {
-                        showToday = true;
-                    }
-                }
-
-                String taskLabel = mainName;
-                if (subName != null && !subName.isEmpty() && !subName.equals(mainName)) {
-                    taskLabel = mainName + " - " + subName;
-                }
-
-                if (showOverdue) {
-                    overdueViews.add(buildTaskBar(taskId, batchId, taskLabel, "已超期", 0xFFFF0000));
-                }
-                if (showToday) {
-                    todayViews.add(buildTaskBar(taskId, batchId, taskLabel, "今天", 0xFF0000FF));
-                }
-                if (showTomorrow) {
-                    tomorrowViews.add(buildTaskBar(taskId, batchId, taskLabel, "明天", 0xFF0C8918));
-                }
-            }
-            c.close();
-        }
-
-        int taskCount = overdueViews.size() + todayViews.size() + tomorrowViews.size();
-
+        // 提醒条
         int alertCount = 0;
-        if (dbHelper != null && sp.getBoolean(PREF_SMART_MASTER, true)) {
-            Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
-            List<AlertItem> alerts = new ArrayList<>();
-            if (sp.getBoolean(PREF_SMART_PREFIX + "feed_increase", true))
-                alerts.addAll(FeedIncreaseAlertModel.check(dbHelper.getReadableDatabase(), batchId));
-            if (sp.getBoolean(PREF_SMART_PREFIX + "feed_timeout", true)) {
-                String today = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
-                String stockingDate = dbHelper.getBasicData(batchId, "stocking_date");
-                boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getReadableDatabase(), batchId);
-                long standardSeconds = FeedCheckAlertModel.getStandardSeconds(stockingDate, isFourMeals);
-                if (standardSeconds > 0) {
-                    List<DatabaseHelper.CheckRecord> records = dbHelper.getCheckRecordsByDate(batchId, today);
-                    long[] durations = new long[records.size()];
-                    int[] shedNums = new int[records.size()];
-                    int validCount = 0;
-                    for (DatabaseHelper.CheckRecord r : records) {
-                        if (!r.excluded && r.durationSeconds > 0) {
-                            durations[validCount] = r.durationSeconds * 1000;
-                            try {
-                                shedNums[validCount] = Integer.parseInt(r.shedNumber);
-                            } catch (NumberFormatException e) {
-                                shedNums[validCount] = r.shedRowIndex + 1;
-                            }
-                            validCount++;
-                        }
-                    }
-                    if (validCount > 0) {
-                        FeedCheckAlertModel.TimeoutResult result = FeedCheckAlertModel.checkShedTimeouts(
-                            standardSeconds,
-                            Arrays.copyOf(durations, validCount),
-                            Arrays.copyOf(shedNums, validCount));
-                        if (!result.shedNumbers.isEmpty()) {
-                            StringBuilder sb = new StringBuilder();
-                            for (int s : result.shedNumbers) {
-                                if (sb.length() > 0) sb.append("、");
-                                sb.append(s);
-                            }
-                            alerts.add(new AlertItem(sb + "号棚吃料超时，请检查", "SHED_TIMEOUT"));
-                        }
-                    }
-                }
-            }
-            if (sp.getBoolean(PREF_SMART_PREFIX + "feed_check", true))
-                alerts.addAll(FeedCheckAlertModel.check(dbHelper.getReadableDatabase(), batchId));
-            if (sp.getBoolean(PREF_SMART_PREFIX + "feed_time", true)) {
-                Cursor ft = dbHelper.getReadableDatabase().query(
-                    DatabaseHelper.TABLE_FEEDING_CHECK_ANALYSIS, null,
-                    "batch_id=?", new String[]{batchId},
-                    null, null, "record_time DESC", "1");
-                if (ft.moveToFirst()) {
-                    double avgSec = ft.getDouble(ft.getColumnIndexOrThrow("avg_seconds"));
-                    double stdSec = ft.getDouble(ft.getColumnIndexOrThrow("standard_seconds"));
-                    if (stdSec > 0) {
-                        double ratio = (avgSec - stdSec) / stdSec;
-                        if (ratio > 0.20) {
-                            alerts.add(new AlertItem("整体吃料超时20%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！", "FEED_TIME"));
-                        } else if (ratio > 0.10) {
-                            alerts.add(new AlertItem("整体吃料超时10%以上，减缓加料幅度，或适度减料！", "FEED_TIME"));
-                        }
-                    }
-                }
-                ft.close();
-            }
-            if (sp.getBoolean(PREF_SMART_PREFIX + "water_quality", true))
-                alerts.addAll(WaterQualityAlertModel.check(dbHelper.getReadableDatabase(), batchId,
-                    sp.getBoolean(PREF_SMART_PREFIX + "water_core", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "nitrite", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "vibrio", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "chlorine", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "h2s", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "orp", true),
-                    sp.getBoolean(PREF_SMART_PREFIX + "do", true)));
-            for (AlertItem alert : alerts) {
-                String idStr = String.valueOf(alert.id);
-                if (!dismissed.contains(idStr)) {
-                    alertBarsContainer.addView(buildAlertBar(alert));
-                    alertCount++;
-                }
+        List<AlertItem> alerts = AlertGenerator.generate(dbHelper, sp, batchId);
+        Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
+        for (AlertItem alert : alerts) {
+            if (!dismissed.contains(String.valueOf(alert.id))) {
+                alertBarsContainer.addView(buildAlertBar(alert));
+                alertCount++;
             }
         }
 
@@ -833,24 +652,21 @@ public class MainActivity extends BaseActivity {
             layoutAlertBars.setVisibility(View.GONE);
         }
 
+        // 任务条
+        List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(dbHelper, batchId);
+        int taskCount = tasks.size();
+
         if (taskCount > 0) {
             scrollTaskBars.setVisibility(View.VISIBLE);
+            for (TaskScheduler.TaskItem task : tasks) {
+                layoutTaskBars.addView(buildTaskBar(task.taskId, task.batchId, task.label, task.badgeText, task.bgColor));
+            }
+            final ScrollView sv = findViewById(R.id.scroll_task_bars);
+            if (sv != null) {
+                sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
+            }
         } else {
             scrollTaskBars.setVisibility(View.INVISIBLE);
-        }
-
-        if (taskCount == 0 && alertCount == 0) {
-            return;
-        }
-
-        for (View v : overdueViews) layoutTaskBars.addView(v);
-        for (View v : todayViews) layoutTaskBars.addView(v);
-        for (View v : tomorrowViews) layoutTaskBars.addView(v);
-
-        // 默认滚动到最底部，使最下方的任务条紧贴底导
-        final ScrollView sv = findViewById(R.id.scroll_task_bars);
-        if (sv != null && taskCount > 0) {
-            sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
         }
     }
 
