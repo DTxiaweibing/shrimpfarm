@@ -28,7 +28,11 @@ public class TaskScheduler {
     }
 
     public static List<TaskItem> computeTasks(DatabaseHelper dbHelper, String batchId) {
+        List<TaskItem> overdue = new ArrayList<>();
+        List<TaskItem> today = new ArrayList<>();
+        List<TaskItem> tomorrow = new ArrayList<>();
         List<TaskItem> result = new ArrayList<>();
+
         int stockingDay = dbHelper.getStockingDay(batchId);
         if (stockingDay <= 0) return result;
 
@@ -94,12 +98,15 @@ public class TaskScheduler {
                 taskLabel = mainName + " - " + subName;
             }
 
-            if (showOverdue) result.add(new TaskItem(taskId, batchId, taskLabel, "已超期", 0xFFFF0000));
-            if (showToday) result.add(new TaskItem(taskId, batchId, taskLabel, "今天", 0xFF0000FF));
-            if (showTomorrow) result.add(new TaskItem(taskId, batchId, taskLabel, "明天", 0xFF0C8918));
+            if (showOverdue) overdue.add(new TaskItem(taskId, batchId, taskLabel, "已超期", 0xFFFF0000));
+            if (showToday) today.add(new TaskItem(taskId, batchId, taskLabel, "今天", 0xFF0000FF));
+            if (showTomorrow) tomorrow.add(new TaskItem(taskId, batchId, taskLabel, "明天", 0xFF0C8918));
         }
         c.close();
 
+        result.addAll(overdue);
+        result.addAll(today);
+        result.addAll(tomorrow);
         return result;
     }
 
