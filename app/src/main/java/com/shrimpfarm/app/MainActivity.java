@@ -801,21 +801,15 @@ public class MainActivity extends BaseActivity {
         gvFunctions.getLocationInWindow(gridPos);
         int gridBottom = gridPos[1] + gvFunctions.getHeight();
 
-        int[] navPos = new int[2];
-        bottomNav.getLocationInWindow(navPos);
-        int navTop = navPos[1];
-
         int[] parentPos = new int[2];
         ((View) layoutAlertBars.getParent()).getLocationInWindow(parentPos);
 
         int targetY = gridBottom - parentPos[1];
-        int targetH = navTop - gridBottom;
         if (targetY < 0) targetY = 0;
-        if (targetH < 0) targetH = 0;
 
         layoutAlertBars.setY(targetY);
         ViewGroup.LayoutParams lp = layoutAlertBars.getLayoutParams();
-        lp.height = targetH;
+        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
         layoutAlertBars.setLayoutParams(lp);
     }
 
