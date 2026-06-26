@@ -32,7 +32,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.*;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.content.res.AppCompatResources;
@@ -56,6 +55,7 @@ import java.util.*;
 import android.annotation.SuppressLint;
 import androidx.annotation.NonNull;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class MainActivity extends BaseActivity {
 
     private DrawerLayout drawerLayout;
@@ -640,7 +640,7 @@ public class MainActivity extends BaseActivity {
             if (!sp.getBoolean("plan_task_day_switch", true)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
-        } else if (hour >= 17 && (hour < 23 || (hour == 23 && minute < 30))) {
+        } else if (hour >= 17 && (hour < 23 || minute < 30)) {
             if (!sp.getBoolean("plan_task_night_switch", true)) {
                 scrollTaskBars.setVisibility(View.INVISIBLE); return;
             }
@@ -856,6 +856,7 @@ public class MainActivity extends BaseActivity {
 
     private View buildTaskBar(final long taskId, final String batchId, String label,
                               String badgeText, int bgColor) {
+        float density = getResources().getDisplayMetrics().density;
         View bar = getLayoutInflater().inflate(R.layout.item_home_task_bar, layoutTaskBars, false);
         TextView tvLabel = bar.findViewById(R.id.tv_due_label);
         tvLabel.setText(badgeText);
@@ -876,19 +877,20 @@ public class MainActivity extends BaseActivity {
         if (!badgeText.equals("明天")) {
             Button btnComplete = new Button(this);
             btnComplete.setText("完成");
-            btnComplete.setTextSize(14);
-            btnComplete.setPadding(6, 2, 6, 2);
+            btnComplete.setTextSize(13);
+            btnComplete.setTextColor(0xFFFFFFFF);
+            btnComplete.setPadding((int)(10 * density), (int)(3 * density),
+                    (int)(10 * density), (int)(3 * density));
             btnComplete.setMinWidth(0);
             btnComplete.setMinHeight(0);
             btnComplete.setMinimumWidth(0);
             btnComplete.setMinimumHeight(0);
             btnComplete.setIncludeFontPadding(false);
             GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(5);
+            btnBg.setCornerRadius(4);
             btnBg.setColor(0x00000000);
-            btnBg.setStroke((int)(1.5f * getResources().getDisplayMetrics().density + 0.5f), 0xFFFFFFFF);
+            btnBg.setStroke((int)(1.5f * density + 0.5f), 0xFFFFFFFF);
             btnComplete.setBackground(btnBg);
-            btnComplete.setTextColor(0xFFFFFFFF);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.setMarginEnd(4);
