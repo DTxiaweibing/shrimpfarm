@@ -1,6 +1,5 @@
 package com.shrimpfarm.app;
 
-import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -33,6 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.shrimpfarm.app.utils.DialogHelper;
 
 public class BasicDataActivity extends BaseActivity {
 
@@ -507,28 +508,31 @@ public class BasicDataActivity extends BaseActivity {
         }
 
         private void showCustomTagDialog(int position, Set<String> selectedTags) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(BasicDataActivity.this);
-            builder.setTitle("添加自定义标签");
-            final EditText input = new EditText(BasicDataActivity.this);
-            input.setHint("请输入标签名");
-            builder.setView(input);
-            builder.setPositiveButton("确定", (dialog, which) -> {
-                String customTag = input.getText().toString().trim();
-                if (!customTag.isEmpty()) {
-                    selectedTags.add(customTag);
-                    String newPureTags = TextUtils.join(",", selectedTags);
-                    cachedTags.set(position, newPureTags);
-                    // 刷新当前行的标签区域
-                    View view = lvMix.getChildAt(position - lvMix.getFirstVisiblePosition());
-                    if (view != null && view.getTag() instanceof ViewHolder) {
-                        ViewHolder h = (ViewHolder) view.getTag();
-                        buildTagCheckBoxes(h, position);
+            final EditText[] inputHolder = new EditText[1];
+            inputHolder[0] = DialogHelper.showStyledInputDialog(
+                BasicDataActivity.this,
+                "添加自定义标签",
+                "请输入标签名",
+                null,
+                new String[]{"取消", "确定"},
+                new DialogInterface.OnClickListener[]{
+                    null,
+                    (dialog, which) -> {
+                        String customTag = inputHolder[0].getText().toString().trim();
+                        if (!customTag.isEmpty()) {
+                            selectedTags.add(customTag);
+                            String newPureTags = TextUtils.join(",", selectedTags);
+                            cachedTags.set(position, newPureTags);
+                            View view = lvMix.getChildAt(position - lvMix.getFirstVisiblePosition());
+                            if (view != null && view.getTag() instanceof ViewHolder) {
+                                ViewHolder h = (ViewHolder) view.getTag();
+                                buildTagCheckBoxes(h, position);
+                            }
+                            saveCurrentRow(position + 1, cachedNames.get(position), newPureTags);
+                        }
                     }
-                    saveCurrentRow(position + 1, cachedNames.get(position), newPureTags);
                 }
-            });
-            builder.setNegativeButton("取消", null);
-            builder.show();
+            );
         }
 
         private void updateTagButton(Button btn, String tags, boolean hasName) {

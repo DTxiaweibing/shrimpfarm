@@ -83,19 +83,18 @@ public class FeedingRecordActivity extends BaseActivity {
         recordRecyclerView = findViewById(R.id.record_recycler_view);
         loadingOverlay = findViewById(R.id.loading_overlay);
 
-        int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        float density = getResources().getDisplayMetrics().density;
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int screenWidth = dm.widthPixels;
         cellWidth = (int) (screenWidth / 6.5);
         remarkWidth = (int) (screenWidth / 3.5);
-        rowHeight = (int) (40 * density);
-        // 宽屏调整：让所有列刚好填满可用区域，减少不必要的横向滚动
-        int scrollAreaWidth = screenWidth - cellWidth;
-        float ratio = 6.5f / 3.5f;
-        int minCellWidthDp = 55;
-        int fittedCellWidth = (int)(scrollAreaWidth / (6 + ratio));
-        if (fittedCellWidth >= minCellWidthDp * density && fittedCellWidth < cellWidth) {
-            cellWidth = fittedCellWidth;
-            remarkWidth = (int)(cellWidth * ratio);
+        rowHeight = (int) (40 * dm.density);
+        // 平板检测（与计算器一致）：对角线 >= 7 英寸时自动调整列宽填满屏幕
+        double diagonalInches = Math.sqrt(
+                Math.pow(screenWidth / dm.xdpi, 2)
+                        + Math.pow(dm.heightPixels / dm.ydpi, 2));
+        if (diagonalInches >= 7.0) {
+            cellWidth = screenWidth / 9;
+            remarkWidth = cellWidth * 2;
         }
 
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) headerFixedDate.getLayoutParams();

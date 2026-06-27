@@ -95,6 +95,16 @@ public class BackupActivity extends AppCompatActivity {
 
         setupButtons();
         loadWebDavConfig();
+        if (!StoragePermissionHelper.hasStoragePermission(this)) {
+            DialogHelper.showStyledConfirmDialog(this, "需要权限",
+                "本地备份还原需要读写权限，是否去给予权限？",
+                new String[]{"取消", "去授权"},
+                new int[]{0xFF333333, 0xFF2D84C2},
+                new DialogInterface.OnClickListener[]{
+                    (d, w) -> {},
+                    (d, w) -> StoragePermissionHelper.requestIfNeeded(BackupActivity.this)
+                }, true);
+        }
         refreshHistory();
     }
 
@@ -196,9 +206,8 @@ public class BackupActivity extends AppCompatActivity {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
-                } else {
-                    doLocalBackup();
                 }
+                if (showingLocal) refreshHistory();
             } else {
                 String msg = pendingRestoreEntry != null ? "需要存储权限才能还原本地备份" : "需要存储权限才能备份到本地";
                 pendingRestoreEntry = null;
@@ -216,9 +225,8 @@ public class BackupActivity extends AppCompatActivity {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
-                } else {
-                    doLocalBackup();
                 }
+                if (showingLocal) refreshHistory();
             } else {
                 String msg = pendingRestoreEntry != null ? "需要存储权限才能还原本地备份" : "需要存储权限才能备份到本地";
                 pendingRestoreEntry = null;

@@ -81,7 +81,6 @@ public class MainActivity extends BaseActivity {
     private ViewGroup layoutAlertBars;
     private LinearLayout alertBarsContainer;
     private LinearLayout layoutTaskBars;
-    private LinearLayout bottomNav;
     private BroadcastReceiver taskUpdateReceiver;
 
     // 功能网格数据
@@ -207,7 +206,6 @@ public class MainActivity extends BaseActivity {
         layoutAlertBars = findViewById(R.id.layout_alert_bars);
         alertBarsContainer = findViewById(R.id.alert_bars_container);
         layoutTaskBars = findViewById(R.id.layout_task_bars);
-        bottomNav = findViewById(R.id.bottom_nav);
     }
 
     private void setBannerHeight() {
@@ -724,6 +722,7 @@ public class MainActivity extends BaseActivity {
         return bar;
     }
 
+    @SuppressWarnings("ExtractMethodRecommender")
     private View buildAlertBar(final AlertItem alert) {
         float density = getResources().getDisplayMetrics().density;
         float dp1_5 = 1.5f * density;
