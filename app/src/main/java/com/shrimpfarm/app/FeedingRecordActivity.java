@@ -84,9 +84,19 @@ public class FeedingRecordActivity extends BaseActivity {
         loadingOverlay = findViewById(R.id.loading_overlay);
 
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        float density = getResources().getDisplayMetrics().density;
         cellWidth = (int) (screenWidth / 6.5);
         remarkWidth = (int) (screenWidth / 3.5);
-        rowHeight = (int) (40 * getResources().getDisplayMetrics().density);
+        rowHeight = (int) (40 * density);
+        // 宽屏调整：让所有列刚好填满可用区域，减少不必要的横向滚动
+        int scrollAreaWidth = screenWidth - cellWidth;
+        float ratio = 6.5f / 3.5f;
+        int minCellWidthDp = 55;
+        int fittedCellWidth = (int)(scrollAreaWidth / (6 + ratio));
+        if (fittedCellWidth >= minCellWidthDp * density && fittedCellWidth < cellWidth) {
+            cellWidth = fittedCellWidth;
+            remarkWidth = (int)(cellWidth * ratio);
+        }
 
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) headerFixedDate.getLayoutParams();
         params.width = cellWidth;
@@ -637,7 +647,9 @@ public class FeedingRecordActivity extends BaseActivity {
             });
 
             // Restore horizontal scroll position
+            isSyncingScroll = true;
             holder.rowScroll.scrollTo(masterScrollX, 0);
+            isSyncingScroll = false;
         }
 
         // ---- Cell builders (called once per view creation) ----
