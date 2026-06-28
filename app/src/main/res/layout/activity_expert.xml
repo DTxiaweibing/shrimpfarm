@@ -1,5 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WebView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/web_view"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#f0f2f5">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/chat_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:padding="8dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#d0d0d0" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#ffffff">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <EditText
+                android:id="@+id/input_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="输入您的问题..."
+                android:gravity="top"
+                android:minHeight="40dp"
+                android:maxLines="4"
+                android:padding="8dp"
+                android:textSize="15sp"
+                android:background="@drawable/input_bg"
+                android:inputType="text"
+                android:visibility="visible" />
+
+            <Button
+                android:id="@+id/btn_hold_speak"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="按住说话"
+                android:textSize="15sp"
+                android:textColor="#666666"
+                android:gravity="center"
+                android:background="@drawable/input_bg"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_toggle_input"
+            android:layout_width="42dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:text="麦"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:gravity="center"
+            android:backgroundTint="#999999" />
+
+        <Button
+            android:id="@+id/btn_send"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:text="发送"
+            android:textSize="14sp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:gravity="center"
+            android:backgroundTint="#2D84C2" />
+
+    </LinearLayout>
+
+</LinearLayout>
