@@ -17,13 +17,12 @@ public class KnowledgeBase {
 
     private static final String TAG = "KnowledgeBase";
     private static final String DB_NAME = "knowledge_base.db";
-    private static final int TOP_K = 5;
 
-    private static class ChunkEntry {
-        final int id;
-        final String docId;
-        final String content;
-        final float[] embedding;
+    public static class ChunkEntry {
+        public final int id;
+        public final String docId;
+        public final String content;
+        public final float[] embedding;
 
         ChunkEntry(int id, String docId, String content, float[] embedding) {
             this.id = id;
@@ -78,10 +77,28 @@ public class KnowledgeBase {
         Log.i(TAG, "Loaded " + chunks.size() + " chunks, first vec[0]=" + (chunks.isEmpty() ? "N/A" : chunks.get(0).embedding[0]));
     }
 
+    public List<String> search(float[] queryEmb, int topK) {
+        List<ScoredIdx> ranked = searchRaw(queryEmb, topK);
+        List<String> results = new ArrayList<>();
+        for (ScoredIdx si : ranked) {
+            results.add(chunks.get(si.idx).content);
+        }
+        return results;
+    }
+
+    public static class ScoredIdx {
+        public final int idx;
+        public final float score;
+        ScoredIdx(int idx, float score) {
+            this.idx = idx;
+            this.score = score;
+        }
+    }
+
     private static final float MIN_SCORE = 0.2f;
 
-    public List<String> search(float[] queryEmb, int topK) {
-        if (topK <= 0) topK = TOP_K;
+    public List<ScoredIdx> searchRaw(float[] queryEmb, int topK) {
+        if (topK <= 0) topK = Math.min(20, chunks.size());
         topK = Math.min(topK, chunks.size());
 
         float[] scores = new float[chunks.size()];
@@ -103,12 +120,16 @@ public class KnowledgeBase {
             sb.append(String.format(java.util.Locale.ROOT, " %.3f", scores[i]));
         }
         Log.i(TAG, "Top scores:" + sb + " (query[0]=" + queryEmb[0] + ")");
-        List<String> results = new ArrayList<>();
+        List<ScoredIdx> results = new ArrayList<>();
         for (int i = 0; i < topK; i++) {
             if (scores[i] < MIN_SCORE) break;
-            results.add(chunks.get(indices[i]).content);
+            results.add(new ScoredIdx(indices[i], scores[i]));
         }
         return results;
+    }
+
+    public ChunkEntry getChunk(int idx) {
+        return chunks.get(idx);
     }
 
     private float cosineSimilarity(float[] a, float[] b) {

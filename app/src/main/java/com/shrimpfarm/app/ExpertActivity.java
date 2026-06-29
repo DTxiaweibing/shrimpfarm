@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.shrimpfarm.app.model.KnowledgeBase;
+import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.ShrimpAdviceHelper;
 import com.shrimpfarm.app.model.TokenEmbedder;
 import com.shrimpfarm.app.utils.EncryptUtils;
@@ -73,6 +74,7 @@ public class ExpertActivity extends AppCompatActivity {
 
     private TokenEmbedder embedder;
     private KnowledgeBase knowledgeBase;
+    private Reranker reranker;
     private String cloudApiKey;
     private TextToSpeech textToSpeech;
     private boolean ttsReady = false;
@@ -166,6 +168,13 @@ public class ExpertActivity extends AppCompatActivity {
             loadApiKey();
             embedder = new TokenEmbedder(this);
             knowledgeBase = new KnowledgeBase(this);
+            try {
+                reranker = new Reranker(this);
+                addDebugMessage("重排序加载成功");
+            } catch (Exception e) {
+                reranker = null;
+                addDebugMessage("重排序不可用: " + e.getMessage());
+            }
             initialized = true;
             mainHandler.post(() -> addDebugMessage("初始化完成，知识库 " + knowledgeBase.size() + " 条"));
         } catch (Throwable t) {
@@ -285,17 +294,34 @@ public class ExpertActivity extends AppCompatActivity {
             } else {
                 float[] queryEmb = embedder.embed(query);
                 addDebugMessage("查询向量前5值: " + queryEmb[0] + "," + queryEmb[1] + "," + queryEmb[2] + "," + queryEmb[3] + "," + queryEmb[4]);
-                List<String> contexts = knowledgeBase.search(queryEmb, 5);
+                List<KnowledgeBase.ScoredIdx> candidates = knowledgeBase.searchRaw(queryEmb, 20);
+                addDebugMessage("向量检索候选 " + candidates.size() + " 条");
+
+                List<String> docContents = new ArrayList<>();
+                for (KnowledgeBase.ScoredIdx si : candidates) {
+                    docContents.add(knowledgeBase.getChunk(si.idx).content);
+                }
+
+                List<Reranker.ScoredDoc> reranked;
+                if (reranker != null && !docContents.isEmpty()) {
+                    addDebugMessage("重排序中…");
+                    reranked = reranker.rerank(query, docContents, 3);
+                    addDebugMessage("重排完成，top1=" + String.format(java.util.Locale.ROOT, "%.2f", reranked.get(0).score));
+                } else {
+                    reranked = new ArrayList<>();
+                    for (String c : docContents) reranked.add(new Reranker.ScoredDoc(c, 0f));
+                }
+
                 StringBuilder sb = new StringBuilder();
                 sb.append("用户问题：").append(query).append("\n\n");
-                for (String ctx : contexts) {
-                    sb.append("【参考知识】\n").append(ctx).append("\n\n");
-                    String snippet = ctx.length() > 60 ? ctx.substring(0, 60).replace("\n", " ") + "…" : ctx.replace("\n", " ");
-                    addDebugMessage("  匹配: " + snippet);
+                for (Reranker.ScoredDoc sd : reranked) {
+                    sb.append("【参考知识】\n").append(sd.content).append("\n\n");
+                    String snippet = sd.content.length() > 60 ? sd.content.substring(0, 60).replace("\n", " ") + "…" : sd.content.replace("\n", " ");
+                    addDebugMessage("  重排 " + String.format(java.util.Locale.ROOT, "%.2f", sd.score) + ": " + snippet);
                 }
                 sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
                 userPrompt = sb.toString();
-                addDebugMessage("实际命中 " + contexts.size() + " 条，请求大模型…");
+                addDebugMessage("最终取 " + reranked.size() + " 条，请求大模型…");
             }
 
             String answer = callCloudAPI(SYSTEM_PROMPT, userPrompt);
@@ -372,6 +398,7 @@ public class ExpertActivity extends AppCompatActivity {
         super.onDestroy();
         executor.shutdown();
         if (embedder != null) embedder.close();
+        if (reranker != null) reranker.close();
         if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
     }
 }
