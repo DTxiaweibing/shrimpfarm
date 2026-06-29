@@ -42,7 +42,10 @@ import com.shrimpfarm.app.utils.EncryptUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,6 +55,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -103,7 +108,7 @@ public class ExpertActivity extends AppCompatActivity {
 
     private static class ChatMessage {
         final int type;
-        final String text;
+        String text;
         final String time;
         ChatMessage(int type, String text) {
             this.type = type;
@@ -329,20 +334,58 @@ public class ExpertActivity extends AppCompatActivity {
                 userPrompt = sb.toString();
             }
 
-            String answer = callCloudAPI(SYSTEM_PROMPT, userPrompt);
-
-            final String finalAnswer = answer;
-            final boolean speak = wasVoice;
-            mainHandler.post(() -> {
-                addBotMessage(finalAnswer);
-                if (speak && ttsReady) textToSpeech.speak(finalAnswer, TextToSpeech.QUEUE_FLUSH, null, null);
-                btnSend.setEnabled(true);
-            });
+            startStreamingResponse(userPrompt, wasVoice);
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Query failed: " + err);
             mainHandler.post(() -> { btnSend.setEnabled(true); });
         }
+    }
+
+    private void startStreamingResponse(String userPrompt, boolean wasVoice) {
+        messages.add(new ChatMessage(TYPE_BOT, ""));
+        final int msgIdx = messages.size() - 1;
+        mainHandler.post(() -> {
+            adapter.notifyItemInserted(msgIdx);
+            chatList.scrollToPosition(msgIdx);
+        });
+
+        final boolean speak = wasVoice;
+        callCloudAPIStreaming(SYSTEM_PROMPT, userPrompt, new StreamCallback() {
+            private final StringBuilder accumulated = new StringBuilder();
+
+            @Override
+            public void onChunk(String delta) {
+                accumulated.append(delta);
+                final String text = accumulated.toString();
+                mainHandler.post(() -> {
+                    messages.get(msgIdx).text = text;
+                    adapter.notifyItemChanged(msgIdx);
+                    chatList.scrollToPosition(msgIdx);
+                });
+            }
+
+            @Override
+            public void onComplete() {
+                mainHandler.post(() -> {
+                    btnSend.setEnabled(true);
+                    if (speak && ttsReady)
+                        textToSpeech.speak(accumulated.toString(), TextToSpeech.QUEUE_FLUSH, null, null);
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                mainHandler.post(() -> {
+                    ChatMessage msg = messages.get(msgIdx);
+                    if (msg.text.isEmpty()) {
+                        msg.text = "（请求失败：" + error + "）";
+                        adapter.notifyItemChanged(msgIdx);
+                    }
+                    btnSend.setEnabled(true);
+                });
+            }
+        });
     }
 
     private String routeQuery(String query) {
@@ -452,33 +495,76 @@ public class ExpertActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    private String callCloudAPI(String systemPrompt, String userPrompt) throws IOException {
+    private interface StreamCallback {
+        void onChunk(String delta);
+        void onComplete();
+        void onError(String error);
+    }
+
+    private void callCloudAPIStreaming(String systemPrompt, String userPrompt, StreamCallback callback) {
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build();
         JSONObject body = new JSONObject();
         try {
             body.put("model", CLOUD_MODEL);
+            body.put("stream", true);
             JSONArray messages = new JSONArray();
             JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", systemPrompt);
             messages.put(sys);
             JSONObject usr = new JSONObject(); usr.put("role", "user"); usr.put("content", userPrompt);
             messages.put(usr);
             body.put("messages", messages); body.put("temperature", 0.2); body.put("max_tokens", 4096);
-        } catch (Exception e) { throw new IOException("JSON build error", e); }
+        } catch (Exception e) {
+            callback.onError("JSON build error");
+            return;
+        }
         Request request = new Request.Builder()
                 .url(CLOUD_API_URL)
                 .addHeader("Authorization", "Bearer " + cloudApiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(RequestBody.create(body.toString(), MediaType.parse("application/json; charset=utf-8")))
                 .build();
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful() || response.body() == null) throw new IOException("API error: " + response.code());
-            String respBody = response.body().string();
-            JSONObject json = new JSONObject(respBody);
-            JSONArray choices = json.getJSONArray("choices");
-            if (choices.length() > 0) return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            return "（无回答）";
-        } catch (Exception e) { throw new IOException("API call failed: " + e.getMessage()); }
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onResponse(Call call, Response response) {
+                try {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        callback.onError("API error: " + response.code());
+                        return;
+                    }
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("data: ")) {
+                            String data = line.substring(6);
+                            if ("[DONE]".equals(data)) {
+                                callback.onComplete();
+                                return;
+                            }
+                            JSONObject chunk = new JSONObject(data);
+                            JSONArray choices = chunk.getJSONArray("choices");
+                            if (choices.length() > 0) {
+                                String delta = choices.getJSONObject(0)
+                                        .getJSONObject("delta")
+                                        .optString("content", "");
+                                if (!delta.isEmpty()) {
+                                    callback.onChunk(delta);
+                                }
+                            }
+                        }
+                    }
+                    callback.onComplete();
+                } catch (Exception e) {
+                    callback.onError(e.getMessage());
+                }
+            }
+
+            @Override
+            public void onFailure(Call call, IOException e) {
+                callback.onError(e.getMessage());
+            }
+        });
     }
 
     private void addUserMessage(String text) { messages.add(new ChatMessage(TYPE_USER, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
