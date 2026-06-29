@@ -95,18 +95,26 @@ public class KnowledgeBase {
         }
     }
 
-    private static final float MIN_SCORE = 0.2f;
+    private static final float MIN_SCORE = 0.0f;
 
     public List<ScoredIdx> searchRaw(float[] queryEmb, int topK) {
+        return searchRaw(queryEmb, topK, null);
+    }
+
+    public List<ScoredIdx> searchRaw(float[] queryEmb, int topK, String docIdPrefix) {
         if (topK <= 0) topK = Math.min(20, chunks.size());
         topK = Math.min(topK, chunks.size());
 
         float[] scores = new float[chunks.size()];
         int[] indices = new int[chunks.size()];
+        int validCount = 0;
         for (int i = 0; i < chunks.size(); i++) {
-            scores[i] = cosineSimilarity(queryEmb, chunks.get(i).embedding);
-            indices[i] = i;
+            if (docIdPrefix != null && !chunks.get(i).docId.startsWith(docIdPrefix)) continue;
+            scores[validCount] = cosineSimilarity(queryEmb, chunks.get(i).embedding);
+            indices[validCount] = i;
+            validCount++;
         }
+        topK = Math.min(topK, validCount);
         for (int i = 0; i < topK; i++) {
             for (int j = i + 1; j < chunks.size(); j++) {
                 if (scores[j] > scores[i]) {

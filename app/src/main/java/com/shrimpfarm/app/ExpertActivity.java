@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.shrimpfarm.app.model.KnowledgeBase;
+import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.ShrimpAdviceHelper;
 import com.shrimpfarm.app.model.TokenEmbedder;
@@ -71,6 +72,7 @@ public class ExpertActivity extends AppCompatActivity {
     private boolean isKeyboardMode = true;
 
     private static final int VOICE_REQUEST_CODE = 200;
+    private static final boolean ENABLE_ROUTING = false;
 
     private TokenEmbedder embedder;
     private KnowledgeBase knowledgeBase;
@@ -175,6 +177,7 @@ public class ExpertActivity extends AppCompatActivity {
                 reranker = null;
                 addDebugMessage("重排序不可用: " + e.getMessage());
             }
+            KnowledgeBaseUpdater.checkUpdate(this);
             initialized = true;
             mainHandler.post(() -> addDebugMessage("初始化完成，知识库 " + knowledgeBase.size() + " 条"));
         } catch (Throwable t) {
@@ -294,7 +297,9 @@ public class ExpertActivity extends AppCompatActivity {
             } else {
                 float[] queryEmb = embedder.embed(query);
                 addDebugMessage("查询向量前5值: " + queryEmb[0] + "," + queryEmb[1] + "," + queryEmb[2] + "," + queryEmb[3] + "," + queryEmb[4]);
-                List<KnowledgeBase.ScoredIdx> candidates = knowledgeBase.searchRaw(queryEmb, 20);
+                String route = ENABLE_ROUTING ? routeQuery(query) : null;
+                if (route != null) addDebugMessage("路由 -> " + route);
+                List<KnowledgeBase.ScoredIdx> candidates = knowledgeBase.searchRaw(queryEmb, 20, route);
                 addDebugMessage("向量检索候选 " + candidates.size() + " 条");
 
                 List<String> docContents = new ArrayList<>();
@@ -337,6 +342,20 @@ public class ExpertActivity extends AppCompatActivity {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             mainHandler.post(() -> { addDebugMessage("处理失败: " + err); btnSend.setEnabled(true); });
         }
+    }
+
+    private String routeQuery(String query) {
+        if (query.contains("怎么") || query.contains("如何") || query.contains("步骤")
+                || query.contains("处理") || query.contains("操作") || query.contains("调")
+                || query.contains("多少") || query.contains("多久") || query.contains("用什么"))
+            return "manual";
+        if (query.contains("为什么") || query.contains("原理") || query.contains("原因")
+                || query.contains("什么道理") || query.contains("机制") || query.contains("影响"))
+            return "theory";
+        if (query.contains("规则") || query.contains("规定") || query.contains("必须")
+                || query.contains("禁止") || query.contains("允许") || query.contains("不能"))
+            return "rules";
+        return null;
     }
 
     private String checkLocalRules(String query) {
