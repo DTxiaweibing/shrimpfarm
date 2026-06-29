@@ -53,7 +53,7 @@ public class ExpertActivity extends AppCompatActivity {
     private static final String CLOUD_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
     private static final String CLOUD_MODEL = "glm-4-flash";
     private static final String KEY_REMOTE_URL = "https://dtxiaweibing.github.io/TIMU/ai_key.txt";
-    private static final String KEY_FALLBACK = "d0e/`57/`e223083`8c37ea`ccced5a6-oxTYmwjefre4FIv8";
+    private static final String KEY_FALLBACK = "f2g1b791bg4452:5b:e59gcbeeegf7c8/qzV[oylghtg6HKx:";
     private static final String SYSTEM_PROMPT =
         "你是一位南美白对虾小棚养殖专家。你的任务是：\n" +
         "1. 严格基于提供的参考知识回答，绝不使用你预训练中学到的其他知识。\n" +
@@ -174,6 +174,12 @@ public class ExpertActivity extends AppCompatActivity {
         }
     }
 
+    private static String deobfuscate(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) sb.append((char)(s.charAt(i) - 1));
+        return sb.toString();
+    }
+
     private void loadApiKey() {
         try {
             OkHttpClient client = new OkHttpClient.Builder()
@@ -182,8 +188,8 @@ public class ExpertActivity extends AppCompatActivity {
             try (Response resp = client.newCall(req).execute()) {
                 if (resp.isSuccessful() && resp.body() != null) {
                     String remote = resp.body().string().trim();
-                    String decrypted = EncryptUtils.decrypt(remote);
-                    if (decrypted != null && !decrypted.equals(remote)) {
+                    String decrypted = deobfuscate(remote);
+                    if (decrypted != null && decrypted.length() > 10) {
                         cloudApiKey = decrypted;
                         addDebugMessage("API密钥: 远程获取成功");
                         return;
@@ -191,7 +197,7 @@ public class ExpertActivity extends AppCompatActivity {
                 }
             }
         } catch (Exception ignored) {}
-        cloudApiKey = EncryptUtils.decrypt(KEY_FALLBACK);
+        cloudApiKey = deobfuscate(KEY_FALLBACK);
         addDebugMessage("API密钥: 本地密钥");
     }
 

@@ -206,6 +206,8 @@ public class BackupActivity extends AppCompatActivity {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
+                } else {
+                    doLocalBackup();
                 }
                 if (showingLocal) refreshHistory();
             } else {
@@ -225,6 +227,8 @@ public class BackupActivity extends AppCompatActivity {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
+                } else {
+                    doLocalBackup();
                 }
                 if (showingLocal) refreshHistory();
             } else {

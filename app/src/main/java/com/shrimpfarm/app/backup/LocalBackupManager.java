@@ -171,7 +171,8 @@ public class LocalBackupManager {
             Uri collectionUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
             String[] projection = new String[]{MediaStore.Downloads._ID,
                     MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_MODIFIED,
-                    MediaStore.Downloads.SIZE, MediaStore.Downloads.RELATIVE_PATH};
+                    MediaStore.Downloads.SIZE, MediaStore.Downloads.RELATIVE_PATH,
+                    MediaStore.Downloads.DATA};
             cursor = context.getContentResolver().query(collectionUri, projection,
                     null, null, MediaStore.Downloads.DATE_MODIFIED + " DESC");
 
@@ -181,10 +182,20 @@ public class LocalBackupManager {
                     String relPath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.RELATIVE_PATH));
                     if (name == null || !name.startsWith("DataBackup_")) continue;
                     if (relPath == null || !relPath.contains(BACKUP_DIR)) continue;
-                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID));
                     long date = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_MODIFIED));
                     long size = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE));
-                    list.add(new BackupFileInfo(name, date * 1000, size, id));
+                    File fileRef = null;
+                    int dataIdx = cursor.getColumnIndex(MediaStore.Downloads.DATA);
+                    if (dataIdx >= 0) {
+                        String dataPath = cursor.getString(dataIdx);
+                        if (dataPath != null) fileRef = new File(dataPath);
+                    }
+                    if (fileRef == null) {
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID));
+                        list.add(new BackupFileInfo(name, date * 1000, size, id));
+                    } else {
+                        list.add(new BackupFileInfo(name, date * 1000, fileRef.length(), fileRef));
+                    }
                 }
             }
         } catch (Exception e) {
