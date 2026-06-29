@@ -50,6 +50,18 @@ public class SeawaterHelper {
      * @param targetDensity 目标密度 (kg/m³)
      * @return 盐度 (PSU, 0~40)
      */
+    /**
+     * 格 → 实用盐度 (PSU)
+     * 格的定义：18℃时比重计读数 × 1000（如比重 1.020 → 20格）
+     * 20格 = 18℃时比重 1.020 = 28.104 PSU
+     */
+    public static double geToSalinity(double ge) {
+        double sg_18 = 1.0 + ge / 1000.0;
+        double rho_pure_18 = pureWaterDensity(18.0);
+        double targetDensity = sg_18 * rho_pure_18;
+        return solveSalinity(18.0, targetDensity);
+    }
+
     public static double solveSalinity(double tempC, double targetDensity) {
         double S_low = 0.0;
         double S_high = 40.0;

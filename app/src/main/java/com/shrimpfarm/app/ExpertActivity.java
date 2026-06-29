@@ -25,19 +25,11 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.shrimpfarm.app.model.ChlorineHelper;
-import com.shrimpfarm.app.model.DOHelper;
-import com.shrimpfarm.app.model.H2SHelper;
 import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
-import com.shrimpfarm.app.model.NitriteHelper;
-import com.shrimpfarm.app.model.ORPHelper;
+import com.shrimpfarm.app.model.RagPipeline;
 import com.shrimpfarm.app.model.Reranker;
-import com.shrimpfarm.app.model.ShrimpAdviceHelper;
-import com.shrimpfarm.app.model.SynonymExpander;
 import com.shrimpfarm.app.model.TokenEmbedder;
-import com.shrimpfarm.app.model.VibrioHelper;
-import com.shrimpfarm.app.utils.EncryptUtils;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -368,42 +360,24 @@ public class ExpertActivity extends AppCompatActivity {
     private void processQuery(String query, boolean wasVoice) {
         try {
             Log.i(TAG, "Processing query: " + query);
-            query = SynonymExpander.expand(query);
-            String localAdvice = checkLocalRules(query);
-            String userPrompt;
+            RagPipeline pipeline = new RagPipeline();
+            RagPipeline.Result result = pipeline.process(query, embedder, knowledgeBase,
+                    reranker, ENABLE_ROUTING, SYSTEM_PROMPT);
 
-            if (!localAdvice.isEmpty()) {
-                userPrompt = "用户问题：" + query + "\n\n【首要执行规则】\n" + localAdvice + "\n\n请根据上述规则用口语化方式给出具体操作步骤。";
-                mainHandler.post(() -> transitionAnimation("正在联系专家"));
+            if (result.isLocal) {
+                mainHandler.post(() -> {
+                    stopAnimation();
+                    messages.add(new ChatMessage(TYPE_BOT, result.text));
+                    adapter.notifyItemInserted(messages.size() - 1);
+                    chatList.scrollToPosition(messages.size() - 1);
+                    btnSend.setEnabled(true);
+                    if (wasVoice && ttsReady)
+                        textToSpeech.speak(result.text, TextToSpeech.QUEUE_FLUSH, null, null);
+                });
             } else {
-                float[] queryEmb = embedder.embed(query);
-                String route = ENABLE_ROUTING ? routeQuery(query) : null;
-                List<KnowledgeBase.ScoredIdx> candidates = knowledgeBase.searchRaw(queryEmb, 20, route);
-
-                List<String> docContents = new ArrayList<>();
-                for (KnowledgeBase.ScoredIdx si : candidates) {
-                    docContents.add(knowledgeBase.getChunk(si.idx).content);
-                }
-
-                List<Reranker.ScoredDoc> reranked;
-                if (reranker != null && !docContents.isEmpty()) {
-                    reranked = reranker.rerank(query, docContents, 3);
-                } else {
-                    reranked = new ArrayList<>();
-                    for (String c : docContents) reranked.add(new Reranker.ScoredDoc(c, 0f));
-                }
-
-                StringBuilder sb = new StringBuilder();
-                sb.append("用户问题：").append(query).append("\n\n");
-                for (Reranker.ScoredDoc sd : reranked) {
-                    sb.append("【参考知识】\n").append(sd.content).append("\n\n");
-                }
-                sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
-                userPrompt = sb.toString();
                 mainHandler.post(() -> transitionAnimation("正在联系专家"));
+                startStreamingResponse(result.promptForApi, wasVoice);
             }
-
-            startStreamingResponse(userPrompt, wasVoice);
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Query failed: " + err);
@@ -464,113 +438,6 @@ public class ExpertActivity extends AppCompatActivity {
                 });
             }
         });
-    }
-
-    private String routeQuery(String query) {
-        if (query.contains("怎么") || query.contains("如何") || query.contains("步骤")
-                || query.contains("处理") || query.contains("操作") || query.contains("调")
-                || query.contains("多少") || query.contains("多久") || query.contains("用什么"))
-            return "manual";
-        if (query.contains("为什么") || query.contains("原理") || query.contains("原因")
-                || query.contains("什么道理") || query.contains("机制") || query.contains("影响"))
-            return "theory";
-        if (query.contains("规则") || query.contains("规定") || query.contains("必须")
-                || query.contains("禁止") || query.contains("允许") || query.contains("不能"))
-            return "rules";
-        return null;
-    }
-
-    private String checkLocalRules(String query) {
-        StringBuilder sb = new StringBuilder();
-        double temp = 25, ph = 8.2, tan = 0.5, sal = 15;
-        int day = 30;
-
-        java.util.regex.Matcher tempMatcher = java.util.regex.Pattern.compile("(\\d+(\\.\\d+)?)\\s*度").matcher(query);
-        java.util.regex.Matcher phMatcher = java.util.regex.Pattern.compile("pH[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-        java.util.regex.Matcher nh3Matcher = java.util.regex.Pattern.compile("(氨氮|nh3|NH3)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-        java.util.regex.Matcher salMatcher = java.util.regex.Pattern.compile("(盐度|盐)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-        java.util.regex.Matcher geMatcher = java.util.regex.Pattern.compile("(\\d+)\\s*格").matcher(query);
-
-        if (tempMatcher.find()) temp = Double.parseDouble(tempMatcher.group(1));
-        if (phMatcher.find()) ph = Double.parseDouble(phMatcher.group(1));
-        if (nh3Matcher.find()) tan = Double.parseDouble(nh3Matcher.group(2));
-        if (salMatcher.find()) sal = Double.parseDouble(salMatcher.group(2));
-        if (geMatcher.find() && (query.contains("盐") || query.contains("咸"))) {
-            double ge = Double.parseDouble(geMatcher.group(1));
-            sal = ge;
-            sb.append("盐度").append((int)ge).append("格 = ").append((int)ge).append("PSU；");
-        }
-        java.util.regex.Matcher dayMatcher = java.util.regex.Pattern.compile("(第|养殖)?(\\d+)\\s*天").matcher(query);
-        if (dayMatcher.find()) day = Integer.parseInt(dayMatcher.group(2));
-
-        if (query.contains("温度") || query.contains("水温")) {
-            String a = ShrimpAdviceHelper.getTempAdvice(temp);
-            if (!a.isEmpty()) sb.append(a).append("；");
-        }
-        if (query.contains("pH") || query.contains("酸碱")) {
-            String a = ShrimpAdviceHelper.getPhAdvice(ph);
-            if (!a.isEmpty()) sb.append(a).append("；");
-        }
-        if (query.contains("氨氮") || query.contains("nh3")) {
-            String a = ShrimpAdviceHelper.getNh3Advice(ph, temp, tan, sal, day);
-            if (!a.isEmpty()) sb.append(a).append("；");
-        }
-        if (query.contains("亚盐") || query.contains("亚硝酸盐") || query.contains("NO2")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(亚盐|亚硝酸盐|NO2)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double nitrite = Double.parseDouble(m.group(2));
-                String a = NitriteHelper.getAdvice(nitrite, day, sal);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("溶氧") || query.contains("DO") || query.contains("溶解氧")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(溶氧|DO|溶解氧)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double doVal = Double.parseDouble(m.group(2));
-                String a = DOHelper.getAdvice(doVal);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("ORP") || query.contains("氧化还原")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("ORP[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double orp = Double.parseDouble(m.group(1));
-                String a = ORPHelper.getAdvice(orp);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("硫化氢") || query.contains("H2S") || query.contains("h2s")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(硫化氢|H2S|h2s)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double h2s = Double.parseDouble(m.group(2));
-                String a = H2SHelper.getAdvice(h2s);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("余氯") || query.contains("氯")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(余氯|氯)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double chlorine = Double.parseDouble(m.group(2));
-                String a = ChlorineHelper.getAdvice(chlorine, day);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("弧菌")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("弧菌[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-            if (m.find()) {
-                double vibrio = Double.parseDouble(m.group(1));
-                String a = VibrioHelper.getAdvice(vibrio, day);
-                if (!a.isEmpty()) sb.append(a).append("；");
-            }
-        }
-        if (query.contains("密度") || query.contains("比重")) {
-            double d = com.shrimpfarm.app.model.SeawaterHelper.calcDensity(temp, sal);
-            sb.append("当前海水密度为").append(String.format(Locale.ROOT, "%.2f", d)).append(" kg/m³；");
-        }
-        if (query.contains("偷死")) {
-            sb.append("偷死通常由底质恶化、弧菌感染或虾苗体质弱引起。建议：1.停料观察2-3天，同时使用底改产品（如过硫酸氢钾）；2.检测水体弧菌；3.拌料投喂免疫增强剂（多糖、维生素C）；4.适当换水，控制投喂量在正常水平的70%；");
-        }
-        return sb.toString();
     }
 
     private interface StreamCallback {
