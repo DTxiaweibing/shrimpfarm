@@ -29,6 +29,7 @@ import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.ShrimpAdviceHelper;
+import com.shrimpfarm.app.model.SynonymExpander;
 import com.shrimpfarm.app.model.TokenEmbedder;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
@@ -289,6 +290,7 @@ public class ExpertActivity extends AppCompatActivity {
     private void processQuery(String query, boolean wasVoice) {
         try {
             Log.i(TAG, "Processing query: " + query);
+            query = SynonymExpander.expand(query);
             String localAdvice = checkLocalRules(query);
             String userPrompt;
 
