@@ -105,6 +105,12 @@ public class ExpertActivity extends AppCompatActivity {
     private static final int TYPE_BOT = 0;
     private static final int TYPE_USER = 1;
     private static final int TYPE_DEBUG = 2;
+    private static final int TYPE_ANIMATION = 3;
+
+    private int animationMsgIndex = -1;
+    private int animationDotCount = 1;
+    private String animationPrefix = "";
+    private Runnable animationRunnable;
 
     private static class ChatMessage {
         final int type;
@@ -122,26 +128,31 @@ public class ExpertActivity extends AppCompatActivity {
         ChatAdapter(List<ChatMessage> messages) { this.messages = messages; }
         static class ViewHolder extends RecyclerView.ViewHolder {
             final TextView textMsg; final TextView textTime; final View bubble;
-            ViewHolder(View itemView, boolean isDebug) {
+            ViewHolder(View itemView, int viewType) {
                 super(itemView);
-                if (isDebug) { textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; bubble = null; }
-                else { textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_message); textTime = itemView.findViewById(com.shrimpfarm.app.R.id.text_time); bubble = itemView.findViewById(com.shrimpfarm.app.R.id.bubble); }
+                if (viewType == TYPE_DEBUG) {
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; bubble = null;
+                } else if (viewType == TYPE_ANIMATION) {
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_animation); textTime = null; bubble = null;
+                } else {
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_message); textTime = itemView.findViewById(com.shrimpfarm.app.R.id.text_time); bubble = itemView.findViewById(com.shrimpfarm.app.R.id.bubble);
+                }
             }
         }
         @Override public int getItemViewType(int position) { return messages.get(position).type; }
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            if (viewType == TYPE_DEBUG) {
-                return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(com.shrimpfarm.app.R.layout.item_chat_debug, parent, false), true);
-            }
-            int layout = viewType == TYPE_USER ? com.shrimpfarm.app.R.layout.item_chat_user : com.shrimpfarm.app.R.layout.item_chat_bot;
-            return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false), false);
+            int layout;
+            if (viewType == TYPE_DEBUG) layout = com.shrimpfarm.app.R.layout.item_chat_debug;
+            else if (viewType == TYPE_ANIMATION) layout = com.shrimpfarm.app.R.layout.item_chat_animation;
+            else layout = viewType == TYPE_USER ? com.shrimpfarm.app.R.layout.item_chat_user : com.shrimpfarm.app.R.layout.item_chat_bot;
+            return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false), viewType);
         }
         @Override
         public void onBindViewHolder(ViewHolder holder, int position) {
             ChatMessage msg = messages.get(position);
-            if (msg.type == TYPE_DEBUG) { holder.textMsg.setText(msg.text); }
-            else { holder.textMsg.setText(msg.text); if (holder.textTime != null) holder.textTime.setText(msg.time); }
+            holder.textMsg.setText(msg.text);
+            if (holder.textTime != null) holder.textTime.setText(msg.time);
         }
         @Override public int getItemCount() { return messages.size(); }
     }
@@ -285,13 +296,69 @@ public class ExpertActivity extends AppCompatActivity {
         }
     }
 
+    // ========== 等待动画控制 ==========
+
+    private void startAnimation(String prefix) {
+        animationPrefix = prefix;
+        animationDotCount = 1;
+        if (animationMsgIndex < 0) {
+            messages.add(new ChatMessage(TYPE_ANIMATION, buildAnimationText()));
+            animationMsgIndex = messages.size() - 1;
+            adapter.notifyItemInserted(animationMsgIndex);
+            chatList.scrollToPosition(animationMsgIndex);
+        }
+        stopAnimationTimer();
+        animationRunnable = new Runnable() {
+            @Override
+            public void run() {
+                animationDotCount = (animationDotCount % 4) + 1;
+                messages.get(animationMsgIndex).text = buildAnimationText();
+                adapter.notifyItemChanged(animationMsgIndex);
+                mainHandler.postDelayed(this, 500);
+            }
+        };
+        mainHandler.postDelayed(animationRunnable, 500);
+    }
+
+    private void transitionAnimation(String newPrefix) {
+        if (animationMsgIndex < 0) { startAnimation(newPrefix); return; }
+        animationPrefix = newPrefix;
+        messages.get(animationMsgIndex).text = buildAnimationText();
+        adapter.notifyItemChanged(animationMsgIndex);
+    }
+
+    private void stopAnimation() {
+        stopAnimationTimer();
+        if (animationMsgIndex >= 0) {
+            messages.remove(animationMsgIndex);
+            adapter.notifyItemRemoved(animationMsgIndex);
+            animationMsgIndex = -1;
+        }
+    }
+
+    private void stopAnimationTimer() {
+        if (animationRunnable != null) {
+            mainHandler.removeCallbacks(animationRunnable);
+            animationRunnable = null;
+        }
+    }
+
+    private String buildAnimationText() {
+        StringBuilder sb = new StringBuilder(animationPrefix);
+        for (int i = 0; i < animationDotCount; i++) sb.append(".");
+        return sb.toString();
+    }
+
+    // ========== 消息发送 ==========
+
     private void sendMessage() {
         String text = inputMessage.getText().toString().trim();
         if (text.isEmpty()) return;
         inputMessage.setText("");
         addUserMessage(text);
-        if (!initialized) { Log.w(TAG, "Not initialized"); return; }
-        if (cloudApiKey == null) { Log.w(TAG, "No API key"); return; }
+        startAnimation("正在提炼问题");
+        if (!initialized) { Log.w(TAG, "Not initialized"); stopAnimation(); btnSend.setEnabled(true); return; }
+        if (cloudApiKey == null) { Log.w(TAG, "No API key"); stopAnimation(); btnSend.setEnabled(true); return; }
         btnSend.setEnabled(false);
         final boolean wasVoice = isVoiceInput;
         isVoiceInput = false;
@@ -307,6 +374,7 @@ public class ExpertActivity extends AppCompatActivity {
 
             if (!localAdvice.isEmpty()) {
                 userPrompt = "用户问题：" + query + "\n\n【首要执行规则】\n" + localAdvice + "\n\n请根据上述规则用口语化方式给出具体操作步骤。";
+                mainHandler.post(() -> transitionAnimation("正在联系专家"));
             } else {
                 float[] queryEmb = embedder.embed(query);
                 String route = ENABLE_ROUTING ? routeQuery(query) : null;
@@ -332,36 +400,43 @@ public class ExpertActivity extends AppCompatActivity {
                 }
                 sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
                 userPrompt = sb.toString();
+                mainHandler.post(() -> transitionAnimation("正在联系专家"));
             }
 
             startStreamingResponse(userPrompt, wasVoice);
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Query failed: " + err);
-            mainHandler.post(() -> { btnSend.setEnabled(true); });
+            mainHandler.post(() -> { stopAnimation(); btnSend.setEnabled(true); });
         }
     }
 
     private void startStreamingResponse(String userPrompt, boolean wasVoice) {
-        messages.add(new ChatMessage(TYPE_BOT, ""));
-        final int msgIdx = messages.size() - 1;
-        mainHandler.post(() -> {
-            adapter.notifyItemInserted(msgIdx);
-            chatList.scrollToPosition(msgIdx);
-        });
+        mainHandler.post(() -> transitionAnimation("专家思考中"));
 
         final boolean speak = wasVoice;
         callCloudAPIStreaming(SYSTEM_PROMPT, userPrompt, new StreamCallback() {
             private final StringBuilder accumulated = new StringBuilder();
+            private boolean firstChunk = true;
+            private int botMsgIdx = -1;
 
             @Override
             public void onChunk(String delta) {
                 accumulated.append(delta);
                 final String text = accumulated.toString();
                 mainHandler.post(() -> {
-                    messages.get(msgIdx).text = text;
-                    adapter.notifyItemChanged(msgIdx);
-                    chatList.scrollToPosition(msgIdx);
+                    if (firstChunk) {
+                        firstChunk = false;
+                        stopAnimation();
+                        messages.add(new ChatMessage(TYPE_BOT, text));
+                        botMsgIdx = messages.size() - 1;
+                        adapter.notifyItemInserted(botMsgIdx);
+                        chatList.scrollToPosition(botMsgIdx);
+                    } else if (botMsgIdx >= 0) {
+                        messages.get(botMsgIdx).text = text;
+                        adapter.notifyItemChanged(botMsgIdx);
+                        chatList.scrollToPosition(botMsgIdx);
+                    }
                 });
             }
 
@@ -377,10 +452,13 @@ public class ExpertActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 mainHandler.post(() -> {
-                    ChatMessage msg = messages.get(msgIdx);
-                    if (msg.text.isEmpty()) {
-                        msg.text = "（请求失败：" + error + "）";
-                        adapter.notifyItemChanged(msgIdx);
+                    stopAnimation();
+                    if (botMsgIdx >= 0) {
+                        messages.get(botMsgIdx).text = "（请求失败：" + error + "）";
+                        adapter.notifyItemChanged(botMsgIdx);
+                    } else {
+                        messages.add(new ChatMessage(TYPE_BOT, "（请求失败：" + error + "）"));
+                        adapter.notifyItemInserted(messages.size() - 1);
                     }
                     btnSend.setEnabled(true);
                 });
@@ -572,6 +650,7 @@ public class ExpertActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopAnimationTimer();
         executor.shutdown();
         if (embedder != null) embedder.close();
         if (reranker != null) reranker.close();
