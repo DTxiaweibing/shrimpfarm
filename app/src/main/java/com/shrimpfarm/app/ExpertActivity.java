@@ -25,12 +25,18 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.shrimpfarm.app.model.ChlorineHelper;
+import com.shrimpfarm.app.model.DOHelper;
+import com.shrimpfarm.app.model.H2SHelper;
 import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
+import com.shrimpfarm.app.model.NitriteHelper;
+import com.shrimpfarm.app.model.ORPHelper;
 import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.ShrimpAdviceHelper;
 import com.shrimpfarm.app.model.SynonymExpander;
 import com.shrimpfarm.app.model.TokenEmbedder;
+import com.shrimpfarm.app.model.VibrioHelper;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import org.json.JSONArray;
@@ -355,22 +361,94 @@ public class ExpertActivity extends AppCompatActivity {
 
     private String checkLocalRules(String query) {
         StringBuilder sb = new StringBuilder();
+        double temp = 25, ph = 8.2, tan = 0.5, sal = 15;
+        int day = 30;
+
         java.util.regex.Matcher tempMatcher = java.util.regex.Pattern.compile("(\\d+(\\.\\d+)?)\\s*度").matcher(query);
         java.util.regex.Matcher phMatcher = java.util.regex.Pattern.compile("pH[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         java.util.regex.Matcher nh3Matcher = java.util.regex.Pattern.compile("(氨氮|nh3|NH3)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         java.util.regex.Matcher salMatcher = java.util.regex.Pattern.compile("(盐度|盐)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-        double temp = 25, ph = 8.2, tan = 0.5, sal = 15;
-        int day = 30;
+        java.util.regex.Matcher geMatcher = java.util.regex.Pattern.compile("(\\d+)\\s*格").matcher(query);
+
         if (tempMatcher.find()) temp = Double.parseDouble(tempMatcher.group(1));
         if (phMatcher.find()) ph = Double.parseDouble(phMatcher.group(1));
         if (nh3Matcher.find()) tan = Double.parseDouble(nh3Matcher.group(2));
         if (salMatcher.find()) sal = Double.parseDouble(salMatcher.group(2));
+        if (geMatcher.find() && (query.contains("盐") || query.contains("咸"))) {
+            double ge = Double.parseDouble(geMatcher.group(1));
+            sal = ge;
+            sb.append("盐度").append((int)ge).append("格 = ").append((int)ge).append("PSU；");
+        }
         java.util.regex.Matcher dayMatcher = java.util.regex.Pattern.compile("(第|养殖)?(\\d+)\\s*天").matcher(query);
         if (dayMatcher.find()) day = Integer.parseInt(dayMatcher.group(2));
-        if (query.contains("温度") || query.contains("水温")) { String a = ShrimpAdviceHelper.getTempAdvice(temp); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("pH") || query.contains("酸碱")) { String a = ShrimpAdviceHelper.getPhAdvice(ph); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("氨氮") || query.contains("nh3")) { String a = ShrimpAdviceHelper.getNh3Advice(ph, temp, tan, sal, day); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("密度") || query.contains("比重")) { double d = com.shrimpfarm.app.model.SeawaterHelper.calcDensity(temp, sal); sb.append("当前海水密度为").append(String.format(Locale.ROOT, "%.2f", d)).append(" kg/m³；"); }
+
+        if (query.contains("温度") || query.contains("水温")) {
+            String a = ShrimpAdviceHelper.getTempAdvice(temp);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("pH") || query.contains("酸碱")) {
+            String a = ShrimpAdviceHelper.getPhAdvice(ph);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("氨氮") || query.contains("nh3")) {
+            String a = ShrimpAdviceHelper.getNh3Advice(ph, temp, tan, sal, day);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("亚盐") || query.contains("亚硝酸盐") || query.contains("NO2")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(亚盐|亚硝酸盐|NO2)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double nitrite = Double.parseDouble(m.group(2));
+                String a = NitriteHelper.getAdvice(nitrite, day, sal);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("溶氧") || query.contains("DO") || query.contains("溶解氧")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(溶氧|DO|溶解氧)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double doVal = Double.parseDouble(m.group(2));
+                String a = DOHelper.getAdvice(doVal);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("ORP") || query.contains("氧化还原")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("ORP[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double orp = Double.parseDouble(m.group(1));
+                String a = ORPHelper.getAdvice(orp);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("硫化氢") || query.contains("H2S") || query.contains("h2s")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(硫化氢|H2S|h2s)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double h2s = Double.parseDouble(m.group(2));
+                String a = H2SHelper.getAdvice(h2s);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("余氯") || query.contains("氯")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(余氯|氯)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double chlorine = Double.parseDouble(m.group(2));
+                String a = ChlorineHelper.getAdvice(chlorine, day);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("弧菌")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("弧菌[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double vibrio = Double.parseDouble(m.group(1));
+                String a = VibrioHelper.getAdvice(vibrio, day);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("密度") || query.contains("比重")) {
+            double d = com.shrimpfarm.app.model.SeawaterHelper.calcDensity(temp, sal);
+            sb.append("当前海水密度为").append(String.format(Locale.ROOT, "%.2f", d)).append(" kg/m³；");
+        }
+        if (query.contains("偷死")) {
+            sb.append("偷死通常由底质恶化、弧菌感染或虾苗体质弱引起。建议：1.停料观察2-3天，同时使用底改产品（如过硫酸氢钾）；2.检测水体弧菌；3.拌料投喂免疫增强剂（多糖、维生素C）；4.适当换水，控制投喂量在正常水平的70%；");
+        }
         return sb.toString();
     }
 
