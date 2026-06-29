@@ -8,6 +8,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.os.Vibrator;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
@@ -56,6 +57,7 @@ public class ExpertActivity extends AppCompatActivity {
     private static final String CLOUD_MODEL = "glm-4-flash";
     private static final String KEY_REMOTE_URL = "https://dtxiaweibing.github.io/TIMU/ai_key.txt";
     private static final String KEY_FALLBACK = "f2g1b791bg4452:5b:e59gcbeeegf7c8/qzV[oylghtg6HKx:";
+    private static final String TAG = "ExpertActivity";
     private static final String SYSTEM_PROMPT =
         "你是一位南美白对虾小棚养殖专家。你的任务是：\n" +
         "1. 严格基于提供的参考知识回答，绝不使用你预训练中学到的其他知识。\n" +
@@ -147,7 +149,7 @@ public class ExpertActivity extends AppCompatActivity {
         adapter = new ChatAdapter(messages);
         chatList.setAdapter(adapter);
 
-        addBotMessage("您好！我是小棚养虾智能助手。");
+        addBotMessage("您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！");
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -172,17 +174,17 @@ public class ExpertActivity extends AppCompatActivity {
             knowledgeBase = new KnowledgeBase(this);
             try {
                 reranker = new Reranker(this);
-                addDebugMessage("重排序加载成功");
+                Log.i(TAG, "Reranker loaded");
             } catch (Exception e) {
                 reranker = null;
-                addDebugMessage("重排序不可用: " + e.getMessage());
+                Log.w(TAG, "Reranker unavailable: " + e.getMessage());
             }
             KnowledgeBaseUpdater.checkUpdate(this);
             initialized = true;
-            mainHandler.post(() -> addDebugMessage("初始化完成，知识库 " + knowledgeBase.size() + " 条"));
+            Log.i(TAG, "Init OK, KB=" + knowledgeBase.size());
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
-            addDebugMessage("初始化失败: " + err);
+            Log.e(TAG, "Init failed: " + err);
         }
     }
 
@@ -203,14 +205,14 @@ public class ExpertActivity extends AppCompatActivity {
                     String decrypted = deobfuscate(remote);
                     if (decrypted != null && decrypted.length() > 10) {
                         cloudApiKey = decrypted;
-                        addDebugMessage("API密钥: 远程获取成功");
+                        Log.i(TAG, "API: remote OK");
                         return;
                     }
                 }
             }
         } catch (Exception ignored) {}
         cloudApiKey = deobfuscate(KEY_FALLBACK);
-        addDebugMessage("API密钥: 本地密钥");
+        Log.i(TAG, "API: fallback key");
     }
 
     private void toggleInputMode() {
@@ -276,8 +278,8 @@ public class ExpertActivity extends AppCompatActivity {
         if (text.isEmpty()) return;
         inputMessage.setText("");
         addUserMessage(text);
-        if (!initialized) { addDebugMessage("初始化未完成，请稍候"); return; }
-        if (cloudApiKey == null) { addDebugMessage("API密钥未就绪"); return; }
+        if (!initialized) { Log.w(TAG, "Not initialized"); return; }
+        if (cloudApiKey == null) { Log.w(TAG, "No API key"); return; }
         btnSend.setEnabled(false);
         final boolean wasVoice = isVoiceInput;
         isVoiceInput = false;
@@ -286,21 +288,16 @@ public class ExpertActivity extends AppCompatActivity {
 
     private void processQuery(String query, boolean wasVoice) {
         try {
-            addDebugMessage("正在检索知识库…");
+            Log.i(TAG, "Processing query: " + query);
             String localAdvice = checkLocalRules(query);
             String userPrompt;
 
             if (!localAdvice.isEmpty()) {
                 userPrompt = "用户问题：" + query + "\n\n【首要执行规则】\n" + localAdvice + "\n\n请根据上述规则用口语化方式给出具体操作步骤。";
-                String firstRule = localAdvice.length() > 80 ? localAdvice.substring(0, 80) + "…" : localAdvice;
-                addDebugMessage("命中本地规则: " + firstRule);
             } else {
                 float[] queryEmb = embedder.embed(query);
-                addDebugMessage("查询向量前5值: " + queryEmb[0] + "," + queryEmb[1] + "," + queryEmb[2] + "," + queryEmb[3] + "," + queryEmb[4]);
                 String route = ENABLE_ROUTING ? routeQuery(query) : null;
-                if (route != null) addDebugMessage("路由 -> " + route);
                 List<KnowledgeBase.ScoredIdx> candidates = knowledgeBase.searchRaw(queryEmb, 20, route);
-                addDebugMessage("向量检索候选 " + candidates.size() + " 条");
 
                 List<String> docContents = new ArrayList<>();
                 for (KnowledgeBase.ScoredIdx si : candidates) {
@@ -309,9 +306,7 @@ public class ExpertActivity extends AppCompatActivity {
 
                 List<Reranker.ScoredDoc> reranked;
                 if (reranker != null && !docContents.isEmpty()) {
-                    addDebugMessage("重排序中…");
                     reranked = reranker.rerank(query, docContents, 3);
-                    addDebugMessage("重排完成，top1=" + String.format(java.util.Locale.ROOT, "%.2f", reranked.get(0).score));
                 } else {
                     reranked = new ArrayList<>();
                     for (String c : docContents) reranked.add(new Reranker.ScoredDoc(c, 0f));
@@ -321,12 +316,9 @@ public class ExpertActivity extends AppCompatActivity {
                 sb.append("用户问题：").append(query).append("\n\n");
                 for (Reranker.ScoredDoc sd : reranked) {
                     sb.append("【参考知识】\n").append(sd.content).append("\n\n");
-                    String snippet = sd.content.length() > 60 ? sd.content.substring(0, 60).replace("\n", " ") + "…" : sd.content.replace("\n", " ");
-                    addDebugMessage("  重排 " + String.format(java.util.Locale.ROOT, "%.2f", sd.score) + ": " + snippet);
                 }
                 sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
                 userPrompt = sb.toString();
-                addDebugMessage("最终取 " + reranked.size() + " 条，请求大模型…");
             }
 
             String answer = callCloudAPI(SYSTEM_PROMPT, userPrompt);
@@ -340,7 +332,8 @@ public class ExpertActivity extends AppCompatActivity {
             });
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
-            mainHandler.post(() -> { addDebugMessage("处理失败: " + err); btnSend.setEnabled(true); });
+            Log.e(TAG, "Query failed: " + err);
+            mainHandler.post(() -> { btnSend.setEnabled(true); });
         }
     }
 
@@ -410,8 +403,6 @@ public class ExpertActivity extends AppCompatActivity {
 
     private void addUserMessage(String text) { messages.add(new ChatMessage(TYPE_USER, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
     private void addBotMessage(String text) { messages.add(new ChatMessage(TYPE_BOT, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
-    private void addDebugMessage(String text) { mainHandler.post(() -> { messages.add(new ChatMessage(TYPE_DEBUG, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }); }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
