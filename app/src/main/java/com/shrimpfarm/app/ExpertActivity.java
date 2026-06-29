@@ -25,17 +25,27 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.shrimpfarm.app.model.ChlorineHelper;
+import com.shrimpfarm.app.model.DOHelper;
+import com.shrimpfarm.app.model.H2SHelper;
 import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
+import com.shrimpfarm.app.model.NitriteHelper;
+import com.shrimpfarm.app.model.ORPHelper;
 import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.ShrimpAdviceHelper;
+import com.shrimpfarm.app.model.SynonymExpander;
 import com.shrimpfarm.app.model.TokenEmbedder;
+import com.shrimpfarm.app.model.VibrioHelper;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -45,6 +55,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -96,7 +108,7 @@ public class ExpertActivity extends AppCompatActivity {
 
     private static class ChatMessage {
         final int type;
-        final String text;
+        String text;
         final String time;
         ChatMessage(int type, String text) {
             this.type = type;
@@ -289,6 +301,7 @@ public class ExpertActivity extends AppCompatActivity {
     private void processQuery(String query, boolean wasVoice) {
         try {
             Log.i(TAG, "Processing query: " + query);
+            query = SynonymExpander.expand(query);
             String localAdvice = checkLocalRules(query);
             String userPrompt;
 
@@ -321,20 +334,58 @@ public class ExpertActivity extends AppCompatActivity {
                 userPrompt = sb.toString();
             }
 
-            String answer = callCloudAPI(SYSTEM_PROMPT, userPrompt);
-
-            final String finalAnswer = answer;
-            final boolean speak = wasVoice;
-            mainHandler.post(() -> {
-                addBotMessage(finalAnswer);
-                if (speak && ttsReady) textToSpeech.speak(finalAnswer, TextToSpeech.QUEUE_FLUSH, null, null);
-                btnSend.setEnabled(true);
-            });
+            startStreamingResponse(userPrompt, wasVoice);
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Query failed: " + err);
             mainHandler.post(() -> { btnSend.setEnabled(true); });
         }
+    }
+
+    private void startStreamingResponse(String userPrompt, boolean wasVoice) {
+        messages.add(new ChatMessage(TYPE_BOT, ""));
+        final int msgIdx = messages.size() - 1;
+        mainHandler.post(() -> {
+            adapter.notifyItemInserted(msgIdx);
+            chatList.scrollToPosition(msgIdx);
+        });
+
+        final boolean speak = wasVoice;
+        callCloudAPIStreaming(SYSTEM_PROMPT, userPrompt, new StreamCallback() {
+            private final StringBuilder accumulated = new StringBuilder();
+
+            @Override
+            public void onChunk(String delta) {
+                accumulated.append(delta);
+                final String text = accumulated.toString();
+                mainHandler.post(() -> {
+                    messages.get(msgIdx).text = text;
+                    adapter.notifyItemChanged(msgIdx);
+                    chatList.scrollToPosition(msgIdx);
+                });
+            }
+
+            @Override
+            public void onComplete() {
+                mainHandler.post(() -> {
+                    btnSend.setEnabled(true);
+                    if (speak && ttsReady)
+                        textToSpeech.speak(accumulated.toString(), TextToSpeech.QUEUE_FLUSH, null, null);
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                mainHandler.post(() -> {
+                    ChatMessage msg = messages.get(msgIdx);
+                    if (msg.text.isEmpty()) {
+                        msg.text = "（请求失败：" + error + "）";
+                        adapter.notifyItemChanged(msgIdx);
+                    }
+                    btnSend.setEnabled(true);
+                });
+            }
+        });
     }
 
     private String routeQuery(String query) {
@@ -353,52 +404,167 @@ public class ExpertActivity extends AppCompatActivity {
 
     private String checkLocalRules(String query) {
         StringBuilder sb = new StringBuilder();
+        double temp = 25, ph = 8.2, tan = 0.5, sal = 15;
+        int day = 30;
+
         java.util.regex.Matcher tempMatcher = java.util.regex.Pattern.compile("(\\d+(\\.\\d+)?)\\s*度").matcher(query);
         java.util.regex.Matcher phMatcher = java.util.regex.Pattern.compile("pH[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         java.util.regex.Matcher nh3Matcher = java.util.regex.Pattern.compile("(氨氮|nh3|NH3)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         java.util.regex.Matcher salMatcher = java.util.regex.Pattern.compile("(盐度|盐)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
-        double temp = 25, ph = 8.2, tan = 0.5, sal = 15;
-        int day = 30;
+        java.util.regex.Matcher geMatcher = java.util.regex.Pattern.compile("(\\d+)\\s*格").matcher(query);
+
         if (tempMatcher.find()) temp = Double.parseDouble(tempMatcher.group(1));
         if (phMatcher.find()) ph = Double.parseDouble(phMatcher.group(1));
         if (nh3Matcher.find()) tan = Double.parseDouble(nh3Matcher.group(2));
         if (salMatcher.find()) sal = Double.parseDouble(salMatcher.group(2));
+        if (geMatcher.find() && (query.contains("盐") || query.contains("咸"))) {
+            double ge = Double.parseDouble(geMatcher.group(1));
+            sal = ge;
+            sb.append("盐度").append((int)ge).append("格 = ").append((int)ge).append("PSU；");
+        }
         java.util.regex.Matcher dayMatcher = java.util.regex.Pattern.compile("(第|养殖)?(\\d+)\\s*天").matcher(query);
         if (dayMatcher.find()) day = Integer.parseInt(dayMatcher.group(2));
-        if (query.contains("温度") || query.contains("水温")) { String a = ShrimpAdviceHelper.getTempAdvice(temp); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("pH") || query.contains("酸碱")) { String a = ShrimpAdviceHelper.getPhAdvice(ph); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("氨氮") || query.contains("nh3")) { String a = ShrimpAdviceHelper.getNh3Advice(ph, temp, tan, sal, day); if (!a.isEmpty()) sb.append(a).append("；"); }
-        if (query.contains("密度") || query.contains("比重")) { double d = com.shrimpfarm.app.model.SeawaterHelper.calcDensity(temp, sal); sb.append("当前海水密度为").append(String.format(Locale.ROOT, "%.2f", d)).append(" kg/m³；"); }
+
+        if (query.contains("温度") || query.contains("水温")) {
+            String a = ShrimpAdviceHelper.getTempAdvice(temp);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("pH") || query.contains("酸碱")) {
+            String a = ShrimpAdviceHelper.getPhAdvice(ph);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("氨氮") || query.contains("nh3")) {
+            String a = ShrimpAdviceHelper.getNh3Advice(ph, temp, tan, sal, day);
+            if (!a.isEmpty()) sb.append(a).append("；");
+        }
+        if (query.contains("亚盐") || query.contains("亚硝酸盐") || query.contains("NO2")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(亚盐|亚硝酸盐|NO2)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double nitrite = Double.parseDouble(m.group(2));
+                String a = NitriteHelper.getAdvice(nitrite, day, sal);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("溶氧") || query.contains("DO") || query.contains("溶解氧")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(溶氧|DO|溶解氧)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double doVal = Double.parseDouble(m.group(2));
+                String a = DOHelper.getAdvice(doVal);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("ORP") || query.contains("氧化还原")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("ORP[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double orp = Double.parseDouble(m.group(1));
+                String a = ORPHelper.getAdvice(orp);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("硫化氢") || query.contains("H2S") || query.contains("h2s")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(硫化氢|H2S|h2s)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double h2s = Double.parseDouble(m.group(2));
+                String a = H2SHelper.getAdvice(h2s);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("余氯") || query.contains("氯")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(余氯|氯)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double chlorine = Double.parseDouble(m.group(2));
+                String a = ChlorineHelper.getAdvice(chlorine, day);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("弧菌")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("弧菌[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            if (m.find()) {
+                double vibrio = Double.parseDouble(m.group(1));
+                String a = VibrioHelper.getAdvice(vibrio, day);
+                if (!a.isEmpty()) sb.append(a).append("；");
+            }
+        }
+        if (query.contains("密度") || query.contains("比重")) {
+            double d = com.shrimpfarm.app.model.SeawaterHelper.calcDensity(temp, sal);
+            sb.append("当前海水密度为").append(String.format(Locale.ROOT, "%.2f", d)).append(" kg/m³；");
+        }
+        if (query.contains("偷死")) {
+            sb.append("偷死通常由底质恶化、弧菌感染或虾苗体质弱引起。建议：1.停料观察2-3天，同时使用底改产品（如过硫酸氢钾）；2.检测水体弧菌；3.拌料投喂免疫增强剂（多糖、维生素C）；4.适当换水，控制投喂量在正常水平的70%；");
+        }
         return sb.toString();
     }
 
-    private String callCloudAPI(String systemPrompt, String userPrompt) throws IOException {
+    private interface StreamCallback {
+        void onChunk(String delta);
+        void onComplete();
+        void onError(String error);
+    }
+
+    private void callCloudAPIStreaming(String systemPrompt, String userPrompt, StreamCallback callback) {
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build();
         JSONObject body = new JSONObject();
         try {
             body.put("model", CLOUD_MODEL);
+            body.put("stream", true);
             JSONArray messages = new JSONArray();
             JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", systemPrompt);
             messages.put(sys);
             JSONObject usr = new JSONObject(); usr.put("role", "user"); usr.put("content", userPrompt);
             messages.put(usr);
             body.put("messages", messages); body.put("temperature", 0.2); body.put("max_tokens", 4096);
-        } catch (Exception e) { throw new IOException("JSON build error", e); }
+        } catch (Exception e) {
+            callback.onError("JSON build error");
+            return;
+        }
         Request request = new Request.Builder()
                 .url(CLOUD_API_URL)
                 .addHeader("Authorization", "Bearer " + cloudApiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(RequestBody.create(body.toString(), MediaType.parse("application/json; charset=utf-8")))
                 .build();
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful() || response.body() == null) throw new IOException("API error: " + response.code());
-            String respBody = response.body().string();
-            JSONObject json = new JSONObject(respBody);
-            JSONArray choices = json.getJSONArray("choices");
-            if (choices.length() > 0) return choices.getJSONObject(0).getJSONObject("message").getString("content");
-            return "（无回答）";
-        } catch (Exception e) { throw new IOException("API call failed: " + e.getMessage()); }
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onResponse(Call call, Response response) {
+                try {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        callback.onError("API error: " + response.code());
+                        return;
+                    }
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("data: ")) {
+                            String data = line.substring(6);
+                            if ("[DONE]".equals(data)) {
+                                callback.onComplete();
+                                return;
+                            }
+                            JSONObject chunk = new JSONObject(data);
+                            JSONArray choices = chunk.getJSONArray("choices");
+                            if (choices.length() > 0) {
+                                String delta = choices.getJSONObject(0)
+                                        .getJSONObject("delta")
+                                        .optString("content", "");
+                                if (!delta.isEmpty()) {
+                                    callback.onChunk(delta);
+                                }
+                            }
+                        }
+                    }
+                    callback.onComplete();
+                } catch (Exception e) {
+                    callback.onError(e.getMessage());
+                }
+            }
+
+            @Override
+            public void onFailure(Call call, IOException e) {
+                callback.onError(e.getMessage());
+            }
+        });
     }
 
     private void addUserMessage(String text) { messages.add(new ChatMessage(TYPE_USER, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
