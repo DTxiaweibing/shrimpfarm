@@ -371,8 +371,8 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     private void refreshHistory() {
-        historyList.clear();
         if (showingLocal) {
+            historyList.clear();
             List<LocalBackupManager.BackupFileInfo> localBackups = localManager.listLocalBackups();
             for (LocalBackupManager.BackupFileInfo info : localBackups) {
                 historyList.add(new BackupEntry(info.name, info.date, info.size, info, true));
@@ -383,11 +383,14 @@ public class BackupActivity extends AppCompatActivity {
                 try {
                     List<String> cloudFiles = webDavManager.listBackups();
                     java.util.Collections.sort(cloudFiles, (a, b) -> Long.compare(parseDateFromName(b), parseDateFromName(a)));
+                    List<BackupEntry> entries = new ArrayList<>();
+                    for (String name : cloudFiles) {
+                        long date = parseDateFromName(name);
+                        entries.add(new BackupEntry(name, date, 0, null, false));
+                    }
                     runOnUiThread(() -> {
-                        for (String name : cloudFiles) {
-                            long date = parseDateFromName(name);
-                            historyList.add(new BackupEntry(name, date, 0, null, false));
-                        }
+                        historyList.clear();
+                        historyList.addAll(entries);
                         historyAdapter.notifyDataSetChanged();
                     });
                 } catch (Exception e) {
