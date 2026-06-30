@@ -22,23 +22,31 @@ public class NumericCalculator {
                     ge, salinity, temp, density);
         }
         if (query.contains("盐度") && (query.contains("密度") || query.contains("比重"))) {
-            Matcher salMatcher = Pattern.compile("盐度[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            double salinity = -1;
+            Matcher salMatcher = Pattern.compile("盐度[\\s:是为]*(\\d+(\\.\\d+)?)").matcher(query);
             if (salMatcher.find()) {
-                double salinity = Double.parseDouble(salMatcher.group(1));
+                salinity = Double.parseDouble(salMatcher.group(1));
+            } else {
+                Matcher qfMatcher = Pattern.compile("千分之(\\d+(\\.\\d+)?)").matcher(query);
+                if (qfMatcher.find()) {
+                    salinity = Double.parseDouble(qfMatcher.group(1));
+                }
+            }
+            if (salinity >= 0) {
                 double density = SeawaterHelper.calcDensity(temp, salinity);
                 return String.format(Locale.ROOT,
-                        "🌊 盐度 %.1f PSU，%.0f℃时密度 %.2f kg/m³",
+                        "🌊 盐度 %.0f PSU，%.0f℃时密度 %.2f kg/m³",
                         salinity, temp, density);
             }
         }
         if ((query.contains("密度") || query.contains("比重")) && query.contains("盐度")) {
-            Matcher denMatcher = Pattern.compile("(密度|比重)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
+            Matcher denMatcher = Pattern.compile("(密度|比重)[\\s:是为]*(\\d+(\\.\\d+)?)").matcher(query);
             if (denMatcher.find()) {
                 double density = Double.parseDouble(denMatcher.group(2));
                 double salinity = SeawaterHelper.solveSalinity(temp, density);
                 return String.format(Locale.ROOT,
-                        "🌊 密度 %.2f kg/m³，%.0f℃时盐度 %.3f PSU",
-                        density, temp, salinity);
+                        "🌊 密度 %.2f kg/m³，%.0f℃时盐度 %.3f PSU (≈ %.1f‰)",
+                        density, temp, salinity, salinity);
             }
         }
         return null;

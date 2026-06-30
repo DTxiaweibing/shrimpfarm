@@ -56,9 +56,7 @@ public class SeawaterHelper {
      * 20格 = 18℃时比重 1.020 = 28.104 PSU
      */
     public static double geToSalinity(double ge) {
-        double sg_18 = 1.0 + ge / 1000.0;
-        double rho_pure_18 = pureWaterDensity(18.0);
-        double targetDensity = sg_18 * rho_pure_18;
+        double targetDensity = 1000.0 + ge;
         return solveSalinity(18.0, targetDensity);
     }
 

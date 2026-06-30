@@ -18,16 +18,19 @@ public class DecisionRAG {
         Matcher nh3Matcher = Pattern.compile("(氨氮|nh3|NH3)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         Matcher salMatcher = Pattern.compile("(盐度|盐)[\\s:]*(\\d+(\\.\\d+)?)").matcher(query);
         Matcher geMatcher = Pattern.compile("(\\d+)\\s*格").matcher(query);
+        Matcher qfMatcher = Pattern.compile("千分之(\\d+(\\.\\d+)?)").matcher(query);
 
         if (tempMatcher.find()) temp = Double.parseDouble(tempMatcher.group(1));
         if (phMatcher.find()) ph = Double.parseDouble(phMatcher.group(1));
         if (nh3Matcher.find()) tan = Double.parseDouble(nh3Matcher.group(2));
         if (salMatcher.find()) sal = Double.parseDouble(salMatcher.group(2));
+        else if (qfMatcher.find()) sal = Double.parseDouble(qfMatcher.group(1));
         if (geMatcher.find() && (query.contains("盐") || query.contains("咸"))) {
             double ge = Double.parseDouble(geMatcher.group(1));
             sal = SeawaterHelper.geToSalinity(ge);
             sb.append("盐度").append((int)ge).append("格 = ").append(String.format(Locale.ROOT, "%.1f", sal)).append("PSU；");
         }
+        if (query.contains("后期") || query.contains("60天") || query.contains("六十天")) day = 60;
         Matcher dayMatcher = Pattern.compile("(第|养殖)?(\\d+)\\s*天").matcher(query);
         if (dayMatcher.find()) day = Integer.parseInt(dayMatcher.group(2));
 
@@ -49,6 +52,10 @@ public class DecisionRAG {
                 double nitrite = Double.parseDouble(m.group(2));
                 String a = NitriteHelper.getAdvice(nitrite, day, sal);
                 if (!a.isEmpty()) sb.append(a).append("；");
+            } else if (query.contains("耐受") || query.contains("安全") || query.contains("限")) {
+                double limit = NitriteHelper.getSafeLimit(day, sal);
+                sb.append(String.format(Locale.ROOT,
+                        "当前盐度%.0fPSU，养殖%.0f天，亚硝酸盐安全限值约%.2f mg/L", sal, (double)day, limit)).append("；");
             }
         }
         if (query.contains("溶氧") || query.contains("DO") || query.contains("溶解氧")) {

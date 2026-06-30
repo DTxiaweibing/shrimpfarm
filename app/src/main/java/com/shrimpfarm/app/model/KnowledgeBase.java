@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.PriorityQueue;
 
 public class KnowledgeBase {
 
@@ -105,33 +106,30 @@ public class KnowledgeBase {
         if (topK <= 0) topK = Math.min(20, chunks.size());
         topK = Math.min(topK, chunks.size());
 
-        float[] scores = new float[chunks.size()];
-        int[] indices = new int[chunks.size()];
-        int validCount = 0;
+        PriorityQueue<ScoredIdx> heap = new PriorityQueue<>(topK,
+            (a, b) -> Float.compare(a.score, b.score));
+
         for (int i = 0; i < chunks.size(); i++) {
             if (docIdPrefix != null && !chunks.get(i).docId.startsWith(docIdPrefix)) continue;
-            scores[validCount] = cosineSimilarity(queryEmb, chunks.get(i).embedding);
-            indices[validCount] = i;
-            validCount++;
-        }
-        topK = Math.min(topK, validCount);
-        for (int i = 0; i < topK; i++) {
-            for (int j = i + 1; j < chunks.size(); j++) {
-                if (scores[j] > scores[i]) {
-                    float tmpS = scores[i]; scores[i] = scores[j]; scores[j] = tmpS;
-                    int tmpI = indices[i]; indices[i] = indices[j]; indices[j] = tmpI;
-                }
+            float score = cosineSimilarity(queryEmb, chunks.get(i).embedding);
+            heap.offer(new ScoredIdx(i, score));
+            if (heap.size() > topK) {
+                heap.poll();
             }
         }
+
+        List<ScoredIdx> sorted = new ArrayList<>(heap);
+        sorted.sort((a, b) -> Float.compare(b.score, a.score));
+
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < Math.min(3, scores.length); i++) {
-            sb.append(String.format(java.util.Locale.ROOT, " %.3f", scores[i]));
+        for (int i = 0; i < Math.min(3, sorted.size()); i++) {
+            sb.append(String.format(java.util.Locale.ROOT, " %.3f", sorted.get(i).score));
         }
         Log.i(TAG, "Top scores:" + sb + " (query[0]=" + queryEmb[0] + ")");
         List<ScoredIdx> results = new ArrayList<>();
-        for (int i = 0; i < topK; i++) {
-            if (scores[i] < MIN_SCORE) break;
-            results.add(new ScoredIdx(indices[i], scores[i]));
+        for (ScoredIdx si : sorted) {
+            if (si.score < MIN_SCORE) break;
+            results.add(si);
         }
         return results;
     }
