@@ -427,11 +427,17 @@ public class ExpertActivity extends AppCompatActivity {
             public void onError(String error) {
                 mainHandler.post(() -> {
                     stopAnimation();
+                    String display;
+                    if (error.startsWith("API返回")) {
+                        display = "专家没看懂问题，请换个问法试试";
+                    } else {
+                        display = "（请求失败：" + error + "）";
+                    }
                     if (botMsgIdx >= 0) {
-                        messages.get(botMsgIdx).text = "（请求失败：" + error + "）";
+                        messages.get(botMsgIdx).text = display;
                         adapter.notifyItemChanged(botMsgIdx);
                     } else {
-                        messages.add(new ChatMessage(TYPE_BOT, "（请求失败：" + error + "）"));
+                        messages.add(new ChatMessage(TYPE_BOT, display));
                         adapter.notifyItemInserted(messages.size() - 1);
                     }
                     btnSend.setEnabled(true);
@@ -473,8 +479,16 @@ public class ExpertActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) {
                 try {
-                    if (!response.isSuccessful() || response.body() == null) {
-                        callback.onError("API error: " + response.code());
+                    if (!response.isSuccessful()) {
+                        String detail = "";
+                        try {
+                            String bodyStr = response.body() != null ? response.body().string() : "";
+                            if (!bodyStr.isEmpty()) {
+                                int len = Math.min(120, bodyStr.length());
+                                detail = " (" + bodyStr.replaceAll("[\\r\\n]", " ").substring(0, len) + ")";
+                            }
+                        } catch (Exception ignored) {}
+                        callback.onError("API返回" + response.code() + detail);
                         return;
                     }
                     BufferedReader reader = new BufferedReader(

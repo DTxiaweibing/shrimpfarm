@@ -35,9 +35,6 @@ public class RagPipeline {
         if (IntentRouter.INTENT_WEATHER.equals(intent)) {
             return Result.local("请告诉我你在哪个城市，我帮你查天气。");
         }
-        if (IntentRouter.INTENT_GENERAL.equals(intent)) {
-            return Result.api("");
-        }
 
         String query = SynonymExpander.expand(rawQuery);
 
@@ -78,7 +75,11 @@ public class RagPipeline {
             for (Reranker.ScoredDoc sd : reranked) {
                 sb.append("【参考知识】\n").append(sd.content).append("\n\n");
             }
-            sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
+            if (!reranked.isEmpty()) {
+                sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
+            } else {
+                sb.append("请根据你自身的养殖知识回答，确保建议安全可行。");
+            }
             userPrompt = sb.toString();
         } catch (Exception e) {
             userPrompt = "用户问题：" + query
