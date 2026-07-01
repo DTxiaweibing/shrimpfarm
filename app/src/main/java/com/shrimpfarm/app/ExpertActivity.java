@@ -370,14 +370,37 @@ public class ExpertActivity extends AppCompatActivity {
                         textToSpeech.speak(result.text, TextToSpeech.QUEUE_FLUSH, null, null);
                 });
             } else {
+                String context = buildConversationContext();
+                String promptWithContext = context.isEmpty()
+                        ? result.promptForApi
+                        : context + "\n" + result.promptForApi;
                 mainHandler.post(() -> transitionAnimation("正在联系专家"));
-                startStreamingResponse(result.promptForApi, wasVoice);
+                startStreamingResponse(promptWithContext, wasVoice);
             }
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Query failed: " + err);
             mainHandler.post(() -> { stopAnimation(); btnSend.setEnabled(true); });
         }
+    }
+
+    private String buildConversationContext() {
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (int i = messages.size() - 1; i >= 0 && count < 3; i--) {
+            ChatMessage msg = messages.get(i);
+            if (msg.type == TYPE_BOT) {
+                sb.insert(0, "\n专家回答：" + msg.text + "\n");
+            } else if (msg.type == TYPE_USER) {
+                sb.insert(0, "用户问题：" + msg.text);
+                count++;
+                if (count < 3) sb.insert(0, "\n---\n");
+            }
+        }
+        if (sb.length() == 0) return "";
+        sb.insert(0, "以下是最近的对话历史：\n");
+        sb.append("\n---\n请结合历史对话回答当前问题。");
+        return sb.toString();
     }
 
     private void startStreamingResponse(String userPrompt, boolean wasVoice) {
