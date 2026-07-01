@@ -184,27 +184,67 @@ public class WeatherHelper {
             }
             Log.i(TAG, "public IP=" + ip);
 
-            Request geoReq = new Request.Builder()
+            // Try ip-api.com first
+            String city = geoByIpApi(ip);
+            if (city != null) return city;
+            // Fallback: pconline (works in China)
+            city = geoByPconline(ip);
+            if (city != null) return city;
+            Log.w(TAG, "all IP geolocation services failed");
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "getCityByIP failed", e);
+            return null;
+        }
+    }
+
+    private static String geoByIpApi(String ip) {
+        try {
+            Request req = new Request.Builder()
                     .url("http://ip-api.com/json/" + urlEncode(ip) + "?lang=zh-CN&fields=status,city")
                     .get()
                     .build();
-            try (Response geoResp = client.newCall(geoReq).execute()) {
-                if (!geoResp.isSuccessful()) {
-                    Log.w(TAG, "ip-api failed: " + geoResp.code());
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful()) {
+                    Log.w(TAG, "ip-api failed: " + resp.code());
                     return null;
                 }
-                JSONObject geo = new JSONObject(geoResp.body().string());
+                JSONObject geo = new JSONObject(resp.body().string());
                 if (!"success".equals(geo.optString("status"))) {
-                    Log.w(TAG, "ip-api status not success: " + geo.toString());
+                    Log.w(TAG, "ip-api status not success: " + geo);
                     return null;
                 }
                 String city = geo.optString("city", "");
                 if (city.isEmpty()) return null;
-                Log.i(TAG, "geo city=" + city);
+                Log.i(TAG, "ip-api city=" + city);
                 return city;
             }
         } catch (Exception e) {
-            Log.e(TAG, "getCityByIP failed", e);
+            Log.e(TAG, "ip-api exception", e);
+            return null;
+        }
+    }
+
+    private static String geoByPconline(String ip) {
+        try {
+            Request req = new Request.Builder()
+                    .url("http://whois.pconline.com.cn/ipJson.jsp?ip=" + urlEncode(ip) + "&json=true")
+                    .get()
+                    .build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful()) {
+                    Log.w(TAG, "pconline failed: " + resp.code());
+                    return null;
+                }
+                JSONObject geo = new JSONObject(resp.body().string());
+                String city = geo.optString("city", "");
+                if (city.endsWith("\u5e02")) city = city.substring(0, city.length() - 1);
+                if (city.isEmpty()) return null;
+                Log.i(TAG, "pconline city=" + city);
+                return city;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "pconline exception", e);
             return null;
         }
     }
