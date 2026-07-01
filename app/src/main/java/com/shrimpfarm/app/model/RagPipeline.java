@@ -4,6 +4,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class RagPipeline {
 
@@ -44,7 +45,28 @@ public class RagPipeline {
                     .format(new java.util.Date()));
         }
         if (IntentRouter.INTENT_WEATHER.equals(intent)) {
-            return Result.local("请告诉我你在哪个城市，我帮你查天气。");
+            String city = extractCity(rawQuery);
+            if (city == null) {
+                city = WeatherHelper.getCityByIP();
+                if (city != null) Log.i(TAG, "auto-located city=" + city);
+            } else {
+                Log.i(TAG, "weather city=" + city);
+            }
+            if (city != null) {
+                String weatherJson = WeatherHelper.getWeatherJsonForAI(rawQuery, city);
+                if (weatherJson != null) {
+                    String prompt = "用户问题：" + rawQuery + "\n\n当前天气数据（JSON）："
+                            + weatherJson + "\n\n请用口语化的方式描述当前天气，"
+                            + "并结合小棚养虾场景给出建议（如需防暑降温、增氧、防雨等）。";
+                    return Result.api(prompt);
+                }
+                String weather = WeatherHelper.getWeatherNow(city);
+                if (weather != null) {
+                    return Result.local(city + "，" + weather);
+                }
+                return Result.local("暂时查不到" + city + "的天气，检查城市名是否正确。");
+            }
+            return Result.local("查不到你所在城市的天气信息，请输入城市名。");
         }
         if (IntentRouter.INTENT_GENERAL.equals(intent)) {
             return Result.api(rawQuery);
@@ -122,6 +144,20 @@ public class RagPipeline {
                 || query.contains("禁止") || query.contains("允许") || query.contains("不能"))
             return "rules";
         return null;
+    }
+
+    private static String extractCity(String query) {
+        String cleaned = query.replaceAll(
+                "(今天|明天|后天|昨天|天气|预报|预告|播报" +
+                "|下雨|下雪|阴天|晴天|多云|阵雨|雷雨|暴雨|大风|台风|刮风" +
+                "|气温|温度|湿度|风向|风力|风速|气压|降水" +
+                "|怎么样|怎么样|怎样|如何|什么|多少|几度|几级|几" +
+                "|高|低|吗|呢|吧|啊|哈|呀|哦|嗯" +
+                "|查一下|看看|帮我|我想|我要|请问|能不能|会不会" +
+                "|℃|°C|°|度|％|%|点|分" +
+                "|[？?！!，,。.、…：:；;【】（）()（）])"
+                , "").trim();
+        return cleaned.isEmpty() ? null : cleaned;
     }
 
     public static boolean isGeneralIntent(String intent) {

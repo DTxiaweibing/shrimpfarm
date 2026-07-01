@@ -60,11 +60,11 @@ public class IntentRouter {
     ));
 
     public static String classify(String query) {
-        if (query.matches(".*(几点|时间|日期|今天|星期|现在是|几月|几号).*"))
-            return INTENT_TIME;
-        if (query.matches(".*(天气|下雨|阴天|晴天|气温|刮风|台风|℃|°C).*")
-                && !query.contains("水温"))
+        if (query.matches(".*(天气|下雨|阴天|晴天|多云|阵雨|雷雨|暴[风雨]|下雪|降[水温]|气温|刮风|台风|℃|°C|预报|风力|风速|湿度).*")
+                && !query.contains("水温") && !query.contains("水温度"))
             return INTENT_WEATHER;
+        if (query.matches(".*(几点|时间|日期|星期|现在是|几月|几号).*"))
+            return INTENT_TIME;
         for (String kw : SHRIMP_KEYWORDS) {
             if (query.contains(kw)) return INTENT_SHRIMP;
         }
