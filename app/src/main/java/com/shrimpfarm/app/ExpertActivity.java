@@ -30,8 +30,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 import com.shrimpfarm.app.model.RagPipeline;
-
 import com.shrimpfarm.app.model.TokenEmbedder;
+import com.shrimpfarm.app.model.WeatherHelper;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -186,6 +186,7 @@ public class ExpertActivity extends AppCompatActivity {
     private void initModels() {
         try {
             loadApiKey();
+            WeatherHelper.initApiKey();
             embedder = new TokenEmbedder(this);
             knowledgeBase = new KnowledgeBase(this);
             KnowledgeBaseUpdater.checkUpdate(this);

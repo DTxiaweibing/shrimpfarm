@@ -5,12 +5,6 @@ import android.util.Log;
 import org.json.JSONObject;
 
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Base64;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -23,85 +17,51 @@ public class WeatherHelper {
     private static final String TAG = "WeatherHelper";
 
     private static final String API_HOST = "ku33jr9ct3.re.qweatherapi.com";
-    private static final String KEY_ID = "KKB33C6QW6";
-    private static final String PROJECT_ID = "4C88VKET5W";
-    private static final String PRIVATE_KEY_B64 = "MC4CAQAwBQYDK2VwBCIEIDUg5O7nq8Wkoked7BrxooGkfZwwv5kbdigvhcX/6dzd";
+    private static final String QWEATHER_KEY_REMOTE_URL = "https://dtxiaweibing.github.io/TIMU/qweather_key.txt";
+    private static final String QWEATHER_KEY_FALLBACK = ""; // 用户申请到 API Key 后填入（+1 编码）
 
     private static String qweatherApiKey;
-
-    private static PrivateKey privateKey;
-    private static String cachedToken;
-    private static long tokenExpiresAt;
 
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .build();
 
-    public static void setApiKey(String key) {
-        qweatherApiKey = key;
+    private static String deobfuscate(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) sb.append((char)(s.charAt(i) - 1));
+        return sb.toString();
     }
 
-    private static PrivateKey loadPrivateKey() throws Exception {
-        if (privateKey == null) {
-            byte[] keyBytes = Base64.getDecoder().decode(PRIVATE_KEY_B64);
-            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-            try {
-                KeyFactory kf = KeyFactory.getInstance("Ed25519");
-                privateKey = kf.generatePrivate(spec);
-            } catch (Exception e) {
-                Log.w(TAG, "Ed25519 KeyFactory failed, trying EdDSA", e);
-                KeyFactory kf = KeyFactory.getInstance("EdDSA");
-                privateKey = kf.generatePrivate(spec);
-            }
-        }
-        return privateKey;
-    }
-
-    private static synchronized String getToken() {
-        long now = System.currentTimeMillis() / 1000;
-        if (cachedToken != null && now < tokenExpiresAt) {
-            return cachedToken;
-        }
+    public static void initApiKey() {
+        if (qweatherApiKey != null) return;
         try {
-            long iat = now - 30;
-            long exp = now + 1800;
-
-            String headerStr = "{\"alg\":\"EdDSA\",\"typ\":\"JWT\",\"kid\":\"" + KEY_ID + "\"}";
-            String payloadStr = "{\"iss\":\"" + PROJECT_ID + "\",\"iat\":" + iat + ",\"exp\":" + exp + ",\"sub\":\"" + PROJECT_ID + "\"}";
-
-            String b64Header = Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(headerStr.getBytes(StandardCharsets.UTF_8));
-            String b64Payload = Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(payloadStr.getBytes(StandardCharsets.UTF_8));
-
-            String toSign = b64Header + "." + b64Payload;
-
-            Signature sig;
-            try {
-                sig = Signature.getInstance("Ed25519");
-            } catch (Exception e) {
-                Log.w(TAG, "Ed25519 Signature not available, trying EdDSA", e);
-                sig = Signature.getInstance("EdDSA");
+            OkHttpClient c = new OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build();
+            Request req = new Request.Builder().url(QWEATHER_KEY_REMOTE_URL).build();
+            try (Response resp = c.newCall(req).execute()) {
+                if (resp.isSuccessful()) {
+                    String remote = resp.body().string().trim();
+                    String decrypted = deobfuscate(remote);
+                    if (decrypted.length() > 5) {
+                        qweatherApiKey = decrypted;
+                        Log.i(TAG, "QWeather API Key: remote OK");
+                        return;
+                    }
+                }
             }
-            sig.initSign(loadPrivateKey());
-            sig.update(toSign.getBytes(StandardCharsets.UTF_8));
-            String b64Sig = Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(sig.sign());
-
-            cachedToken = toSign + "." + b64Sig;
-            tokenExpiresAt = exp;
-            Log.i(TAG, "JWT generated, expires in 30min");
-            return cachedToken;
-        } catch (Exception e) {
-            Log.e(TAG, "JWT generation failed", e);
-            return null;
+        } catch (Exception ignored) {}
+        if (!QWEATHER_KEY_FALLBACK.isEmpty()) {
+            qweatherApiKey = deobfuscate(QWEATHER_KEY_FALLBACK);
+            Log.i(TAG, "QWeather API Key: fallback");
+        } else {
+            Log.w(TAG, "QWeather API Key not configured");
         }
     }
 
     private static String urlEncode(String s) {
         try {
-            return java.net.URLEncoder.encode(s, "UTF-8");
+            return URLEncoder.encode(s, "UTF-8");
         } catch (java.io.UnsupportedEncodingException e) {
             return s;
         }
@@ -109,22 +69,19 @@ public class WeatherHelper {
 
     private static Request.Builder buildAuthRequest(String url) {
         Request.Builder rb = new Request.Builder().url(url);
-        String token = getToken();
-        if (token != null) {
-            rb.header("Authorization", "Bearer " + token);
-            Log.d(TAG, "using JWT auth");
-            return rb;
-        }
         if (qweatherApiKey != null && !qweatherApiKey.isEmpty()) {
             rb.header("X-QW-Api-Key", qweatherApiKey);
-            Log.w(TAG, "JWT failed, falling back to API Key");
             return rb;
         }
-        Log.e(TAG, "no auth method available (JWT failed, no API Key set)");
+        Log.e(TAG, "no QWeather API Key set");
         return rb;
     }
 
     public static JSONObject getWeatherRaw(String location) {
+        if (qweatherApiKey == null || qweatherApiKey.isEmpty()) {
+            Log.e(TAG, "getWeatherRaw skipped: no API Key");
+            return null;
+        }
         try {
             String url = "https://" + API_HOST + "/v7/weather/now?location=" + urlEncode(location) + "&lang=zh";
             Log.d(TAG, "requesting: " + url);
@@ -173,13 +130,11 @@ public class WeatherHelper {
     }
 
     public static String getCityByIP() {
-        // Try pconline first (reliable in China, auto-detects caller IP)
-        String city = geoDirect("http://whois.pconline.com.cn/ipJson.jsp?json=true",
-                "pconline");
+        // Try ip-api.com with HTTPS first
+        String city = geoDirect("https://ip-api.com/json?lang=zh-CN&fields=status,city", "ip-api");
         if (city != null) return city;
-        // Fallback: ip-api.com (also auto-detects)
-        city = geoDirect("http://ip-api.com/json?lang=zh-CN&fields=status,city",
-                "ip-api");
+        // Fallback: pconline (HTTP only, needs network_security_config)
+        city = geoDirect("http://whois.pconline.com.cn/ipJson.jsp?json=true", "pconline");
         if (city != null) return city;
         Log.w(TAG, "all IP geolocation services failed");
         return null;
