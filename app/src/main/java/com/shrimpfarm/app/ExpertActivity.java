@@ -8,8 +8,9 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.os.Vibrator;
+import android.os.VibrationEffect;
+import android.util.Log;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.view.LayoutInflater;
@@ -20,6 +21,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -28,7 +30,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.shrimpfarm.app.model.KnowledgeBase;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 import com.shrimpfarm.app.model.RagPipeline;
-import com.shrimpfarm.app.model.Reranker;
+
 import com.shrimpfarm.app.model.TokenEmbedder;
 
 import org.json.JSONArray;
@@ -82,7 +84,6 @@ public class ExpertActivity extends AppCompatActivity {
 
     private TokenEmbedder embedder;
     private KnowledgeBase knowledgeBase;
-    private Reranker reranker;
     private String cloudApiKey;
     private TextToSpeech textToSpeech;
     private boolean ttsReady = false;
@@ -132,8 +133,8 @@ public class ExpertActivity extends AppCompatActivity {
             }
         }
         @Override public int getItemViewType(int position) { return messages.get(position).type; }
-        @Override
-        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        @NonNull @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             int layout;
             if (viewType == TYPE_DEBUG) layout = com.shrimpfarm.app.R.layout.item_chat_debug;
             else if (viewType == TYPE_ANIMATION) layout = com.shrimpfarm.app.R.layout.item_chat_animation;
@@ -141,7 +142,7 @@ public class ExpertActivity extends AppCompatActivity {
             return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false), viewType);
         }
         @Override
-        public void onBindViewHolder(ViewHolder holder, int position) {
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             ChatMessage msg = messages.get(position);
             holder.textMsg.setText(msg.text);
             if (holder.textTime != null) holder.textTime.setText(msg.time);
@@ -164,7 +165,7 @@ public class ExpertActivity extends AppCompatActivity {
         adapter = new ChatAdapter(messages);
         chatList.setAdapter(adapter);
 
-        addBotMessage("您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！");
+        addBotWelcome();
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -187,13 +188,6 @@ public class ExpertActivity extends AppCompatActivity {
             loadApiKey();
             embedder = new TokenEmbedder(this);
             knowledgeBase = new KnowledgeBase(this);
-            try {
-                reranker = new Reranker(this);
-                Log.i(TAG, "Reranker loaded");
-            } catch (Exception e) {
-                reranker = null;
-                Log.w(TAG, "Reranker unavailable: " + e.getMessage());
-            }
             KnowledgeBaseUpdater.checkUpdate(this);
             initialized = true;
             Log.i(TAG, "Init OK, KB=" + knowledgeBase.size());
@@ -215,10 +209,10 @@ public class ExpertActivity extends AppCompatActivity {
                     .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build();
             Request req = new Request.Builder().url(KEY_REMOTE_URL).build();
             try (Response resp = client.newCall(req).execute()) {
-                if (resp.isSuccessful() && resp.body() != null) {
+                if (resp.isSuccessful()) {
                     String remote = resp.body().string().trim();
                     String decrypted = deobfuscate(remote);
-                    if (decrypted != null && decrypted.length() > 10) {
+                    if (decrypted.length() > 10) {
                         cloudApiKey = decrypted;
                         Log.i(TAG, "API: remote OK");
                         return;
@@ -243,6 +237,7 @@ public class ExpertActivity extends AppCompatActivity {
         }
     }
 
+    @SuppressWarnings("deprecation")
     private void startVoiceInput() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -258,7 +253,7 @@ public class ExpertActivity extends AppCompatActivity {
             return;
         }
         if (vibrator != null && vibrator.hasVibrator()) {
-            vibrator.vibrate(50);
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE));
         }
         startActivityForResult(intent, VOICE_REQUEST_CODE);
     }
@@ -279,7 +274,7 @@ public class ExpertActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startVoiceInput();
@@ -362,7 +357,7 @@ public class ExpertActivity extends AppCompatActivity {
             Log.i(TAG, "Processing query: " + query);
             RagPipeline pipeline = new RagPipeline();
             RagPipeline.Result result = pipeline.process(query, embedder, knowledgeBase,
-                    reranker, ENABLE_ROUTING, SYSTEM_PROMPT);
+                    ENABLE_ROUTING, SYSTEM_PROMPT);
 
             if (result.isLocal) {
                 mainHandler.post(() -> {
@@ -389,7 +384,7 @@ public class ExpertActivity extends AppCompatActivity {
         mainHandler.post(() -> transitionAnimation("专家思考中"));
 
         final boolean speak = wasVoice;
-        callCloudAPIStreaming(SYSTEM_PROMPT, userPrompt, new StreamCallback() {
+        callCloudAPIStreaming(userPrompt, new StreamCallback() {
             private final StringBuilder accumulated = new StringBuilder();
             private boolean firstChunk = true;
             private int botMsgIdx = -1;
@@ -452,7 +447,7 @@ public class ExpertActivity extends AppCompatActivity {
         void onError(String error);
     }
 
-    private void callCloudAPIStreaming(String systemPrompt, String userPrompt, StreamCallback callback) {
+    private void callCloudAPIStreaming(String userPrompt, StreamCallback callback) {
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build();
         JSONObject body = new JSONObject();
@@ -460,7 +455,7 @@ public class ExpertActivity extends AppCompatActivity {
             body.put("model", CLOUD_MODEL);
             body.put("stream", true);
             JSONArray messages = new JSONArray();
-            JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", systemPrompt);
+            JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", SYSTEM_PROMPT);
             messages.put(sys);
             JSONObject usr = new JSONObject(); usr.put("role", "user"); usr.put("content", userPrompt);
             messages.put(usr);
@@ -477,12 +472,12 @@ public class ExpertActivity extends AppCompatActivity {
                 .build();
         client.newCall(request).enqueue(new Callback() {
             @Override
-            public void onResponse(Call call, Response response) {
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
                 try {
                     if (!response.isSuccessful()) {
                         String detail = "";
                         try {
-                            String bodyStr = response.body() != null ? response.body().string() : "";
+                            String bodyStr = response.body().string();
                             if (!bodyStr.isEmpty()) {
                                 int len = Math.min(120, bodyStr.length());
                                 detail = " (" + bodyStr.replaceAll("[\\r\\n]", " ").substring(0, len) + ")";
@@ -520,21 +515,20 @@ public class ExpertActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 callback.onError(e.getMessage());
             }
         });
     }
 
     private void addUserMessage(String text) { messages.add(new ChatMessage(TYPE_USER, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
-    private void addBotMessage(String text) { messages.add(new ChatMessage(TYPE_BOT, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
+    private void addBotWelcome() { messages.add(new ChatMessage(TYPE_BOT, "您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！")); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
     @Override
     protected void onDestroy() {
         super.onDestroy();
         stopAnimationTimer();
         executor.shutdown();
         if (embedder != null) embedder.close();
-        if (reranker != null) reranker.close();
         if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
     }
 }
