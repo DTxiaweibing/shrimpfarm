@@ -45,27 +45,34 @@ public class RagPipeline {
                     .format(new java.util.Date()));
         }
         if (IntentRouter.INTENT_WEATHER.equals(intent)) {
+            Log.i(TAG, "WEATHER intent for: " + rawQuery);
             String city = extractCity(rawQuery);
             if (city == null) {
                 city = WeatherHelper.getCityByIP();
-                if (city != null) Log.i(TAG, "auto-located city=" + city);
+                if (city != null) { Log.i(TAG, "IP located city=" + city); }
+                else { Log.w(TAG, "IP location failed"); }
             } else {
-                Log.i(TAG, "weather city=" + city);
+                Log.i(TAG, "extracted city=" + city);
             }
             if (city != null) {
                 String weatherJson = WeatherHelper.getWeatherJsonForAI(rawQuery, city);
                 if (weatherJson != null) {
+                    Log.i(TAG, "weather JSON available, sending to AI");
                     String prompt = "用户问题：" + rawQuery + "\n\n当前天气数据（JSON）："
                             + weatherJson + "\n\n请用口语化的方式描述当前天气，"
                             + "并结合小棚养虾场景给出建议（如需防暑降温、增氧、防雨等）。";
                     return Result.api(prompt);
                 }
+                Log.w(TAG, "getWeatherJsonForAI returned null, trying getWeatherNow");
                 String weather = WeatherHelper.getWeatherNow(city);
                 if (weather != null) {
+                    Log.i(TAG, "getWeatherNow OK, returning local");
                     return Result.local(city + "，" + weather);
                 }
+                Log.e(TAG, "both weather methods failed for city=" + city);
                 return Result.local("暂时查不到" + city + "的天气，检查城市名是否正确。");
             }
+            Log.w(TAG, "no city available, returning error");
             return Result.local("查不到你所在城市的天气信息，请输入城市名。");
         }
         if (IntentRouter.INTENT_GENERAL.equals(intent)) {
@@ -152,12 +159,14 @@ public class RagPipeline {
                 "|下雨|下雪|阴天|晴天|多云|阵雨|雷雨|暴雨|大风|台风|刮风" +
                 "|气温|温度|湿度|风向|风力|风速|气压|降水" +
                 "|怎么样|怎么样|怎样|如何|什么|多少|几度|几级|几" +
-                "|高|低|吗|呢|吧|啊|哈|呀|哦|嗯" +
+                "|高|低|吗|呢|吧|啊|哈|呀|哦|嗯|的|了" +
                 "|查一下|看看|帮我|我想|我要|请问|能不能|会不会" +
                 "|℃|°C|°|度|％|%|点|分" +
                 "|[？?！!，,。.、…：:；;【】（）()（）])"
                 , "").trim();
-        return cleaned.isEmpty() ? null : cleaned;
+        String result = cleaned.isEmpty() ? null : cleaned;
+        Log.d(TAG, "extractCity(" + query + ") = " + result);
+        return result;
     }
 
     public static boolean isGeneralIntent(String intent) {
