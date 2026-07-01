@@ -18,7 +18,7 @@ public class WeatherHelper {
 
     private static final String API_HOST = "ku33jr9ct3.re.qweatherapi.com";
     private static final String QWEATHER_KEY_REMOTE_URL = "https://dtxiaweibing.github.io/TIMU/qweather_key.txt";
-    private static final String QWEATHER_KEY_FALLBACK = ""; // 用户申请到 API Key 后填入（+1 编码）
+    private static final String QWEATHER_KEY_FALLBACK = "U7I3IY493U"; // T6H2HX38T2（+1 编码）
 
     private static String qweatherApiKey;
 
