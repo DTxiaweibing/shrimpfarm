@@ -100,7 +100,11 @@ public class WeatherHelper {
     }
 
     private static String urlEncode(String s) {
-        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+        try {
+            return java.net.URLEncoder.encode(s, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return s;
+        }
     }
 
     private static Request.Builder buildAuthRequest(String url) {
