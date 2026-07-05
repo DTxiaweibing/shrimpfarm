@@ -32,9 +32,6 @@ public class RagPipeline {
             return Result.local("现在是" + new java.text.SimpleDateFormat("yyyy年MM月dd日 HH:mm", java.util.Locale.CHINA)
                     .format(new java.util.Date()));
         }
-        if (IntentRouter.INTENT_WEATHER.equals(intent)) {
-            return Result.local("请告诉我你在哪个城市，我帮你查天气。");
-        }
 
         String query = SynonymExpander.expand(rawQuery);
 
@@ -104,7 +101,6 @@ public class RagPipeline {
 
     public static boolean isGeneralIntent(String intent) {
         return IntentRouter.INTENT_TIME.equals(intent)
-                || IntentRouter.INTENT_WEATHER.equals(intent)
                 || IntentRouter.INTENT_GENERAL.equals(intent);
     }
 }

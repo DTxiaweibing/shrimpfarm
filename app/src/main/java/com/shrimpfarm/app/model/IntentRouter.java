@@ -3,7 +3,6 @@ package com.shrimpfarm.app.model;
 public class IntentRouter {
 
     public static final String INTENT_TIME = "INTENT_TIME";
-    public static final String INTENT_WEATHER = "INTENT_WEATHER";
     public static final String INTENT_GENERAL = "INTENT_GENERAL";
     public static final String INTENT_SHRIMP = "INTENT_SHRIMP";
 
@@ -30,9 +29,6 @@ public class IntentRouter {
     public static String classify(String query) {
         if (query.matches(".*(几点|时间|日期|今天|星期|现在是|几月|几号).*"))
             return INTENT_TIME;
-        if (query.matches(".*(天气|下雨|阴天|晴天|气温|刮风|台风|℃|°C).*")
-                && !query.contains("水温") && !query.contains("水温"))
-            return INTENT_WEATHER;
         for (String kw : SHRIMP_KEYWORDS) {
             if (query.contains(kw)) return INTENT_SHRIMP;
         }
