@@ -8,8 +8,9 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Log;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.view.LayoutInflater;
@@ -20,6 +21,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -77,7 +81,6 @@ public class ExpertActivity extends AppCompatActivity {
     private ChatAdapter adapter;
     private boolean isKeyboardMode = true;
 
-    private static final int VOICE_REQUEST_CODE = 200;
     private static final boolean ENABLE_ROUTING = false;
 
     private TokenEmbedder embedder;
@@ -88,6 +91,20 @@ public class ExpertActivity extends AppCompatActivity {
     private boolean ttsReady = false;
     private boolean isVoiceInput = false;
     private Vibrator vibrator;
+    private final ActivityResultLauncher<Intent> voiceLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    ArrayList<String> matches = result.getData()
+                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    if (matches != null && !matches.isEmpty()) {
+                        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                        if (am != null) am.playSoundEffect(AudioManager.FX_KEY_CLICK);
+                        isVoiceInput = true;
+                        inputMessage.setText(matches.get(0));
+                        sendMessage();
+                    }
+                }
+            });
 
     private final List<ChatMessage> messages = new ArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -132,8 +149,8 @@ public class ExpertActivity extends AppCompatActivity {
             }
         }
         @Override public int getItemViewType(int position) { return messages.get(position).type; }
-        @Override
-        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        @Override @NonNull
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             int layout;
             if (viewType == TYPE_DEBUG) layout = com.shrimpfarm.app.R.layout.item_chat_debug;
             else if (viewType == TYPE_ANIMATION) layout = com.shrimpfarm.app.R.layout.item_chat_animation;
@@ -141,7 +158,7 @@ public class ExpertActivity extends AppCompatActivity {
             return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false), viewType);
         }
         @Override
-        public void onBindViewHolder(ViewHolder holder, int position) {
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             ChatMessage msg = messages.get(position);
             holder.textMsg.setText(msg.text);
             if (holder.textTime != null) holder.textTime.setText(msg.time);
@@ -164,7 +181,8 @@ public class ExpertActivity extends AppCompatActivity {
         adapter = new ChatAdapter(messages);
         chatList.setAdapter(adapter);
 
-        addBotMessage("您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！");
+        String welcomeText = "您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！";
+        addBotMessage(welcomeText);
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -215,10 +233,10 @@ public class ExpertActivity extends AppCompatActivity {
                     .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build();
             Request req = new Request.Builder().url(KEY_REMOTE_URL).build();
             try (Response resp = client.newCall(req).execute()) {
-                if (resp.isSuccessful() && resp.body() != null) {
+                if (resp.isSuccessful()) {
                     String remote = resp.body().string().trim();
                     String decrypted = deobfuscate(remote);
-                    if (decrypted != null && decrypted.length() > 10) {
+                    if (decrypted.length() > 10) {
                         cloudApiKey = decrypted;
                         Log.i(TAG, "API: remote OK");
                         return;
@@ -258,28 +276,13 @@ public class ExpertActivity extends AppCompatActivity {
             return;
         }
         if (vibrator != null && vibrator.hasVibrator()) {
-            vibrator.vibrate(50);
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE));
         }
-        startActivityForResult(intent, VOICE_REQUEST_CODE);
+        voiceLauncher.launch(intent);
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == VOICE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (matches != null && !matches.isEmpty()) {
-                AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                if (am != null) am.playSoundEffect(AudioManager.FX_KEY_CLICK);
-                isVoiceInput = true;
-                inputMessage.setText(matches.get(0));
-                sendMessage();
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startVoiceInput();
@@ -500,12 +503,12 @@ public class ExpertActivity extends AppCompatActivity {
                 .build();
         client.newCall(request).enqueue(new Callback() {
             @Override
-            public void onResponse(Call call, Response response) {
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
                 try {
                     if (!response.isSuccessful()) {
                         String detail = "";
                         try {
-                            String bodyStr = response.body() != null ? response.body().string() : "";
+                            String bodyStr = response.body().string();
                             if (!bodyStr.isEmpty()) {
                                 int len = Math.min(120, bodyStr.length());
                                 detail = " (" + bodyStr.replaceAll("[\\r\\n]", " ").substring(0, len) + ")";
@@ -543,7 +546,7 @@ public class ExpertActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 callback.onError(e.getMessage());
             }
         });
