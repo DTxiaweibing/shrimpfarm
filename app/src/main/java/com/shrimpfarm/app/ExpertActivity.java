@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.AnimatedVectorDrawable;
+import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +19,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -76,9 +81,10 @@ public class ExpertActivity extends AppCompatActivity {
 
     private RecyclerView chatList;
     private EditText inputMessage;
-    private Button btnSend;
-    private Button btnToggleInput;
-    private Button btnHoldSpeak;
+    private ImageButton btnSend;
+    private ImageButton btnToggleInput;
+    private LinearLayout btnHoldSpeak;
+    private ImageView imgMicHold;
     private ChatAdapter adapter;
     private boolean isKeyboardMode = true;
 
@@ -177,6 +183,7 @@ public class ExpertActivity extends AppCompatActivity {
         btnSend = findViewById(com.shrimpfarm.app.R.id.btn_send);
         btnToggleInput = findViewById(com.shrimpfarm.app.R.id.btn_toggle_input);
         btnHoldSpeak = findViewById(com.shrimpfarm.app.R.id.btn_hold_speak);
+        imgMicHold = findViewById(com.shrimpfarm.app.R.id.img_mic_hold);
 
         chatList.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ChatAdapter(messages);
@@ -193,6 +200,8 @@ public class ExpertActivity extends AppCompatActivity {
         btnToggleInput.setOnClickListener(v -> toggleInputMode());
 
         btnHoldSpeak.setOnClickListener(v -> startVoiceInput());
+
+        startAvd(btnToggleInput.getDrawable());
 
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) { textToSpeech.setLanguage(Locale.CHINESE); ttsReady = true; }
@@ -254,11 +263,19 @@ public class ExpertActivity extends AppCompatActivity {
         if (isKeyboardMode) {
             inputMessage.setVisibility(View.VISIBLE);
             btnHoldSpeak.setVisibility(View.GONE);
-            btnToggleInput.setText("麦");
+            btnToggleInput.setImageResource(R.drawable.avd_mic);
+            startAvd(btnToggleInput.getDrawable());
         } else {
             inputMessage.setVisibility(View.GONE);
             btnHoldSpeak.setVisibility(View.VISIBLE);
-            btnToggleInput.setText("键");
+            btnToggleInput.setImageResource(R.drawable.ic_keyboard);
+            startAvd(imgMicHold.getDrawable());
+        }
+    }
+
+    private void startAvd(Drawable d) {
+        if (d instanceof AnimatedVectorDrawable) {
+            ((AnimatedVectorDrawable) d).start();
         }
     }
 
