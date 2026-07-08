@@ -52,6 +52,7 @@ public class FeedingRecordActivity extends BaseActivity {
     private String currentBatchId;
     private String stockingDate;
 
+    private boolean isTabletMode = false;
     private int cellWidth;
     private int remarkWidth;
     private int rowHeight;
@@ -92,7 +93,8 @@ public class FeedingRecordActivity extends BaseActivity {
         double diagonalInches = Math.sqrt(
                 Math.pow(screenWidth / dm.xdpi, 2)
                         + Math.pow(dm.heightPixels / dm.ydpi, 2));
-        if (diagonalInches >= 7.0) {
+        isTabletMode = diagonalInches >= 7.0;
+        if (isTabletMode) {
             cellWidth = screenWidth / 9;
             remarkWidth = cellWidth * 2;
         }
@@ -123,7 +125,9 @@ public class FeedingRecordActivity extends BaseActivity {
         loadInitialData();
 
         setupBottomNavigation();
-        enableSwipeNavigation();
+        if (isTabletMode) {
+            enableSwipeNavigation();
+        }
     }
 
     @Override
