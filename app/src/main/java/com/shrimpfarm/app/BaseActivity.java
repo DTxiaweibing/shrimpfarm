@@ -48,6 +48,7 @@ public abstract class BaseActivity extends AppCompatActivity {
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 if (e1 == null || e2 == null) return false;
+                if (isTouchOnSwipeBlockedView(e1.getX(), e1.getY())) return false;
                 float diffX = e2.getX() - e1.getX();
                 float diffY = e2.getY() - e1.getY();
                 if (Math.abs(diffX) > Math.abs(diffY)
@@ -93,6 +94,10 @@ public abstract class BaseActivity extends AppCompatActivity {
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
         }
         finish();
+    }
+
+    protected boolean isTouchOnSwipeBlockedView(float x, float y) {
+        return false;
     }
 
     protected void setupBottomNavigation() {

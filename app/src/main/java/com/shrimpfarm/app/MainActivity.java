@@ -170,6 +170,15 @@ public class MainActivity extends BaseActivity {
         return R.id.nav_home;
     }
 
+    @Override
+    protected boolean isTouchOnSwipeBlockedView(float x, float y) {
+        if (vpBanner == null) return false;
+        int[] loc = new int[2];
+        vpBanner.getLocationOnScreen(loc);
+        return x >= loc[0] && x <= loc[0] + vpBanner.getWidth()
+            && y >= loc[1] && y <= loc[1] + vpBanner.getHeight();
+    }
+
     private void addVersionFooter() {
         try {
             String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
