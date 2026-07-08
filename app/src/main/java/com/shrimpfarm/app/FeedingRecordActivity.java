@@ -123,6 +123,7 @@ public class FeedingRecordActivity extends BaseActivity {
         loadInitialData();
 
         setupBottomNavigation();
+        enableSwipeNavigation();
     }
 
     @Override

@@ -141,6 +141,7 @@ public class CheckFeedActivity extends BaseActivity {
         checkBasicDataAndInitialize();
 
         setupBottomNavigation();
+        enableSwipeNavigation();
     }
 
     @Override

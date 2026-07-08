@@ -161,6 +161,7 @@ public class MainActivity extends BaseActivity {
         initBanner();                     // 初始化轮播图（仅从缓存加载）
         setupFunctionGrid();
         setupBottomNavigation();
+        enableSwipeNavigation();
         updateBatchDisplay();
     }
 

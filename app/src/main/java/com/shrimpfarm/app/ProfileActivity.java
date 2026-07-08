@@ -52,6 +52,7 @@ public class ProfileActivity extends BaseActivity {
         btnEditNickname.setOnClickListener(v -> showEditNicknameDialog());
 
         setupBottomNavigation();
+        enableSwipeNavigation();
         updateUI();
     }
 

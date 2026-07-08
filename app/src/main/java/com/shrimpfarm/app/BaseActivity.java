@@ -5,7 +5,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -19,10 +21,78 @@ import com.shrimpfarm.app.mixcalc.MixCalcActivity;
 public abstract class BaseActivity extends AppCompatActivity {
 
     protected TextView navHome, navRecord, navCheck, navMix, navMy;
+    private GestureDetector gestureDetector;
+    private static final int SWIPE_THRESHOLD = 200;
+    private static final int SWIPE_VELOCITY_THRESHOLD = 200;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (gestureDetector != null) {
+            gestureDetector.onTouchEvent(ev);
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    protected void enableSwipeNavigation() {
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+                if (Math.abs(diffX) > Math.abs(diffY)
+                        && Math.abs(diffX) > SWIPE_THRESHOLD
+                        && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                    if (diffX > 0) {
+                        swipeToPage(getCurrentPosition() - 1, true);
+                    } else {
+                        swipeToPage(getCurrentPosition() + 1, false);
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private int getCurrentPosition() {
+        int id = getCurrentNavId();
+        if (id == R.id.nav_home) return 0;
+        if (id == R.id.nav_record) return 1;
+        if (id == R.id.nav_check) return 2;
+        if (id == R.id.nav_mix) return 3;
+        if (id == R.id.nav_my) return 4;
+        return -1;
+    }
+
+    private void swipeToPage(int targetPos, boolean swipeRight) {
+        if (targetPos < 0 || targetPos > 4) return;
+        Class<?> cls;
+        switch (targetPos) {
+            case 0: cls = MainActivity.class; break;
+            case 1: cls = FeedingRecordActivity.class; break;
+            case 2: cls = CheckFeedActivity.class; break;
+            case 3: cls = MixCalcActivity.class; break;
+            default: cls = ProfileActivity.class; break;
+        }
+        if (cls.equals(getClass())) return;
+        startActivity(new Intent(this, cls));
+        if (swipeRight) {
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+        } else {
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+        }
+        finish();
     }
 
     protected void setupBottomNavigation() {

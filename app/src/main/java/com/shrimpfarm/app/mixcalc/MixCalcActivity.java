@@ -225,6 +225,7 @@ public class MixCalcActivity extends BaseActivity {
         }
 
         setupBottomNavigation();
+        enableSwipeNavigation();
     }
 
     @Override
