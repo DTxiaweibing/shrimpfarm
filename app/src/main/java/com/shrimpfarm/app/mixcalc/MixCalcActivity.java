@@ -162,6 +162,9 @@ public class MixCalcActivity extends BaseActivity {
     // 序号列统计行View引用
     private TextView seqStatTextView;
 
+    // 标题栏误差显示
+    private TextView tvErrorDisplay;
+
     // 批次与数据库相关
     private String currentBatchId;
     private DatabaseHelper dbHelper;
@@ -225,7 +228,9 @@ public class MixCalcActivity extends BaseActivity {
         }
 
         setupBottomNavigation();
-        enableSwipeNavigation();
+        if (isTabletMode) {
+            enableSwipeNavigation();
+        }
     }
 
     @Override
@@ -1340,9 +1345,60 @@ public class MixCalcActivity extends BaseActivity {
 
             updateSeqStatView();
             checkShedCountLimitAndUpdateInput();
+            updateErrorDisplay();
 
         } catch (Exception e) {
             Log.e(TAG, "更新统计行异常: " + e.getMessage());
+        }
+    }
+
+    // 标题栏误差显示
+    private void updateErrorDisplay() {
+        try {
+            double sumIngredients = 0;
+            double sumWeighedRounded = 0;
+            boolean hasData = false;
+
+            for (FeedData data : dataList) {
+                double fermented = data.getFermentedFeed();
+                double powder = data.getPowderFeed();
+                double feed03 = data.getFeed03();
+                double feed05 = data.getFeed05();
+                double feed10 = data.getFeed10();
+                double water = data.getWater();
+
+                sumIngredients += fermented + powder + feed03 + feed05 + feed10 + water;
+
+                if (data.getShedCount() > 0 && data.getWeighedFeed() > 0) {
+                    double weighedRounded = Math.round(data.getWeighedFeed() * 100.0) / 100.0;
+                    sumWeighedRounded += weighedRounded * data.getShedCount();
+                }
+
+                if (fermented != 0 || powder != 0 || feed03 != 0 || feed05 != 0 || feed10 != 0 || water != 0) {
+                    hasData = true;
+                }
+            }
+
+            double error = sumIngredients - sumWeighedRounded;
+
+            if (tvErrorDisplay != null) {
+                if (!hasData || Math.abs(error) < 0.005) {
+                    tvErrorDisplay.setText("");
+                } else {
+                    String text;
+                    if (error >= 0) {
+                        text = "+" + String.format(Locale.ROOT, "%.2f", error);
+                    } else {
+                        text = String.format(Locale.ROOT, "%.2f", error);
+                    }
+                    if (text.length() > 5) {
+                        text = text.substring(0, 5);
+                    }
+                    tvErrorDisplay.setText(text);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "更新误差显示异常: " + e.getMessage());
         }
     }
 
@@ -1573,6 +1629,7 @@ public class MixCalcActivity extends BaseActivity {
             headerScrollView = (HorizontalScrollView) findViewById(R.id.header_scroll_view);
             footerScrollView = (HorizontalScrollView) findViewById(R.id.footer_scroll_view);
             verticalScrollView = (ScrollView) findViewById(R.id.vertical_scroll_view);
+            tvErrorDisplay = (TextView) findViewById(R.id.tv_error_display);
             
             // 禁用橡皮筋效果
             if (headerScrollView != null) {
