@@ -384,13 +384,35 @@ public class CheckFeedActivity extends BaseActivity {
         String numbersOnly = text.replace(":", "");
         switch (numbersOnly.length()) {
             case 1: return "0" + numbersOnly + ":00:00";
-            case 2: return numbersOnly + ":00:00";
+            case 2: {
+                    int h2 = Integer.parseInt(numbersOnly);
+                    if (h2 > 23) {
+                        numbersOnly = "0" + numbersOnly;
+                        String hour3 = numbersOnly.substring(0, 2);
+                        String minute3 = numbersOnly.substring(2, 3);
+                        int m = Integer.parseInt(minute3);
+                        if (m >= 0 && m <= 5) {
+                            return hour3 + ":" + (m * 10) + ":00";
+                        } else return null;
+                    }
+                    return numbersOnly + ":00:00";
+                }
             case 3: {
                     String hour3 = numbersOnly.substring(0, 2);
+                    int h3 = Integer.parseInt(hour3);
                     String minute3 = numbersOnly.substring(2, 3);
-                    int minDigit3 = Integer.parseInt(minute3);
-                    if (minDigit3 >= 0 && minDigit3 <= 5) {
-                        return hour3 + ":" + (minDigit3 * 10) + ":00";
+                    if (h3 > 23) {
+                        numbersOnly = "0" + numbersOnly;
+                        String hour4 = numbersOnly.substring(0, 2);
+                        String minute4 = numbersOnly.substring(2, 4);
+                        int m = Integer.parseInt(minute4);
+                        if (m >= 0 && m <= 59) {
+                            return hour4 + ":" + minute4 + ":00";
+                        } else return null;
+                    }
+                    int m3 = Integer.parseInt(minute3);
+                    if (m3 >= 0 && m3 <= 5) {
+                        return hour3 + ":" + (m3 * 10) + ":00";
                     } else return null;
                 }
             case 4: {
