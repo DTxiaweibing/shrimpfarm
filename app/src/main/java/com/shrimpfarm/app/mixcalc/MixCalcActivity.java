@@ -1638,6 +1638,9 @@ public class MixCalcActivity extends BaseActivity {
             if (footerScrollView != null) {
                 footerScrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
             }
+            if (verticalScrollView != null) {
+                verticalScrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            }
         } catch (Exception e) {
             Log.e(TAG, "initViews异常: " + e.getMessage());
         }
