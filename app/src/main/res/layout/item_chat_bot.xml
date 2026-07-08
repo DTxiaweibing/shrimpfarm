@@ -30,6 +30,14 @@
             android:textColor="#999999"
             android:layout_marginTop="4dp" />
 
+        <TextView
+            android:id="@+id/text_kb_version"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="#999999"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <View

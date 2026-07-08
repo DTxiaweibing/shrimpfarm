@@ -40,7 +40,7 @@ public class KnowledgeBaseUpdater {
         }).start();
     }
 
-    private static int getLocalVersion(Context context) {
+    public static int getLocalVersion(Context context) {
         File dbFile = new File(context.getFilesDir(), DB_NAME);
         if (!dbFile.exists()) return 0;
         try (SQLiteDatabase db = SQLiteDatabase.openDatabase(dbFile.getAbsolutePath(), null, SQLiteDatabase.OPEN_READONLY)) {

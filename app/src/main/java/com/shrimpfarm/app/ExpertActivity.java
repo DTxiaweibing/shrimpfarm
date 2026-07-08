@@ -132,10 +132,18 @@ public class ExpertActivity extends AppCompatActivity {
         final int type;
         String text;
         final String time;
+        final String versionText;
         ChatMessage(int type, String text) {
             this.type = type;
             this.text = text;
             this.time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+            this.versionText = null;
+        }
+        ChatMessage(int type, String text, String versionText) {
+            this.type = type;
+            this.text = text;
+            this.time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+            this.versionText = versionText;
         }
     }
 
@@ -143,15 +151,18 @@ public class ExpertActivity extends AppCompatActivity {
         private final List<ChatMessage> messages;
         ChatAdapter(List<ChatMessage> messages) { this.messages = messages; }
         static class ViewHolder extends RecyclerView.ViewHolder {
-            final TextView textMsg; final TextView textTime; final View bubble;
+            final TextView textMsg; final TextView textTime; final TextView textKbVersion; final View bubble;
             ViewHolder(View itemView, int viewType) {
                 super(itemView);
                 if (viewType == TYPE_DEBUG) {
-                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; bubble = null;
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; textKbVersion = null; bubble = null;
                 } else if (viewType == TYPE_ANIMATION) {
-                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_animation); textTime = null; bubble = null;
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_animation); textTime = null; textKbVersion = null; bubble = null;
                 } else {
-                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_message); textTime = itemView.findViewById(com.shrimpfarm.app.R.id.text_time); bubble = itemView.findViewById(com.shrimpfarm.app.R.id.bubble);
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_message);
+                    textTime = itemView.findViewById(com.shrimpfarm.app.R.id.text_time);
+                    textKbVersion = itemView.findViewById(com.shrimpfarm.app.R.id.text_kb_version);
+                    bubble = itemView.findViewById(com.shrimpfarm.app.R.id.bubble);
                 }
             }
         }
@@ -169,6 +180,14 @@ public class ExpertActivity extends AppCompatActivity {
             ChatMessage msg = messages.get(position);
             holder.textMsg.setText(msg.text);
             if (holder.textTime != null) holder.textTime.setText(msg.time);
+            if (holder.textKbVersion != null) {
+                if (msg.versionText != null) {
+                    holder.textKbVersion.setVisibility(View.VISIBLE);
+                    holder.textKbVersion.setText(msg.versionText);
+                } else {
+                    holder.textKbVersion.setVisibility(View.GONE);
+                }
+            }
         }
         @Override public int getItemCount() { return messages.size(); }
     }
@@ -189,8 +208,10 @@ public class ExpertActivity extends AppCompatActivity {
         adapter = new ChatAdapter(messages);
         chatList.setAdapter(adapter);
 
+        int kbVer = com.shrimpfarm.app.model.KnowledgeBaseUpdater.getLocalVersion(this);
         String welcomeText = "您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！";
-        addBotMessage(welcomeText);
+        messages.add(new ChatMessage(TYPE_BOT, welcomeText, "知识库版本: " + kbVer));
+        adapter.notifyItemInserted(messages.size() - 1);
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
