@@ -12,6 +12,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -41,6 +42,7 @@ public class BasicDataActivity extends BaseActivity {
     private View contentBasic, contentMix, contentWater;
     private ListView lvMix, lvWater;
     private PresetAdapter mixAdapter, waterAdapter;
+    private boolean duplicateWarning;
 
     private EditText etSeedQuantity, etSeedBrand, etFeedBrand, etPondCount, etPondLength, etAeratorCount, etAerationPower;
     private TextView tvStockingDate, tvWaterPrepDate;
@@ -241,13 +243,60 @@ public class BasicDataActivity extends BaseActivity {
         lvWater.setAdapter(waterAdapter);
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        duplicateWarning = false;
+        if (mixAdapter != null) {
+            mixAdapter.cancelAllTimers();
+            if (mixAdapter.checkAllPending()) duplicateWarning = true;
+        }
+        if (waterAdapter != null) {
+            waterAdapter.cancelAllTimers();
+            if (waterAdapter.checkAllPending()) duplicateWarning = true;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (duplicateWarning) {
+            duplicateWarning = false;
+            showStyledConfirmDialog("提示",
+                    "上一次输入由于相似度过高未被记录",
+                    new String[]{"确定"}, null, null);
+        }
+    }
+
     // ==================== 内部适配器 ====================
     private class PresetAdapter extends BaseAdapter {
-        private boolean isMix;
-        private List<String> cachedNames = new ArrayList<>();
-        private List<String> cachedTags = new ArrayList<>();
-        private Handler handler = new Handler(Looper.getMainLooper());
-        private Map<Integer, Runnable> foldRunnables = new HashMap<>();
+        private final boolean isMix;
+        private final List<String> cachedNames = new ArrayList<>();
+        private final List<String> cachedTags = new ArrayList<>();
+        private final Handler handler = new Handler(Looper.getMainLooper());
+        private final Map<Integer, Runnable> foldRunnables = new HashMap<>();
+        private final Map<Integer, Runnable> checkTimers = new HashMap<>();
+        private int lastEditedPosition = -1;
+
+        private void cancelCheckTimer(int position) {
+            Runnable exist = checkTimers.remove(position);
+            if (exist != null) handler.removeCallbacks(exist);
+        }
+
+        private void cancelAllTimers() {
+            for (Runnable r : checkTimers.values()) handler.removeCallbacks(r);
+            checkTimers.clear();
+        }
+
+        private void scheduleCheck(int position, String name) {
+            cancelCheckTimer(position);
+            Runnable runnable = () -> {
+                checkTimers.remove(position);
+                if (!name.isEmpty()) checkDuplicate(name, position);
+            };
+            checkTimers.put(position, runnable);
+            handler.postDelayed(runnable, 5000);
+        }
 
         PresetAdapter(boolean isMix) {
             this.isMix = isMix;
@@ -318,6 +367,7 @@ public class BasicDataActivity extends BaseActivity {
             final int rowNum = position + 1;
             holder.tvRowNumber.setText(String.format(java.util.Locale.ROOT, "%02d", rowNum));
 
+            if (holder.lastPosition >= 0) cancelCheckTimer(holder.lastPosition);
             Object oldWatcher = holder.etPresetName.getTag();
             if (oldWatcher instanceof TextWatcher) {
                 holder.etPresetName.removeTextChangedListener((TextWatcher) oldWatcher);
@@ -355,6 +405,7 @@ public class BasicDataActivity extends BaseActivity {
                 @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
                 @Override
                 public void afterTextChanged(Editable s) {
+                    lastEditedPosition = position;
                     String newName = s.toString().trim();
                     cachedNames.set(position, newName);
                     boolean nowHasName = !newName.isEmpty();
@@ -366,29 +417,42 @@ public class BasicDataActivity extends BaseActivity {
                         removeFoldTimer(position);
                     }
 
-                    // 相似度检查（仅针对纯名称）
-                    if (!newName.isEmpty()) {
-                        for (int i = 0; i < cachedNames.size(); i++) {
-                            if (i != position && !cachedNames.get(i).isEmpty()) {
-                                double similarity = calculateSimilarity(newName, cachedNames.get(i));
-                                if (similarity >= 1.0) {
-                                    holder.etPresetName.setText("");
-                                    cachedNames.set(position, "");
-                                    showStyledConfirmDialog("提示", "相似度过高禁止输入",
-                                            new String[]{"确定"}, null, null);
-                                    return;
-                                }
-                            }
-                        }
-                    }
                     saveCurrentRow(rowNum, newName, cachedTags.get(position));
+
+                    if (!newName.isEmpty()) {
+                        scheduleCheck(position, newName);
+                    } else {
+                        cancelCheckTimer(position);
+                    }
                 }
             };
             holder.etPresetName.setTag(watcher);
             holder.etPresetName.addTextChangedListener(watcher);
 
+            // 下一步/完成时检查相似度（空格/回车不触发）
+            holder.etPresetName.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId != EditorInfo.IME_ACTION_NEXT && actionId != EditorInfo.IME_ACTION_DONE
+                        && actionId != EditorInfo.IME_ACTION_SEND) return false;
+                cancelCheckTimer(position);
+                String text = v.getText().toString().trim();
+                return !text.isEmpty() && checkDuplicate(text, position);
+            });
+            holder.etPresetName.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) return;
+                if (!v.isAttachedToWindow()) return;
+                String textForCheck = ((EditText) v).getText().toString().trim();
+                if (textForCheck.isEmpty()) return;
+                Runnable r = () -> {
+                    if (holder.lastPosition != position) return;
+                    if (v.hasFocus()) return;
+                    checkDuplicate(textForCheck, position);
+                };
+                handler.postDelayed(r, 300);
+            });
+
             // 重置标签面板可见性（避免复用错乱）
             holder.layoutTags.setVisibility(View.GONE);
+            holder.lastPosition = position;
             return convertView;
         }
 
@@ -446,7 +510,7 @@ public class BasicDataActivity extends BaseActivity {
                 cb.setOnCheckedChangeListener((buttonView, isChecked) -> {
                     if (isChecked && etPresetName.getText().toString().trim().isEmpty()) {
                         Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
-                        ((CheckBox) buttonView).setChecked(false);
+                        buttonView.setChecked(false);
                         return;
                     }
                     String tagName = (String) buttonView.getTag();
@@ -581,6 +645,59 @@ public class BasicDataActivity extends BaseActivity {
             EditText etPresetName;
             LinearLayout layoutTags;
             LinearLayout tagsContainer;
+            int lastPosition = -1;
+        }
+
+        private boolean checkAllPending() {
+            if (lastEditedPosition < 0) return false;
+            String name = cachedNames.get(lastEditedPosition);
+            if (name == null || name.isEmpty()) return false;
+            for (int i = 0; i < cachedNames.size(); i++) {
+                if (i != lastEditedPosition && !cachedNames.get(i).isEmpty()
+                        && calculateSimilarity(name, cachedNames.get(i)) >= 1.0) {
+                    cachedNames.set(lastEditedPosition, "");
+                    saveCurrentRow(lastEditedPosition + 1, "", cachedTags.get(lastEditedPosition));
+                    lastEditedPosition = -1;
+                    notifyDataSetChanged();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean checkDuplicate(String name, int position) {
+            if (name == null || name.isEmpty()) return false;
+            for (int i = 0; i < cachedNames.size(); i++) {
+                if (i != position && !cachedNames.get(i).isEmpty()) {
+                    double similarity = calculateSimilarity(name, cachedNames.get(i));
+                    if (similarity >= 1.0) {
+                        cachedNames.set(position, "");
+                        notifyDataSetChanged();
+                        clearEditTextAt(position);
+                        if (!BasicDataActivity.this.isFinishing() && !BasicDataActivity.this.isDestroyed()) {
+                            showStyledConfirmDialog("提示",
+                                    String.format(java.util.Locale.ROOT, "与%02d号标签相似度过高", i + 1),
+                                    new String[]{"确定"}, null, null);
+                        }
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private void clearEditTextAt(int position) {
+            ListView lv = isMix ? lvMix : lvWater;
+            if (lv == null || lv.getChildCount() == 0) return;
+            int first = lv.getFirstVisiblePosition();
+            int last = lv.getLastVisiblePosition();
+            if (position >= first && position <= last) {
+                View item = lv.getChildAt(position - first);
+                if (item != null) {
+                    EditText et = item.findViewById(R.id.et_preset_name);
+                    if (et != null) et.setText("");
+                }
+            }
         }
 
         private double calculateSimilarity(String s1, String s2) {
@@ -594,18 +711,20 @@ public class BasicDataActivity extends BaseActivity {
             int len1 = 0, len2 = 0;
 
             for (char c : str1.toCharArray()) {
-                count1.put(c, count1.getOrDefault(c, 0) + 1);
+                count1.compute(c, (k, v) -> (v == null ? 0 : v) + 1);
                 len1++;
             }
             for (char c : str2.toCharArray()) {
-                count2.put(c, count2.getOrDefault(c, 0) + 1);
+                count2.compute(c, (k, v) -> (v == null ? 0 : v) + 1);
                 len2++;
             }
 
             int match = 0;
             for (char c : count1.keySet()) {
-                if (count2.containsKey(c)) {
-                    match += Math.min(count1.get(c), count2.get(c));
+                Integer v1 = count1.get(c);
+                Integer v2 = count2.get(c);
+                if (v1 != null && v2 != null) {
+                    match += Math.min(v1, v2);
                 }
             }
 
