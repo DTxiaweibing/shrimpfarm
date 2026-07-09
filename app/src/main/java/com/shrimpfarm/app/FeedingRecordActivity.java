@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.widget.EdgeEffect;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
@@ -82,6 +83,18 @@ public class FeedingRecordActivity extends BaseActivity {
         TextView headerFixedDate = findViewById(R.id.header_fixed_date);
         headerScrollContainer = findViewById(R.id.header_scroll_container);
         recordRecyclerView = findViewById(R.id.record_recycler_view);
+        headerScrollContainer.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        recordRecyclerView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        recordRecyclerView.setEdgeEffectFactory(new RecyclerView.EdgeEffectFactory() {
+            @NonNull
+            @Override
+            protected EdgeEffect createEdgeEffect(@NonNull RecyclerView view, int direction) {
+                return new EdgeEffect(view.getContext()) {
+                    @Override
+                    public boolean isFinished() { return true; }
+                };
+            }
+        });
         loadingOverlay = findViewById(R.id.loading_overlay);
 
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
@@ -194,7 +207,7 @@ public class FeedingRecordActivity extends BaseActivity {
         headerScrollContainer.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
             if (isSyncingScroll) return;
             isSyncingScroll = true;
-            masterScrollX = scrollX;
+            masterScrollX = Math.max(0, scrollX);
             syncVisibleRows();
             isSyncingScroll = false;
         });
@@ -580,7 +593,7 @@ public class FeedingRecordActivity extends BaseActivity {
             hsv.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
                 if (isSyncingScroll) return;
                 isSyncingScroll = true;
-                masterScrollX = scrollX;
+                masterScrollX = Math.max(0, scrollX);
                 headerScrollContainer.scrollTo(masterScrollX, 0);
                 syncVisibleRows();
                 isSyncingScroll = false;
