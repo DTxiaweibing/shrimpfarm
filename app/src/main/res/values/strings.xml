@@ -26,7 +26,7 @@
     <string name="chart_title_shed_feed_duration">棚%s吃料用时趋势</string>
     <string name="date_prefix">日期：%s</string>
     <string name="price_trend_title">%s 价格走势</string>
-    <string name="app_version">shrimpfarm v%s</string>
+    <string name="app_version">shrimpfarm %s</string>
     <string name="shed_number_format">棚%d</string>
     <string name="seq_stat_format">%1$d/%2$d</string>
     <string name="water_percentage_header">水%d%%</string>
