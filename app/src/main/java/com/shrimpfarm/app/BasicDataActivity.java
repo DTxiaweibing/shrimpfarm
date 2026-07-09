@@ -42,7 +42,6 @@ public class BasicDataActivity extends BaseActivity {
     private View contentBasic, contentMix, contentWater;
     private ListView lvMix, lvWater;
     private PresetAdapter mixAdapter, waterAdapter;
-    private boolean duplicateWarning;
 
     private EditText etSeedQuantity, etSeedBrand, etFeedBrand, etPondCount, etPondLength, etAeratorCount, etAerationPower;
     private TextView tvStockingDate, tvWaterPrepDate;
@@ -246,22 +245,25 @@ public class BasicDataActivity extends BaseActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        duplicateWarning = false;
+        boolean found = false;
         if (mixAdapter != null) {
             mixAdapter.cancelAllTimers();
-            if (mixAdapter.checkAllPending()) duplicateWarning = true;
+            if (mixAdapter.checkAllPending()) found = true;
         }
         if (waterAdapter != null) {
             waterAdapter.cancelAllTimers();
-            if (waterAdapter.checkAllPending()) duplicateWarning = true;
+            if (waterAdapter.checkAllPending()) found = true;
         }
+        getSharedPreferences("app_prefs", MODE_PRIVATE)
+                .edit().putBoolean("duplicate_warning", found).apply();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (duplicateWarning) {
-            duplicateWarning = false;
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        if (prefs.getBoolean("duplicate_warning", false)) {
+            prefs.edit().remove("duplicate_warning").apply();
             showStyledConfirmDialog("提示",
                     "上一次输入由于相似度过高未被记录",
                     new String[]{"确定"}, null, null);
