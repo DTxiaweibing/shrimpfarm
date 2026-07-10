@@ -536,9 +536,14 @@ public class BasicDataActivity extends BaseActivity {
         }
 
         private void addCustomButton(ViewHolder holder, int position, Set<String> selectedTags, int maxPerRow) {
-            Button btnCustom = new Button(BasicDataActivity.this);
+            Button btnCustom = new Button(BasicDataActivity.this, null, android.R.attr.borderlessButtonStyle);
             btnCustom.setText("+自定义");
-            btnCustom.setTextSize(12);
+            btnCustom.setTextSize(14);
+            btnCustom.setTextColor(0xFF2D8C42);
+            btnCustom.setBackgroundResource(R.drawable.bg_button_secondary);
+            btnCustom.setMinHeight(0);
+            btnCustom.setMinWidth(0);
+            btnCustom.setPadding(dpToPx(12), dpToPx(4), dpToPx(12), dpToPx(4));
             btnCustom.setOnClickListener(v -> {
                 if (holder.etPresetName.getText().toString().trim().isEmpty()) {
                     Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
