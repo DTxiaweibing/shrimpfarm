@@ -397,7 +397,8 @@ public class BasicDataActivity extends BaseActivity {
                     removeFoldTimer(position);
                 } else {
                     holder.layoutTags.setVisibility(View.VISIBLE);
-                    scheduleFold(position, holder.layoutTags);
+                    holder.tagsContainer.requestLayout();
+                    scheduleFold(holder, position);
                 }
             });
 
@@ -458,10 +459,12 @@ public class BasicDataActivity extends BaseActivity {
             return convertView;
         }
 
-        private void scheduleFold(int position, View layoutTags) {
+        private void scheduleFold(ViewHolder holder, int position) {
             removeFoldTimer(position);
             Runnable runnable = () -> {
-                layoutTags.setVisibility(View.GONE);
+                if (holder.lastPosition == position) {
+                    holder.layoutTags.setVisibility(View.GONE);
+                }
                 foldRunnables.remove(position);
             };
             foldRunnables.put(position, runnable);
@@ -477,7 +480,7 @@ public class BasicDataActivity extends BaseActivity {
             holder.tagsContainer.removeAllViews();
             String[] tagArray = isMix ?
                     new String[]{"护肠类","保肝类","中药排毒类","营养类","防治弧菌","补钙","诱食"} :
-                    new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻"};
+                    new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻","肥水类"};
             Set<String> selectedTags = loadSelectedTags(position);
             List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
             String savedPureTags = cachedTags.get(position);
@@ -523,7 +526,7 @@ public class BasicDataActivity extends BaseActivity {
                     updateTagButton(holder.btnTag, newPureTags, !etPresetName.getText().toString().trim().isEmpty());
                     saveCurrentRow(position + 1, cachedNames.get(position), newPureTags);
                     removeFoldTimer(position);
-                    scheduleFold(position, holder.layoutTags);
+                    scheduleFold(holder, position);
                 });
                 row.addView(cb);
                 countInRow++;
@@ -542,7 +545,7 @@ public class BasicDataActivity extends BaseActivity {
                     return;
                 }
                 removeFoldTimer(position);
-                scheduleFold(position, holder.layoutTags);
+                scheduleFold(holder, position);
                 showCustomTagDialog(position, selectedTags);
             });
             int childCount = holder.tagsContainer.getChildCount();
@@ -560,8 +563,48 @@ public class BasicDataActivity extends BaseActivity {
         }
 
         private void refreshTagCheckBoxes(ViewHolder holder, int position) {
-            // 重建整个标签复选框区域，保持与当前缓存一致
-            buildTagCheckBoxes(holder, position);
+            String[] tagArray = isMix ?
+                    new String[]{"护肠类","保肝类","中药排毒类","营养类","防治弧菌","补钙","诱食"} :
+                    new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻","肥水类"};
+            Set<String> selectedTags = loadSelectedTags(position);
+            List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
+            String savedPureTags = cachedTags.get(position);
+            if (!TextUtils.isEmpty(savedPureTags)) {
+                for (String tag : savedPureTags.split(",")) {
+                    if (!allTags.contains(tag)) {
+                        allTags.add(tag);
+                    }
+                }
+            }
+            int existingCount = 0;
+            for (int i = 0; i < holder.tagsContainer.getChildCount(); i++) {
+                View row = holder.tagsContainer.getChildAt(i);
+                if (row instanceof LinearLayout) {
+                    for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
+                        if (((LinearLayout) row).getChildAt(j) instanceof CheckBox) {
+                            existingCount++;
+                        }
+                    }
+                }
+            }
+            if (existingCount == allTags.size()) {
+                int idx = 0;
+                for (int i = 0; i < holder.tagsContainer.getChildCount(); i++) {
+                    View row = holder.tagsContainer.getChildAt(i);
+                    if (!(row instanceof LinearLayout)) continue;
+                    LinearLayout llRow = (LinearLayout) row;
+                    for (int j = 0; j < llRow.getChildCount(); j++) {
+                        View child = llRow.getChildAt(j);
+                        if (!(child instanceof CheckBox)) continue;
+                        CheckBox cb = (CheckBox) child;
+                        cb.setTag(allTags.get(idx));
+                        cb.setChecked(selectedTags.contains(allTags.get(idx)));
+                        idx++;
+                    }
+                }
+            } else {
+                buildTagCheckBoxes(holder, position);
+            }
         }
 
         private Set<String> loadSelectedTags(int position) {
