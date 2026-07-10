@@ -11,6 +11,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.ViewGroup;
@@ -453,10 +454,26 @@ public class BasicDataActivity extends BaseActivity {
                 handler.postDelayed(r, 300);
             });
 
+            // 有勾选标签时禁止编辑名称
+            holder.etPresetName.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_UP && !TextUtils.isEmpty(cachedTags.get(position))) {
+                    BasicDataActivity.this.showStyledConfirmDialog("提示", "请取消勾选标签后在修改内容", new String[]{"确定"}, null, null);
+                    return true;
+                }
+                return false;
+            });
+            updateEditTextLock(holder, position);
+
             // 重置标签面板可见性（避免复用错乱）
             holder.layoutTags.setVisibility(View.GONE);
             holder.lastPosition = position;
             return convertView;
+        }
+
+        private void updateEditTextLock(ViewHolder holder, int position) {
+            boolean locked = !TextUtils.isEmpty(cachedTags.get(position));
+            holder.etPresetName.setFocusable(!locked);
+            holder.etPresetName.setFocusableInTouchMode(!locked);
         }
 
         private void scheduleFold(ViewHolder holder, int position) {
@@ -525,6 +542,7 @@ public class BasicDataActivity extends BaseActivity {
                     cachedTags.set(position, newPureTags);
                     updateTagButton(holder.btnTag, newPureTags, !etPresetName.getText().toString().trim().isEmpty());
                     saveCurrentRow(position + 1, cachedNames.get(position), newPureTags);
+                    updateEditTextLock(holder, position);
                     removeFoldTimer(position);
                     scheduleFold(holder, position);
                 });
@@ -571,8 +589,8 @@ public class BasicDataActivity extends BaseActivity {
             String[] tagArray = isMix ?
                     new String[]{"护肠类","保肝类","中药排毒类","营养类","防治弧菌","补钙","诱食"} :
                     new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻","肥水类"};
-            Set<String> selectedTags = loadSelectedTags(position);
-            List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
+            final Set<String> selectedTags = loadSelectedTags(position);
+            final List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
             String savedPureTags = cachedTags.get(position);
             if (!TextUtils.isEmpty(savedPureTags)) {
                 for (String tag : savedPureTags.split(",")) {
@@ -593,6 +611,7 @@ public class BasicDataActivity extends BaseActivity {
                 }
             }
             if (existingCount == allTags.size()) {
+                final EditText etPresetName = holder.etPresetName;
                 int idx = 0;
                 for (int i = 0; i < holder.tagsContainer.getChildCount(); i++) {
                     View row = holder.tagsContainer.getChildAt(i);
@@ -602,8 +621,25 @@ public class BasicDataActivity extends BaseActivity {
                         View child = llRow.getChildAt(j);
                         if (!(child instanceof CheckBox)) continue;
                         CheckBox cb = (CheckBox) child;
-                        cb.setTag(allTags.get(idx));
-                        cb.setChecked(selectedTags.contains(allTags.get(idx)));
+                        final String tagName = allTags.get(idx);
+                        cb.setTag(tagName);
+                        cb.setChecked(selectedTags.contains(tagName));
+                        cb.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            if (isChecked && etPresetName.getText().toString().trim().isEmpty()) {
+                                Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
+                                buttonView.setChecked(false);
+                                return;
+                            }
+                            if (isChecked) selectedTags.add(tagName);
+                            else selectedTags.remove(tagName);
+                            String newPureTags = TextUtils.join(",", selectedTags);
+                            cachedTags.set(position, newPureTags);
+                            updateTagButton(holder.btnTag, newPureTags, !etPresetName.getText().toString().trim().isEmpty());
+                            saveCurrentRow(position + 1, cachedNames.get(position), newPureTags);
+                            updateEditTextLock(holder, position);
+                            removeFoldTimer(position);
+                            scheduleFold(holder, position);
+                        });
                         idx++;
                     }
                 }
