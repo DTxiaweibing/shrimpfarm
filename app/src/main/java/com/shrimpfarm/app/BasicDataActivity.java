@@ -561,7 +561,8 @@ public class BasicDataActivity extends BaseActivity {
             btnCustom.setBackgroundResource(R.drawable.bg_button_secondary);
             btnCustom.setMinHeight(0);
             btnCustom.setMinWidth(0);
-            btnCustom.setPadding(dpToPx(12), dpToPx(4), dpToPx(12), dpToPx(4));
+            btnCustom.setHeight(dpToPx(30));
+            btnCustom.setPadding(dpToPx(12), 0, dpToPx(12), 0);
             btnCustom.setOnClickListener(v -> {
                 if (holder.etPresetName.getText().toString().trim().isEmpty()) {
                     Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
