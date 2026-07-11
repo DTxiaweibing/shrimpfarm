@@ -102,6 +102,16 @@
             android:screenOrientation="portrait"
             android:exported="false" />
         <activity
+            android:name=".qa.QaDetailActivity"
+            android:label="问题详情"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".qa.QaPostActivity"
+            android:label="发布问题"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
             android:name=".ExpertActivity"
             android:label="专家咨询"
             android:screenOrientation="portrait"

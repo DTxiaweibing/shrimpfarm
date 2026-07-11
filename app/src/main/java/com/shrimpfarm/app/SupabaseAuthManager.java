@@ -27,6 +27,7 @@ public class SupabaseAuthManager {
     private static final String ANON_KEY = "sb_publishable_Tn8FsSUL4iDqUsNQGzos6Q_6zMKytC5";
     private static final String PREF_NAME = "supabase_auth";
     private static final String KEY_TOKEN = "access_token";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_EMAIL = "user_email";
     private static final String KEY_NICKNAME = "user_nickname";
 
@@ -48,6 +49,66 @@ public class SupabaseAuthManager {
     public String getToken() {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .getString(KEY_TOKEN, "");
+    }
+
+    public String getValidToken() {
+        String token = getToken();
+        if (token.isEmpty()) return "";
+        if (isTokenExpired(token)) {
+            String newToken = refreshAccessToken();
+            if (newToken != null) return newToken;
+        }
+        return token;
+    }
+
+    private boolean isTokenExpired(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return true;
+            byte[] decoded = Base64.decode(parts[1], Base64.URL_SAFE);
+            String json = new String(decoded, "UTF-8");
+            long exp = new JSONObject(json).optLong("exp", 0);
+            return exp > 0 && (exp * 1000) < System.currentTimeMillis();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private String refreshAccessToken() {
+        String refreshToken = getRefreshToken();
+        if (refreshToken.isEmpty()) return null;
+        try {
+            JSONObject body = new JSONObject();
+            body.put("refresh_token", refreshToken);
+            Request request = new Request.Builder()
+                    .url(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token")
+                    .header("apikey", ANON_KEY)
+                    .header("Content-Type", "application/json")
+                    .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    String respBody = response.body() != null ? response.body().string() : "";
+                    JSONObject json = new JSONObject(respBody);
+                    String newToken = json.getString("access_token");
+                    String newRefreshToken = json.optString("refresh_token", refreshToken);
+                    context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                            .edit()
+                            .putString(KEY_TOKEN, newToken)
+                            .putString(KEY_REFRESH_TOKEN, newRefreshToken)
+                            .apply();
+                    return newToken;
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.e("SupabaseAuth", "refresh token failed", e);
+        }
+        return null;
+    }
+
+    public String getRefreshToken() {
+        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_REFRESH_TOKEN, "");
     }
 
     public String getEmail() {
@@ -130,6 +191,7 @@ public class SupabaseAuthManager {
                 }
 
                 String accessToken = json.getString("access_token");
+                String refreshToken = json.optString("refresh_token", "");
                 JSONObject user = json.getJSONObject("user");
                 String userEmail = user.optString("email", "");
                 JSONObject metadata = user.optJSONObject("user_metadata");
@@ -144,6 +206,7 @@ public class SupabaseAuthManager {
                 context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                         .edit()
                         .putString(KEY_TOKEN, accessToken)
+                        .putString(KEY_REFRESH_TOKEN, refreshToken)
                         .putString(KEY_EMAIL, userEmail)
                         .putString(KEY_NICKNAME, currentNickname)
                         .apply();
@@ -421,9 +484,11 @@ public class SupabaseAuthManager {
 
                 if (json.has("access_token")) {
                     String accessToken = json.getString("access_token");
+                    String refreshToken = json.optString("refresh_token", "");
                     context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                             .edit()
                             .putString(KEY_TOKEN, accessToken)
+                            .putString(KEY_REFRESH_TOKEN, refreshToken)
                             .putString(KEY_EMAIL, email)
                             .putString(KEY_NICKNAME, nickname)
                             .apply();
