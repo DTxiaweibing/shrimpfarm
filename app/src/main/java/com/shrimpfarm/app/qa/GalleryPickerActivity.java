@@ -46,7 +46,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
     private View btnDone;
     private ImageAdapter adapter;
     private final Set<Uri> selectedUris = new LinkedHashSet<>();
-    private int maxCount = 9;
+    private int maxCount = 5;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -55,7 +55,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gallery_picker);
 
-        maxCount = getIntent().getIntExtra(EXTRA_MAX_COUNT, 9);
+        maxCount = getIntent().getIntExtra(EXTRA_MAX_COUNT, 5);
 
         recyclerView = findViewById(R.id.recycler_view);
         tvSelectedCount = findViewById(R.id.tv_selected_count);

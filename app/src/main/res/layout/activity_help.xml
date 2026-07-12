@@ -5,15 +5,84 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tab_layout"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        app:tabIndicatorColor="#2D8C42"
-        app:tabSelectedTextColor="#2D8C42"
-        app:tabTextColor="#666666"
-        app:tabMode="fixed"
-        app:tabBackground="@android:color/transparent" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F5F5F5">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:weightSum="100"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/tab_help_container"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="36"
+                android:orientation="vertical"
+                android:gravity="center_vertical|end"
+                android:clickable="true"
+                android:background="?attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tab_help"
+                    android:layout_width="wrap_content"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="使用帮助"
+                    android:textSize="16sp"
+                    android:textColor="#2D8C42" />
+
+                <View
+                    android:id="@+id/indicator_help"
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:background="#2D8C42" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="28" />
+
+            <LinearLayout
+                android:id="@+id/tab_qa_container"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="36"
+                android:orientation="vertical"
+                android:gravity="center_vertical|start"
+                android:clickable="true"
+                android:background="?attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tab_qa"
+                    android:layout_width="wrap_content"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="问答社区"
+                    android:textSize="16sp"
+                    android:textColor="#666666" />
+
+                <View
+                    android:id="@+id/indicator_qa"
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:background="#2D8C42"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#E0E0E0" />
+    </LinearLayout>
 
     <FrameLayout
         android:id="@+id/container"

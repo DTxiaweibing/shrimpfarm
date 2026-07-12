@@ -17,7 +17,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.tabs.TabLayout;
 import com.shrimpfarm.app.qa.QaDetailActivity;
 import com.shrimpfarm.app.qa.QaPostActivity;
 import com.shrimpfarm.app.qa.adapter.QaListAdapter;
@@ -111,28 +110,34 @@ public class HelpActivity extends AppCompatActivity {
             }
         });
 
-        TabLayout tabLayout = findViewById(R.id.tab_layout);
-        tabLayout.addTab(tabLayout.newTab().setText("使用帮助"));
-        tabLayout.addTab(tabLayout.newTab().setText("问答社区"));
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) {
-                if (tab.getPosition() == 0) {
-                    webView.setVisibility(View.VISIBLE);
-                    qaRecyclerView.setVisibility(View.GONE);
-                    fabPost.setVisibility(View.GONE);
-                    swipeRefresh.setVisibility(View.GONE);
-                } else {
-                    webView.setVisibility(View.GONE);
-                    qaRecyclerView.setVisibility(View.VISIBLE);
-                    swipeRefresh.setVisibility(View.VISIBLE);
-                    fabPost.setVisibility(View.VISIBLE);
-                    if (questions.isEmpty()) {
-                        loadQuestions();
-                    }
-                }
+        View tabHelp = findViewById(R.id.tab_help_container);
+        View tabQa = findViewById(R.id.tab_qa_container);
+        View indicatorHelp = findViewById(R.id.indicator_help);
+        View indicatorQa = findViewById(R.id.indicator_qa);
+        android.widget.TextView tvHelp = findViewById(R.id.tab_help);
+        android.widget.TextView tvQa = findViewById(R.id.tab_qa);
+
+        selectTab(0, tvHelp, tvQa, indicatorHelp, indicatorQa);
+
+        tabHelp.setOnClickListener(v -> {
+            if (indicatorHelp.getVisibility() == View.VISIBLE) return;
+            selectTab(0, tvHelp, tvQa, indicatorHelp, indicatorQa);
+            webView.setVisibility(View.VISIBLE);
+            qaRecyclerView.setVisibility(View.GONE);
+            fabPost.setVisibility(View.GONE);
+            swipeRefresh.setVisibility(View.GONE);
+        });
+
+        tabQa.setOnClickListener(v -> {
+            if (indicatorQa.getVisibility() == View.VISIBLE) return;
+            selectTab(1, tvHelp, tvQa, indicatorHelp, indicatorQa);
+            webView.setVisibility(View.GONE);
+            qaRecyclerView.setVisibility(View.VISIBLE);
+            swipeRefresh.setVisibility(View.VISIBLE);
+            fabPost.setVisibility(View.VISIBLE);
+            if (questions.isEmpty()) {
+                loadQuestions();
             }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
         });
 
         fabPost.setOnClickListener(v -> {
@@ -142,6 +147,15 @@ public class HelpActivity extends AppCompatActivity {
             }
             postQuestionLauncher.launch(new Intent(this, QaPostActivity.class));
         });
+    }
+
+    private void selectTab(int index, android.widget.TextView tvHelp, android.widget.TextView tvQa,
+                           View indicatorHelp, View indicatorQa) {
+        boolean tab0 = index == 0;
+        tvHelp.setTextColor(tab0 ? 0xFF2D8C42 : 0xFF666666);
+        tvQa.setTextColor(tab0 ? 0xFF666666 : 0xFF2D8C42);
+        indicatorHelp.setVisibility(tab0 ? View.VISIBLE : View.GONE);
+        indicatorQa.setVisibility(tab0 ? View.GONE : View.VISIBLE);
     }
 
     @Override

@@ -34,9 +34,9 @@ public class QaPostActivity extends AppCompatActivity {
     private List<Uri> selectedUris = new ArrayList<>();
 
     private final ActivityResultLauncher<PickVisualMediaRequest> photoPicker = registerForActivityResult(
-            new ActivityResultContracts.PickMultipleVisualMedia(9), uris -> {
+            new ActivityResultContracts.PickMultipleVisualMedia(5), uris -> {
                 for (Uri uri : uris) {
-                    if (selectedUris.size() >= 9) break;
+                    if (selectedUris.size() >= 5) break;
                     selectedUris.add(uri);
                     addPreviewImage(uri);
                 }
@@ -48,7 +48,7 @@ public class QaPostActivity extends AppCompatActivity {
                 List<Uri> uris = result.getData().getParcelableArrayListExtra("uris");
                 if (uris != null) {
                     for (Uri uri : uris) {
-                        if (selectedUris.size() >= 9) break;
+                        if (selectedUris.size() >= 5) break;
                         selectedUris.add(uri);
                         addPreviewImage(uri);
                     }
@@ -69,8 +69,8 @@ public class QaPostActivity extends AppCompatActivity {
         btnPost = findViewById(R.id.btn_post);
 
         btnAddImage.setOnClickListener(v -> {
-            if (selectedUris.size() >= 9) {
-                Toast.makeText(this, "最多添加9张图片", Toast.LENGTH_SHORT).show();
+            if (selectedUris.size() >= 5) {
+                Toast.makeText(this, "最多添加5张图片", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -80,7 +80,7 @@ public class QaPostActivity extends AppCompatActivity {
             } else {
                 Intent intent = new Intent(this, GalleryPickerActivity.class);
                 intent.putExtra(GalleryPickerActivity.EXTRA_MAX_COUNT,
-                        9 - selectedUris.size());
+                        5 - selectedUris.size());
                 galleryPicker.launch(intent);
             }
         });
