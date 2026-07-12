@@ -1,9 +1,13 @@
 package com.shrimpfarm.app.qa.adapter;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -20,16 +24,35 @@ import java.util.TimeZone;
 public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder> {
     private List<Answer> answers;
     private boolean isQuestionAuthor;
+    private boolean isAdmin;
     private AcceptListener acceptListener;
+    private DeleteListener deleteListener;
+    private String currentUserId;
 
     public interface AcceptListener {
         void onAccept(Answer answer);
+    }
+
+    public interface DeleteListener {
+        void onDelete(Answer answer, int position);
     }
 
     public AnswerAdapter(List<Answer> answers, boolean isQuestionAuthor, AcceptListener listener) {
         this.answers = answers;
         this.isQuestionAuthor = isQuestionAuthor;
         this.acceptListener = listener;
+    }
+
+    public void setCurrentUserId(String userId) {
+        this.currentUserId = userId;
+    }
+
+    public void setAdminMode(boolean admin) {
+        this.isAdmin = admin;
+    }
+
+    public void setDeleteListener(DeleteListener listener) {
+        this.deleteListener = listener;
     }
 
     public void addAnswer(Answer answer) {
@@ -39,6 +62,11 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
 
     public void setQuestionAuthor(boolean isAuthor) {
         this.isQuestionAuthor = isAuthor;
+    }
+
+    public void removeItem(int position) {
+        answers.remove(position);
+        notifyItemRemoved(position);
     }
 
     @Override public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -67,6 +95,14 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
         h.btnAccept.setOnClickListener(v -> {
             if (acceptListener != null) acceptListener.onAccept(a);
         });
+
+        boolean isAuthor = currentUserId != null && currentUserId.equals(a.userId);
+        h.btnDelete.setVisibility(isAuthor || isAdmin ? View.VISIBLE : View.GONE);
+        h.btnDelete.setOnClickListener(v -> {
+            if (deleteListener != null) deleteListener.onDelete(a, position);
+        });
+
+        h.attachLongPress(a, position, deleteListener);
     }
 
     @Override public int getItemCount() { return answers.size(); }
@@ -74,6 +110,10 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvNickname, tvTime, tvContent, tvAccepted;
         Button btnAccept;
+        ImageButton btnDelete;
+        private Handler longPressHandler = new Handler(Looper.getMainLooper());
+        private Runnable longPressRunnable;
+
         ViewHolder(View v) {
             super(v);
             tvNickname = v.findViewById(R.id.tv_nickname);
@@ -81,6 +121,29 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
             tvContent = v.findViewById(R.id.tv_content);
             tvAccepted = v.findViewById(R.id.tv_accepted);
             btnAccept = v.findViewById(R.id.btn_accept);
+            btnDelete = v.findViewById(R.id.btn_delete_answer);
+
+            tvNickname.setOnTouchListener((v1, event) -> {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        if (longPressRunnable != null) {
+                            longPressHandler.postDelayed(longPressRunnable, 8000);
+                        }
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        longPressHandler.removeCallbacksAndMessages(null);
+                        break;
+                }
+                return false;
+            });
+        }
+
+        void attachLongPress(Answer a, int position, DeleteListener listener) {
+            longPressHandler.removeCallbacksAndMessages(null);
+            longPressRunnable = () -> {
+                if (listener != null) listener.onDelete(a, position);
+            };
         }
     }
 

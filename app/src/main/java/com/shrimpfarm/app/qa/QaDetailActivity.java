@@ -1,7 +1,10 @@
 package com.shrimpfarm.app.qa;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -11,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -36,11 +40,14 @@ public class QaDetailActivity extends AppCompatActivity {
     private AnswerAdapter answerAdapter;
     private List<Answer> answers;
     private long questionId;
+    private String currentUserId;
+    private boolean isAdmin;
 
     private TextView tvNickname, tvTime, tvTitle, tvContent;
     private LinearLayout layoutImages;
     private EditText etAnswer;
-    private ImageButton btnSend;
+    private ImageButton btnSend, btnDeleteQuestion;
+    private Handler longPressHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +74,8 @@ public class QaDetailActivity extends AppCompatActivity {
         }
 
         api = new QaApi(this);
+        currentUserId = api.getCurrentUserId();
+        isAdmin = "1032699170@qq.com".equals(api.getCurrentUserEmail());
 
         tvNickname = findViewById(R.id.tv_nickname);
         tvTime = findViewById(R.id.tv_time);
@@ -75,6 +84,9 @@ public class QaDetailActivity extends AppCompatActivity {
         layoutImages = findViewById(R.id.layout_images);
         etAnswer = findViewById(R.id.et_answer);
         btnSend = findViewById(R.id.btn_send);
+        btnDeleteQuestion = findViewById(R.id.btn_delete_question);
+
+        setupNicknameLongPress();
 
         answers = new ArrayList<>();
         RecyclerView rv = findViewById(R.id.answer_recycler_view);
@@ -91,9 +103,14 @@ public class QaDetailActivity extends AppCompatActivity {
                 }
             });
         });
+        answerAdapter.setCurrentUserId(currentUserId);
+        answerAdapter.setAdminMode(isAdmin);
+        answerAdapter.setDeleteListener((answer, position) -> confirmDeleteAnswer(answer, position));
         rv.setAdapter(answerAdapter);
 
         loadDetail();
+
+        btnDeleteQuestion.setOnClickListener(v -> confirmDeleteQuestion());
 
         btnSend.setOnClickListener(v -> {
             if (!api.isLoggedIn()) {
@@ -125,6 +142,68 @@ public class QaDetailActivity extends AppCompatActivity {
         });
     }
 
+    private void setupNicknameLongPress() {
+        Runnable longPressRunnable = () -> confirmDeleteQuestion();
+        tvNickname.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    longPressHandler.postDelayed(longPressRunnable, 8000);
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    longPressHandler.removeCallbacksAndMessages(null);
+                    break;
+            }
+            return false;
+        });
+    }
+
+    private void confirmDeleteQuestion() {
+        if (!api.isLoggedIn()) {
+            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("确认删除")
+                .setMessage("确定要删除此问题吗？")
+                .setPositiveButton("删除", (d, w) -> {
+                    api.deleteQuestion(questionId, new QaApi.QaCallback<Void>() {
+                        @Override public void onSuccess(Void result) {
+                            Toast.makeText(QaDetailActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                            finish();
+                        }
+                        @Override public void onError(String error) {
+                            Toast.makeText(QaDetailActivity.this, error, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void confirmDeleteAnswer(Answer answer, int position) {
+        if (!api.isLoggedIn()) {
+            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("确认删除")
+                .setMessage("确定要删除此回答吗？")
+                .setPositiveButton("删除", (d, w) -> {
+                    api.deleteAnswer(answer.id, new QaApi.QaCallback<Void>() {
+                        @Override public void onSuccess(Void result) {
+                            answerAdapter.removeItem(position);
+                            Toast.makeText(QaDetailActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                        }
+                        @Override public void onError(String error) {
+                            Toast.makeText(QaDetailActivity.this, error, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
     private void loadDetail() {
         api.getQuestionDetail(questionId, new QaApi.QaCallback<Question>() {
             @Override public void onSuccess(Question q) {
@@ -154,8 +233,9 @@ public class QaDetailActivity extends AppCompatActivity {
             answerAdapter.notifyDataSetChanged();
         }
 
-        boolean isAuthor = api.getCurrentUserId().equals(q.userId);
+        boolean isAuthor = currentUserId != null && currentUserId.equals(q.userId);
         answerAdapter.setQuestionAuthor(isAuthor);
+        btnDeleteQuestion.setVisibility(isAuthor || isAdmin ? View.VISIBLE : View.GONE);
 
         if (q.imageUrls != null && !q.imageUrls.isEmpty()) {
             layoutImages.setVisibility(View.VISIBLE);

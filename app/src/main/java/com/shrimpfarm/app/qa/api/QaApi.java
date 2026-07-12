@@ -104,6 +104,20 @@ public class QaApi {
         }
     }
 
+    public String getCurrentUserEmail() {
+        String token = getToken();
+        if (token.isEmpty()) return "";
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return "";
+            byte[] decoded = android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE);
+            String json = new String(decoded, "UTF-8");
+            return new JSONObject(json).optString("email", "");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     public String getCurrentNickname() {
         return auth.getNickname();
     }
@@ -352,6 +366,28 @@ public class QaApi {
                 } else {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("删除失败: " + response.code()));
+                    }
+                }
+            }
+        });
+    }
+
+    public void deleteAnswer(long answerId, QaCallback<Void> callback) {
+        Request request = authRequest()
+                .url(SUPABASE_URL + "/rest/v1/answers?id=eq." + answerId)
+                .delete()
+                .build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(okhttp3.Call call, IOException e) {
+                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+            }
+            @Override public void onResponse(okhttp3.Call call, Response response) {
+                if (response.isSuccessful()) {
+                    postMain(() -> callback.onSuccess(null));
+                } else {
+                    if (handleAuthError(response.code(), true)) {
                     } else {
                         postMain(() -> callback.onError("删除失败: " + response.code()));
                     }

@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -89,10 +90,34 @@ public class HelpActivity extends AppCompatActivity {
 
         questions = new ArrayList<>();
         adapter = new QaListAdapter(questions, question -> {
-            needRefresh = true;  // 进入详情页，返回时自动刷新
+            needRefresh = true;
             Intent intent = new Intent(HelpActivity.this, QaDetailActivity.class);
             intent.putExtra("question_id", question.id);
             startActivity(intent);
+        });
+        adapter.setCurrentUserId(api.getCurrentUserId());
+        adapter.setAdminMode("1032699170@qq.com".equals(api.getCurrentUserEmail()));
+        adapter.setOnItemDeleteListener((question, position) -> {
+            if (!api.isLoggedIn()) {
+                Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("确认删除")
+                    .setMessage("确定要删除此问题吗？")
+                    .setPositiveButton("删除", (d, w) -> {
+                        api.deleteQuestion(question.id, new QaApi.QaCallback<Void>() {
+                            @Override public void onSuccess(Void result) {
+                                adapter.removeItem(position);
+                                Toast.makeText(HelpActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                            }
+                            @Override public void onError(String error) {
+                                Toast.makeText(HelpActivity.this, error, Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
         });
         qaRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         qaRecyclerView.setAdapter(adapter);

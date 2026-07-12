@@ -41,6 +41,16 @@
             android:textSize="11sp"
             android:textColor="#999999"
             android:layout_marginStart="8dp" />
+
+        <ImageButton
+            android:id="@+id/btn_delete_answer"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@android:drawable/ic_menu_delete"
+            android:scaleType="centerInside"
+            android:background="@null"
+            android:visibility="gone"
+            android:contentDescription="删除" />
     </LinearLayout>
 
     <TextView
