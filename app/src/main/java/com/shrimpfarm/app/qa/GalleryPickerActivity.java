@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -60,8 +61,15 @@ public class GalleryPickerActivity extends AppCompatActivity {
         tvSelectedCount = findViewById(R.id.tv_selected_count);
         btnDone = findViewById(R.id.btn_done);
 
-        recyclerView.setLayoutManager(new GridLayoutManager(this, 3));
-        adapter = new ImageAdapter();
+        int screenWidthDp = getResources().getConfiguration().screenWidthDp;
+        int spanCount = screenWidthDp >= 600 ? 4 : 3;
+        recyclerView.setLayoutManager(new GridLayoutManager(this, spanCount));
+
+        float density = getResources().getDisplayMetrics().density;
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int itemSize = (int)((screenWidth - 4 * density) / spanCount - 4 * density + 0.5f);
+
+        adapter = new ImageAdapter(itemSize);
         recyclerView.setAdapter(adapter);
 
         btnDone.setOnClickListener(v -> {
@@ -114,30 +122,63 @@ public class GalleryPickerActivity extends AppCompatActivity {
     private void loadImages() {
         executor.execute(() -> {
             List<ImageEntry> entries = new ArrayList<>();
-            Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-            String[] projection = {
-                    MediaStore.Images.Media._ID,
-                    MediaStore.Images.Media.DATE_ADDED
-            };
+            Uri queryUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
             String sortOrder = MediaStore.Images.Media.DATE_ADDED + " DESC";
 
-            try (Cursor cursor = getContentResolver().query(uri, projection, null, null, sortOrder)) {
-                if (cursor != null) {
-                    int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
-                    while (cursor.moveToNext()) {
-                        long id = cursor.getLong(idCol);
-                        Uri imageUri = Uri.withAppendedPath(
-                                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                String.valueOf(id));
-                        entries.add(new ImageEntry(id, imageUri));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                String[] projection = {
+                        MediaStore.Images.Media._ID,
+                        MediaStore.Images.Media.WIDTH,
+                        MediaStore.Images.Media.HEIGHT,
+                        MediaStore.Images.Media.DATE_ADDED
+                };
+                String selection = MediaStore.Images.Media.WIDTH + " >= 200 AND "
+                        + MediaStore.Images.Media.HEIGHT + " >= 200";
+
+                try (Cursor cursor = getContentResolver().query(queryUri, projection, selection, null, sortOrder)) {
+                    if (cursor != null) {
+                        int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                        while (cursor.moveToNext()) {
+                            long id = cursor.getLong(idCol);
+                            Uri imageUri = Uri.withAppendedPath(
+                                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                    String.valueOf(id));
+                            entries.add(new ImageEntry(id, imageUri));
+                        }
                     }
+                } catch (Exception e) {
+                    mainHandler.post(() -> {
+                        Toast.makeText(this, "读取图片失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        finish();
+                    });
+                    return;
                 }
-            } catch (Exception e) {
-                mainHandler.post(() -> {
-                    Toast.makeText(this, "读取图片失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    finish();
-                });
-                return;
+            } else {
+                String[] projection = {
+                        MediaStore.Images.Media._ID,
+                        MediaStore.Images.Media.DATE_ADDED
+                };
+
+                try (Cursor cursor = getContentResolver().query(queryUri, projection, null, null, sortOrder)) {
+                    if (cursor != null) {
+                        int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                        while (cursor.moveToNext()) {
+                            long id = cursor.getLong(idCol);
+                            Uri imageUri = Uri.withAppendedPath(
+                                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                    String.valueOf(id));
+                            if (isLargeEnough(imageUri)) {
+                                entries.add(new ImageEntry(id, imageUri));
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    mainHandler.post(() -> {
+                        Toast.makeText(this, "读取图片失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        finish();
+                    });
+                    return;
+                }
             }
 
             mainHandler.post(() -> {
@@ -147,6 +188,17 @@ public class GalleryPickerActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    private boolean isLargeEnough(Uri uri) {
+        try {
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(getContentResolver().openInputStream(uri), null, opts);
+            return opts.outWidth >= 200 && opts.outHeight >= 200;
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     @Override
@@ -165,6 +217,11 @@ public class GalleryPickerActivity extends AppCompatActivity {
     private class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
 
         private List<ImageEntry> images = new ArrayList<>();
+        private final int itemSize;
+
+        ImageAdapter(int itemSize) {
+            this.itemSize = itemSize;
+        }
 
         void setImages(List<ImageEntry> images) {
             this.images = images;
@@ -182,18 +239,22 @@ public class GalleryPickerActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             ImageEntry entry = images.get(position);
-            boolean isSelected = selectedUris.contains(entry.uri);
+
+            holder.ivThumb.getLayoutParams().height = itemSize;
 
             Glide.with(GalleryPickerActivity.this)
                     .load(entry.uri)
-                    .override(300, 300)
+                    .override(itemSize, itemSize)
                     .centerCrop()
                     .into(holder.ivThumb);
 
+            boolean isSelected = selectedUris.contains(entry.uri);
             holder.checkBox.setChecked(isSelected);
             holder.overlay.setVisibility(isSelected ? View.VISIBLE : View.GONE);
+
             holder.itemView.setOnClickListener(v -> {
-                if (isSelected) {
+                boolean selected = selectedUris.contains(entry.uri);
+                if (selected) {
                     selectedUris.remove(entry.uri);
                     holder.checkBox.setChecked(false);
                     holder.overlay.setVisibility(View.GONE);

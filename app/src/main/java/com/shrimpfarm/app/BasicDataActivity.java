@@ -625,6 +625,7 @@ public class BasicDataActivity extends BaseActivity {
                         CheckBox cb = (CheckBox) child;
                         final String tagName = allTags.get(idx);
                         cb.setTag(tagName);
+                        cb.setOnCheckedChangeListener(null);
                         cb.setChecked(selectedTags.contains(tagName));
                         cb.setOnCheckedChangeListener((buttonView, isChecked) -> {
                             if (isChecked && etPresetName.getText().toString().trim().isEmpty()) {
