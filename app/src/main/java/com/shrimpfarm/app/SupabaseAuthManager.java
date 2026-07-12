@@ -30,6 +30,10 @@ public class SupabaseAuthManager {
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_EMAIL = "user_email";
     private static final String KEY_NICKNAME = "user_nickname";
+    private static final String KEY_ENCRYPTED_EMAIL = "encrypted_email";
+    private static final String KEY_ENCRYPTED_PASSWORD = "encrypted_password";
+    private static final String KEY_LAST_LOGIN_TIME = "last_login_time";
+    private static final long LOGIN_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2小时内不再重复登录
 
     private final Context context;
     private final OkHttpClient client;
@@ -53,10 +57,17 @@ public class SupabaseAuthManager {
 
     public String getValidToken() {
         String token = getToken();
-        if (token.isEmpty()) return "";
+        if (token.isEmpty()) {
+            // 如果本地没有 token，尝试用保存的账号密码自动登录
+            return autoRelogin();
+        }
         if (isTokenExpired(token)) {
             String newToken = refreshAccessToken();
-            if (newToken != null) return newToken;
+            if (newToken != null && !newToken.isEmpty()) {
+                return newToken;
+            }
+            // refresh token 也过期了，尝试用保存的账号密码自动重新登录
+            return autoRelogin();
         }
         return token;
     }
@@ -75,13 +86,57 @@ public class SupabaseAuthManager {
     }
 
     private String refreshAccessToken() {
-        String refreshToken = getRefreshToken();
-        if (refreshToken.isEmpty()) return null;
+        synchronized (this) {
+            String refreshToken = getRefreshToken();
+            if (refreshToken.isEmpty()) return null;
+            try {
+                JSONObject body = new JSONObject();
+                body.put("refresh_token", refreshToken);
+                Request request = new Request.Builder()
+                        .url(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token")
+                        .header("apikey", ANON_KEY)
+                        .header("Content-Type", "application/json")
+                        .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
+                        .build();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        String respBody = response.body() != null ? response.body().string() : "";
+                        JSONObject json = new JSONObject(respBody);
+                        String newToken = json.getString("access_token");
+                        String newRefreshToken = json.optString("refresh_token", refreshToken);
+                        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                                .edit()
+                                .putString(KEY_TOKEN, newToken)
+                                .putString(KEY_REFRESH_TOKEN, newRefreshToken)
+                                .apply();
+                        return newToken;
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("SupabaseAuth", "refresh token failed", e);
+            }
+            return null;
+        }
+    }
+
+    /**
+     * 用本地加密保存的账号密码静默重新登录，2小时内不重复登录。
+     */
+    private String autoRelogin() {
+        long lastLogin = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getLong(KEY_LAST_LOGIN_TIME, 0);
+        if (System.currentTimeMillis() - lastLogin < LOGIN_COOLDOWN_MS) {
+            return ""; // 2小时内刚登录过，可能是密码已修改，不再重试
+        }
+        String email = getSavedEmail();
+        String password = getSavedPassword();
+        if (email.isEmpty() || password.isEmpty()) return "";
         try {
             JSONObject body = new JSONObject();
-            body.put("refresh_token", refreshToken);
+            body.put("email", email);
+            body.put("password", password);
             Request request = new Request.Builder()
-                    .url(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token")
+                    .url(SUPABASE_URL + "/auth/v1/token?grant_type=password")
                     .header("apikey", ANON_KEY)
                     .header("Content-Type", "application/json")
                     .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
@@ -91,19 +146,52 @@ public class SupabaseAuthManager {
                     String respBody = response.body() != null ? response.body().string() : "";
                     JSONObject json = new JSONObject(respBody);
                     String newToken = json.getString("access_token");
-                    String newRefreshToken = json.optString("refresh_token", refreshToken);
+                    String newRefreshToken = json.optString("refresh_token", "");
                     context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                             .edit()
                             .putString(KEY_TOKEN, newToken)
                             .putString(KEY_REFRESH_TOKEN, newRefreshToken)
+                            .putLong(KEY_LAST_LOGIN_TIME, System.currentTimeMillis())
                             .apply();
+                    android.util.Log.i("SupabaseAuth", "autoRelogin success");
                     return newToken;
                 }
             }
         } catch (Exception e) {
-            android.util.Log.e("SupabaseAuth", "refresh token failed", e);
+            android.util.Log.e("SupabaseAuth", "autoRelogin failed", e);
         }
-        return null;
+        return "";
+    }
+
+    /**
+     * 供 HelpActivity 调用：打开帮助页时后台静默刷新登录状态
+     */
+    public void backgroundRefresh() {
+        new Thread(() -> {
+            String token = getValidToken();
+            android.util.Log.i("SupabaseAuth", "backgroundRefresh: " + (!token.isEmpty() ? "token valid" : "not logged in"));
+        }).start();
+    }
+
+    /**
+     * 登录成功后保存加密的账号密码，用于后续自动重新登录
+     */
+    private void saveCredentials(String email, String password) {
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_ENCRYPTED_EMAIL, encrypt(email))
+                .putString(KEY_ENCRYPTED_PASSWORD, encrypt(password))
+                .apply();
+    }
+
+    private String getSavedEmail() {
+        return decrypt(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_ENCRYPTED_EMAIL, ""));
+    }
+
+    private String getSavedPassword() {
+        return decrypt(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_ENCRYPTED_PASSWORD, ""));
     }
 
     public String getRefreshToken() {
@@ -209,7 +297,11 @@ public class SupabaseAuthManager {
                         .putString(KEY_REFRESH_TOKEN, refreshToken)
                         .putString(KEY_EMAIL, userEmail)
                         .putString(KEY_NICKNAME, currentNickname)
+                        .putLong(KEY_LAST_LOGIN_TIME, System.currentTimeMillis())
                         .apply();
+
+                // 保存加密的账号密码，用于后续自动重新登录
+                saveCredentials(email, password);
 
                 if (nickname != null && !nickname.isEmpty() && !nickname.equals(currentNickname)) {
                     currentNickname = nickname;
@@ -491,7 +583,9 @@ public class SupabaseAuthManager {
                             .putString(KEY_REFRESH_TOKEN, refreshToken)
                             .putString(KEY_EMAIL, email)
                             .putString(KEY_NICKNAME, nickname)
+                            .putLong(KEY_LAST_LOGIN_TIME, System.currentTimeMillis())
                             .apply();
+                    saveCredentials(email, password);
                     syncRecorderToPrefs();
                     return new AuthResult(true, "注册成功", nickname, email);
                 } else {

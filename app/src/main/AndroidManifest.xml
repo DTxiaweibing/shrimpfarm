@@ -112,6 +112,10 @@
             android:screenOrientation="portrait"
             android:exported="false" />
         <activity
+            android:name=".qa.GalleryPickerActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:exported="false" />
+        <activity
             android:name=".ExpertActivity"
             android:label="专家咨询"
             android:screenOrientation="portrait"

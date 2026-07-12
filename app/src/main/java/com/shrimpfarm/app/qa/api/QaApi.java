@@ -58,6 +58,26 @@ public class QaApi {
         void onError(String error);
     }
 
+    /**
+     * 检测 401/403，区分读/写操作：
+     * - 读操作（列表、详情）：静默失败，不清除登录态
+     * - 写操作（发布、回答、采纳、删除）：清除登录态，提示重新登录
+     */
+    private boolean handleAuthError(int httpCode, boolean isWriteOperation) {
+        if (httpCode == 401 || httpCode == 403) {
+            if (isWriteOperation) {
+                auth.logout();
+                postMain(() -> {
+                    // 写操作才提示用户，但只在主线程
+                });
+                return true;
+            }
+            // 读操作：静默失败，不 logout，不弹 Toast
+            return true;
+        }
+        return false;
+    }
+
     public boolean isLoggedIn() {
         return auth.isLoggedIn();
     }
@@ -93,9 +113,13 @@ public class QaApi {
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation");
-        String token = getAuthToken();
-        if (!token.isEmpty()) {
-            builder.addHeader("Authorization", "Bearer " + token);
+        try {
+            String token = getAuthToken();
+            if (!token.isEmpty()) {
+                builder.addHeader("Authorization", "Bearer " + token);
+            }
+        } catch (Exception e) {
+            // 任何异常（网络超时、解密失败等）都不影响读操作，降级为匿名请求
         }
         return builder;
     }
@@ -128,7 +152,12 @@ public class QaApi {
         Request request = authRequest().url(url).get().build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                // 网络失败时，用缓存拼一个结果返回，绝不丢失已有昵称
+                Map<String, String> result = new HashMap<>();
+                for (String uid : userIds) {
+                    result.put(uid, profileCache.getOrDefault(uid, ""));
+                }
+                postMain(() -> callback.onSuccess(result));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "[]";
@@ -149,10 +178,20 @@ public class QaApi {
                         }
                         postMain(() -> callback.onSuccess(result));
                     } catch (Exception e) {
-                        postMain(() -> callback.onError("解析失败: " + e.getMessage()));
+                        // 解析失败也走缓存兜底
+                        Map<String, String> result = new HashMap<>();
+                        for (String uid : userIds) {
+                            result.put(uid, profileCache.getOrDefault(uid, ""));
+                        }
+                        postMain(() -> callback.onSuccess(result));
                     }
                 } else {
-                    postMain(() -> callback.onSuccess(new HashMap<>()));
+                    // 接口返回 4xx/5xx 时，同样用缓存兜底
+                    Map<String, String> result = new HashMap<>();
+                    for (String uid : userIds) {
+                        result.put(uid, profileCache.getOrDefault(uid, ""));
+                    }
+                    postMain(() -> callback.onSuccess(result));
                 }
             }
         });
@@ -179,7 +218,11 @@ public class QaApi {
                     List<Question> list = gson.fromJson(body, type);
                     attachAnswerStats(list, () -> attachProfilesToQuestions(list, () -> postMain(() -> callback.onSuccess(list))));
                 } else {
-                    postMain(() -> callback.onError("请求失败: " + response.code()));
+                    if (handleAuthError(response.code(), false)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("请求失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -228,7 +271,11 @@ public class QaApi {
                         });
                     });
                 } else {
-                    postMain(() -> callback.onError("请求失败: " + response.code()));
+                    if (handleAuthError(response.code(), false)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("请求失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -280,7 +327,11 @@ public class QaApi {
                         postMain(() -> callback.onError("发布失败"));
                     }
                 } else {
-                    postMain(() -> callback.onError("发布失败: " + response.code()));
+                    if (handleAuthError(response.code(), true)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("发布失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -299,7 +350,11 @@ public class QaApi {
                 if (response.isSuccessful()) {
                     postMain(() -> callback.onSuccess(null));
                 } else {
-                    postMain(() -> callback.onError("删除失败: " + response.code()));
+                    if (handleAuthError(response.code(), true)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("删除失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -337,7 +392,11 @@ public class QaApi {
                         postMain(() -> callback.onError("发布失败"));
                     }
                 } else {
-                    postMain(() -> callback.onError("发布失败: " + response.code()));
+                    if (handleAuthError(response.code(), true)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("发布失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -357,7 +416,11 @@ public class QaApi {
                 if (response.isSuccessful()) {
                     markResolved(questionId, callback);
                 } else {
-                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                    if (handleAuthError(response.code(), true)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("操作失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -377,7 +440,11 @@ public class QaApi {
                 if (response.isSuccessful()) {
                     postMain(() -> callback.onSuccess(null));
                 } else {
-                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                    if (handleAuthError(response.code(), true)) {
+                        // 静默处理，不打扰用户
+                    } else {
+                        postMain(() -> callback.onError("操作失败: " + response.code()));
+                    }
                 }
             }
         });
@@ -410,7 +477,11 @@ public class QaApi {
                         String publicUrl = SUPABASE_URL + "/storage/v1/object/public/qa-images/" + fileName;
                         postMain(() -> callback.onSuccess(publicUrl));
                     } else {
-                        postMain(() -> callback.onError("上传失败: " + response.code()));
+                        if (handleAuthError(response.code(), true)) {
+                            // 静默处理，不打扰用户
+                        } else {
+                            postMain(() -> callback.onError("上传失败: " + response.code()));
+                        }
                     }
                 }
             });

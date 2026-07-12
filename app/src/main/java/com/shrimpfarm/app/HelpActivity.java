@@ -46,6 +46,7 @@ public class HelpActivity extends AppCompatActivity {
     private int currentPage = 1;
     private boolean isLoading = false;
     private boolean hasMore = true;
+    private boolean needRefresh = false;
     private ActivityResultLauncher<Intent> postQuestionLauncher;
 
     @Override
@@ -63,6 +64,9 @@ public class HelpActivity extends AppCompatActivity {
         );
 
         api = new QaApi(this);
+
+        // 打开帮助页时后台静默刷新登录状态，确保切换到问答社区时 token 有效
+        new SupabaseAuthManager(this).backgroundRefresh();
 
         webView = findViewById(R.id.web_view);
         qaRecyclerView = findViewById(R.id.qa_recycler_view);
@@ -86,6 +90,7 @@ public class HelpActivity extends AppCompatActivity {
 
         questions = new ArrayList<>();
         adapter = new QaListAdapter(questions, question -> {
+            needRefresh = true;  // 进入详情页，返回时自动刷新
             Intent intent = new Intent(HelpActivity.this, QaDetailActivity.class);
             intent.putExtra("question_id", question.id);
             startActivity(intent);
@@ -137,6 +142,15 @@ public class HelpActivity extends AppCompatActivity {
             }
             postQuestionLauncher.launch(new Intent(this, QaPostActivity.class));
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (needRefresh && qaRecyclerView.getVisibility() == View.VISIBLE && !questions.isEmpty()) {
+            needRefresh = false;
+            loadQuestions();
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")

@@ -1,15 +1,19 @@
 package com.shrimpfarm.app.qa;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -28,21 +32,25 @@ public class QaPostActivity extends AppCompatActivity {
     private List<String> uploadedUrls = new ArrayList<>();
     private List<Uri> selectedUris = new ArrayList<>();
 
-    private final ActivityResultLauncher<Intent> imagePicker = registerForActivityResult(
+    private final ActivityResultLauncher<PickVisualMediaRequest> photoPicker = registerForActivityResult(
+            new ActivityResultContracts.PickMultipleVisualMedia(9), uris -> {
+                for (Uri uri : uris) {
+                    if (selectedUris.size() >= 9) break;
+                    selectedUris.add(uri);
+                    addPreviewImage(uri);
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> galleryPicker = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getData() == null) return;
-                Intent data = result.getData();
-                int remaining = 9 - selectedUris.size();
-                if (data.getClipData() != null) {
-                    int count = data.getClipData().getItemCount();
-                    for (int i = 0; i < count && remaining > 0; i++, remaining--) {
-                        Uri uri = data.getClipData().getItemAt(i).getUri();
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                List<Uri> uris = result.getData().getParcelableArrayListExtra("uris");
+                if (uris != null) {
+                    for (Uri uri : uris) {
+                        if (selectedUris.size() >= 9) break;
                         selectedUris.add(uri);
                         addPreviewImage(uri);
                     }
-                } else if (data.getData() != null) {
-                    selectedUris.add(data.getData());
-                    addPreviewImage(data.getData());
                 }
             });
 
@@ -64,10 +72,16 @@ public class QaPostActivity extends AppCompatActivity {
                 Toast.makeText(this, "最多添加9张图片", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("image/*");
-            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            imagePicker.launch(intent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                photoPicker.launch(new PickVisualMediaRequest.Builder()
+                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                        .build());
+            } else {
+                Intent intent = new Intent(this, GalleryPickerActivity.class);
+                intent.putExtra(GalleryPickerActivity.EXTRA_MAX_COUNT,
+                        9 - selectedUris.size());
+                galleryPicker.launch(intent);
+            }
         });
 
         btnPost.setOnClickListener(v -> {
@@ -123,17 +137,44 @@ public class QaPostActivity extends AppCompatActivity {
     }
 
     private void addPreviewImage(Uri uri) {
-        ImageView iv = new ImageView(this);
+        // 外层容器，用于叠加删除角标
+        FrameLayout container = new FrameLayout(this);
         int size = getResources().getDisplayMetrics().widthPixels / 4 - 16;
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
         lp.setMargins(0, 0, 8, 0);
-        iv.setLayoutParams(lp);
+        container.setLayoutParams(lp);
+
+        ImageView iv = new ImageView(this);
+        iv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        iv.setOnClickListener(v -> {
-            selectedUris.remove(uri);
-            layoutPreview.removeView(iv);
-        });
         Glide.with(this).load(uri).into(iv);
-        layoutPreview.addView(iv);
+
+        // 点击 → 放大预览
+        iv.setOnClickListener(v -> showImagePreview(uri));
+
+        // 长按 → 删除
+        iv.setOnLongClickListener(v -> {
+            selectedUris.remove(uri);
+            layoutPreview.removeView(container);
+            Toast.makeText(QaPostActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+            return true;
+        });
+
+        container.addView(iv);
+        layoutPreview.addView(container);
+    }
+
+    private void showImagePreview(Uri uri) {
+        ImageView iv = new ImageView(this);
+        iv.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        iv.setAdjustViewBounds(true);
+        Glide.with(this).load(uri).into(iv);
+        new AlertDialog.Builder(this)
+                .setView(iv)
+                .setPositiveButton("关闭", null)
+                .show();
     }
 }
