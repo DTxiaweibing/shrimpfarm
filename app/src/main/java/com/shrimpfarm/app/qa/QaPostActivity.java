@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.qa.api.QaApi;
+import com.shrimpfarm.app.utils.SensitiveWordFilter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -93,6 +94,10 @@ public class QaPostActivity extends AppCompatActivity {
             }
             if (content.isEmpty()) {
                 Toast.makeText(this, "请输入问题内容", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (SensitiveWordFilter.contains(title) || SensitiveWordFilter.contains(content)) {
+                Toast.makeText(this, "内容包含敏感词，请修改后重试", Toast.LENGTH_SHORT).show();
                 return;
             }
             btnPost.setEnabled(false);

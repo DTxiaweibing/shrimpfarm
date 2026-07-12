@@ -21,6 +21,7 @@ import com.shrimpfarm.app.qa.adapter.AnswerAdapter;
 import com.shrimpfarm.app.qa.api.QaApi;
 import com.shrimpfarm.app.qa.model.Answer;
 import com.shrimpfarm.app.qa.model.Question;
+import com.shrimpfarm.app.utils.SensitiveWordFilter;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -102,6 +103,10 @@ public class QaDetailActivity extends AppCompatActivity {
             String content = etAnswer.getText().toString().trim();
             if (content.isEmpty()) {
                 Toast.makeText(this, "请输入回答内容", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (SensitiveWordFilter.contains(content)) {
+                Toast.makeText(this, "内容包含敏感词，请修改后重试", Toast.LENGTH_SHORT).show();
                 return;
             }
             btnSend.setEnabled(false);
