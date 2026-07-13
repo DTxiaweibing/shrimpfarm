@@ -111,7 +111,6 @@ public class BackupActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        refreshHistory();
     }
 
     private void setupButtons() {
@@ -352,7 +351,7 @@ public class BackupActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                String fileName = webDavManager.uploadBackup();
+                String fileName = webDavManager.uploadBackup(true);
                 runOnUiThread(() -> {
                     pd.dismiss();
                     Toast.makeText(BackupActivity.this, "坚果云备份成功！", Toast.LENGTH_SHORT).show();
@@ -403,7 +402,7 @@ public class BackupActivity extends AppCompatActivity {
 
     private long parseDateFromName(String name) {
         try {
-            String dateStr = name.replace("DataBackup_", "").replace(".db", "");
+            String dateStr = name.replace("DataBackup_", "").replace("（手动备份）", "").replace(".db", "");
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
             Date date = sdf.parse(dateStr);
             return date != null ? date.getTime() : 0;

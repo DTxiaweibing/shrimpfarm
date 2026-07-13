@@ -25,7 +25,7 @@ public class LocalBackupManager {
 
     private static final String BACKUP_DIR = "小棚养虾备份";
     private static final String DB_NAME = "FeedingRecord.db";
-    private static final int MAX_BACKUPS = 20;
+    private static final int MAX_BACKUPS = 100;
 
     private final Context context;
 
@@ -62,6 +62,14 @@ public class LocalBackupManager {
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
         String fileName = "DataBackup_" + sdf.format(new Date()) + ".db";
+
+        // 写入前先清理超出上限的旧备份
+        if (Build.VERSION.SDK_INT >= 29) {
+            cleanupMediaStoreBackups();
+        } else {
+            File backupDir = getLegacyBackupDir();
+            cleanupOldBackups(backupDir);
+        }
 
         if (Build.VERSION.SDK_INT >= 29) {
             return exportViaMediaStore(dbFile, fileName);

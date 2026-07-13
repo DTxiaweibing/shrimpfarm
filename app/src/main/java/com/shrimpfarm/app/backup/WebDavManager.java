@@ -30,7 +30,7 @@ public class WebDavManager {
     private static final String WEBDAV_URL = "https://dav.jianguoyun.com/dav/";
     private static final String BACKUP_DIR = "小棚养虾备份/";
     private static final String DB_NAME = "FeedingRecord.db";
-    private static final int MAX_BACKUPS = 20;
+    private static final int MAX_BACKUPS = 100;
 
     private static final String PREF_NAME = "webdav_config";
     private static final String KEY_USERNAME = "webdav_username";
@@ -115,6 +115,10 @@ public class WebDavManager {
     }
 
     public String uploadBackup() throws Exception {
+        return uploadBackup(false);
+    }
+
+    public String uploadBackup(boolean isManual) throws Exception {
         File dbFile = context.getDatabasePath(DB_NAME);
         if (dbFile == null || !dbFile.exists()) {
             dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
@@ -135,8 +139,11 @@ public class WebDavManager {
 
         ensureBackupDir();
 
+        // 写入前先清理超出上限的旧备份
+        cleanupOldBackups();
+
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
-        String fileName = "DataBackup_" + sdf.format(new Date()) + ".db";
+        String fileName = "DataBackup_" + sdf.format(new Date()) + (isManual ? "（手动备份）.db" : ".db");
         String remotePath = WEBDAV_URL + BACKUP_DIR + fileName;
 
         execPut(remotePath, dbFile);
