@@ -13,10 +13,25 @@
         android:orientation="horizontal"
         android:background="#2d8c42">
 
-        <View
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.2" />
+            android:layout_weight="0.2"
+            android:gravity="start|center_vertical"
+            android:paddingStart="8dp">
+
+            <TextView
+                android:id="@+id/btn_column_settings"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="⚙"
+                android:textSize="22sp"
+                android:textColor="#FFFFFF"
+                android:background="@null"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/toolbar"

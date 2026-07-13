@@ -37,6 +37,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -113,6 +114,7 @@ public class MixCalcActivity extends BaseActivity {
     // 列管理
     private Map<String, Boolean> columnVisibility = new HashMap<String, Boolean>();
     private Map<String, Boolean> columnFixed = new HashMap<String, Boolean>();
+    private PopupWindow columnSettingsPopup;
     private final String[] columnIds = {
         "seq", "shed_number", "shed_count", "average_feed", 
         "fermented", "powder", "feed03", "feed05", "feed10", 
@@ -1641,6 +1643,15 @@ public class MixCalcActivity extends BaseActivity {
             if (verticalScrollView != null) {
                 verticalScrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
             }
+
+            // 列设置齿轮按钮
+            findViewById(R.id.btn_column_settings).setOnClickListener(v -> {
+                if (columnSettingsPopup != null && columnSettingsPopup.isShowing()) {
+                    columnSettingsPopup.dismiss();
+                } else {
+                    showColumnSettingsPopup();
+                }
+            });
         } catch (Exception e) {
             Log.e(TAG, "initViews异常: " + e.getMessage());
         }
@@ -3366,5 +3377,140 @@ public class MixCalcActivity extends BaseActivity {
                     finish();
                 }
             });
+    }
+
+    // ==================== 列设置弹出菜单 ====================
+
+    private void showColumnSettingsPopup() {
+        try {
+            View popupView = getLayoutInflater().inflate(R.layout.popup_column_settings, null);
+
+            LinearLayout rowsContainer = popupView.findViewById(R.id.settings_rows_container);
+            rowsContainer.removeAllViews();
+
+            String[] settingsIds = {"shed_number", "shed_count", "average_feed", "fermented", "powder", "feed03", "feed05", "feed10", "water"};
+            String[] settingsNames = {"棚号", "棚数", "平均", "发酵料", "粉料", "0.3料", "0.5料", "1.0料", "水"};
+
+            Map<String, List<TextView>> toggleViews = new HashMap<>();
+            float density = getResources().getDisplayMetrics().density;
+
+            for (int i = 0; i < settingsNames.length; i++) {
+                String colId = settingsIds[i];
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, (int) (40 * density));
+                row.setLayoutParams(rowLp);
+                row.setPadding((int) (8 * density), 0, (int) (8 * density), 0);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+
+                TextView nameTv = new TextView(this);
+                nameTv.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+                nameTv.setText(settingsNames[i]);
+                nameTv.setTextSize(14);
+                nameTv.setTextColor(0xFF333333);
+                nameTv.setGravity(Gravity.CENTER);
+                row.addView(nameTv);
+
+                List<TextView> toggles = new ArrayList<>(4);
+                String[] actions = {"固列", "解固", "隐列", "显列"};
+
+                for (String action : actions) {
+                    TextView btn = new TextView(this);
+                    btn.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+                    btn.setGravity(Gravity.CENTER);
+                    btn.setText(action);
+                    btn.setTextSize(12);
+                    btn.setClickable(true);
+                    btn.setFocusable(true);
+                    btn.setTag(new String[]{colId, action});
+                    btn.setOnClickListener(v -> {
+                        String[] tag = (String[]) v.getTag();
+                        String cId = tag[0];
+                        String act = tag[1];
+                        switch (act) {
+                            case "固列": columnFixed.put(cId, true); break;
+                            case "解固": columnFixed.put(cId, false); break;
+                            case "隐列": columnVisibility.put(cId, false); break;
+                            case "显列": columnVisibility.put(cId, true); break;
+                        }
+                        updateSettingsRowStyles(toggleViews.get(cId), cId);
+                    });
+                    row.addView(btn);
+                    toggles.add(btn);
+                }
+
+                rowsContainer.addView(row);
+                toggleViews.put(colId, toggles);
+                updateSettingsRowStyles(toggles, colId);
+
+                if (i < settingsNames.length - 1) {
+                    View divider = new View(this);
+                    divider.setLayoutParams(new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 1));
+                    divider.setBackgroundColor(0xFFE0E0E0);
+                    rowsContainer.addView(divider);
+                }
+            }
+
+            PopupWindow popup = new PopupWindow(popupView);
+            columnSettingsPopup = popup;
+            popup.setOnDismissListener(() -> columnSettingsPopup = null);
+            popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            popup.setOutsideTouchable(true);
+            popup.setFocusable(true);
+            popup.setElevation(10);
+
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            int maxWidth = (int) (360 * dm.density);
+            popup.setWidth(Math.min(dm.widthPixels, maxWidth));
+            popup.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+
+            popupView.findViewById(R.id.btn_cancel_all).setOnClickListener(v -> popup.dismiss());
+            popupView.findViewById(R.id.btn_unfix_all).setOnClickListener(v -> {
+                unfixAllColumns();
+                popup.dismiss();
+                new Handler().postDelayed(() -> showColumnSettingsPopup(), 200);
+            });
+            popupView.findViewById(R.id.btn_show_all).setOnClickListener(v -> {
+                showAllColumns();
+                popup.dismiss();
+                new Handler().postDelayed(() -> showColumnSettingsPopup(), 200);
+            });
+            popupView.findViewById(R.id.btn_confirm).setOnClickListener(v -> {
+                saveColumnVisibility();
+                saveColumnFixedState();
+                rebuildCompleteTable();
+                popup.dismiss();
+                Toast.makeText(this, "列设置已保存", Toast.LENGTH_SHORT).show();
+            });
+
+            View anchor = findViewById(R.id.btn_column_settings);
+            popup.showAsDropDown(anchor, 0, 0);
+
+        } catch (Exception e) {
+            Log.e(TAG, "showColumnSettingsPopup: " + e.getMessage(), e);
+        }
+    }
+
+    private void updateSettingsRowStyles(List<TextView> toggles, String columnId) {
+        if (toggles == null || toggles.size() < 4) return;
+        boolean isFixed = columnFixed.get(columnId);
+        boolean isVisible = columnVisibility.get(columnId);
+        updateToggleStyle(toggles.get(0), isFixed);
+        updateToggleStyle(toggles.get(1), !isFixed);
+        updateToggleStyle(toggles.get(2), !isVisible);
+        updateToggleStyle(toggles.get(3), isVisible);
+    }
+
+    private void updateToggleStyle(TextView btn, boolean active) {
+        if (active) {
+            btn.setTextColor(0xFFFFFFFF);
+            btn.setBackgroundResource(R.drawable.bg_button_green);
+        } else {
+            btn.setTextColor(0xFFFFFFFF);
+            btn.setBackgroundResource(R.drawable.bg_button_gray);
+        }
     }
 }

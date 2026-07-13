@@ -91,7 +91,7 @@ public class MainActivity extends BaseActivity {
     };
     private final String[] funcNames = {
             "基础数据", "养殖记录", "查料记录", "拌料计算",
-            "水质检测", "数据分析", "产量预估", "帮助建议",
+            "水质检测", "数据分析", "产量预估", "社区帮助",
             "专家咨询", "行情资讯"
     };
 
