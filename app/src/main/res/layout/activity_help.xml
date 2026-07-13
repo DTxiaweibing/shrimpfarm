@@ -21,9 +21,9 @@
                 android:id="@+id/tab_help_container"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="36"
+                android:layout_weight="50"
                 android:orientation="vertical"
-                android:gravity="center_vertical|end"
+                android:gravity="center"
                 android:clickable="true"
                 android:background="?attr/selectableItemBackground">
 
@@ -44,18 +44,13 @@
                     android:background="#2D8C42" />
             </LinearLayout>
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="28" />
-
             <LinearLayout
                 android:id="@+id/tab_qa_container"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="36"
+                android:layout_weight="50"
                 android:orientation="vertical"
-                android:gravity="center_vertical|start"
+                android:gravity="center"
                 android:clickable="true"
                 android:background="?attr/selectableItemBackground">
 

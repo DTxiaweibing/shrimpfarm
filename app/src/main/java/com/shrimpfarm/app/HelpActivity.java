@@ -142,6 +142,13 @@ public class HelpActivity extends AppCompatActivity {
         android.widget.TextView tvHelp = findViewById(R.id.tab_help);
         android.widget.TextView tvQa = findViewById(R.id.tab_qa);
 
+        // 黄金分割文字定位：左38.2%、右61.8%（各容器50%、文字居中于25%/75% → 偏移 ±13.2%）
+        tvHelp.post(() -> {
+            int screenW = getResources().getDisplayMetrics().widthPixels;
+            tvHelp.setTranslationX(screenW * 0.132f);
+            tvQa.setTranslationX(screenW * -0.132f);
+        });
+
         selectTab(0, tvHelp, tvQa, indicatorHelp, indicatorQa);
 
         tabHelp.setOnClickListener(v -> {
