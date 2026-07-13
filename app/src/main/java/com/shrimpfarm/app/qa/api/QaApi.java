@@ -486,6 +486,101 @@ public class QaApi {
         });
     }
 
+    // ========== 投票 ==========
+
+    public void getAnswerVotes(List<Long> answerIds, QaCallback<Map<Long, int[]>> callback) {
+        if (answerIds == null || answerIds.isEmpty()) {
+            postMain(() -> callback.onSuccess(new HashMap<>()));
+            return;
+        }
+        String ids = TextUtils.join(",", answerIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.toList()));
+        String url = SUPABASE_URL + "/rest/v1/answer_votes"
+                + "?answer_id=in.(" + ids + ")"
+                + "&select=answer_id,user_id,vote_type";
+        Request request = authRequest().url(url).get().build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(okhttp3.Call call, IOException e) {
+                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+            }
+            @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "[]";
+                Map<Long, int[]> result = new HashMap<>();
+                String currentUserId = getCurrentUserId();
+                try {
+                    org.json.JSONArray arr = new org.json.JSONArray(body);
+                    for (int i = 0; i < arr.length(); i++) {
+                        org.json.JSONObject obj = arr.getJSONObject(i);
+                        long aid = obj.optLong("answer_id");
+                        String uid = obj.optString("user_id", "");
+                        boolean voteType = obj.optBoolean("vote_type");
+                        int[] counts = result.get(aid);
+                        if (counts == null) {
+                            counts = new int[]{0, 0, 0};
+                            result.put(aid, counts);
+                        }
+                        if (voteType) counts[0]++;
+                        else counts[1]++;
+                        if (uid.equals(currentUserId)) {
+                            counts[2] = voteType ? 1 : -1;
+                        }
+                    }
+                } catch (Exception ignored) {}
+                Map<Long, int[]> finalResult = new HashMap<>(result);
+                for (Long id : answerIds) {
+                    if (!finalResult.containsKey(id)) {
+                        finalResult.put(id, new int[]{0, 0, 0});
+                    }
+                }
+                postMain(() -> callback.onSuccess(finalResult));
+            }
+        });
+    }
+
+    public void voteAnswer(long answerId, boolean isUpvote, QaCallback<Void> callback) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("answer_id", answerId);
+        body.put("user_id", getCurrentUserId());
+        body.put("vote_type", isUpvote);
+        String json = gson.toJson(body);
+        Request request = authRequest()
+                .url(SUPABASE_URL + "/rest/v1/answer_votes?on_conflict=answer_id,user_id")
+                .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+                .post(RequestBody.create(json, JSON))
+                .build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(okhttp3.Call call, IOException e) {
+                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+            }
+            @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) {
+                if (response.isSuccessful()) {
+                    postMain(() -> callback.onSuccess(null));
+                } else {
+                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                }
+            }
+        });
+    }
+
+    public void cancelVote(long answerId, QaCallback<Void> callback) {
+        String userId = getCurrentUserId();
+        Request request = authRequest()
+                .url(SUPABASE_URL + "/rest/v1/answer_votes?answer_id=eq." + answerId + "&user_id=eq." + userId)
+                .delete()
+                .build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(okhttp3.Call call, IOException e) {
+                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+            }
+            @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) {
+                if (response.isSuccessful()) {
+                    postMain(() -> callback.onSuccess(null));
+                } else {
+                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                }
+            }
+        });
+    }
+
     // ========== 图片上传 ==========
 
     public void uploadImage(Uri imageUri, QaCallback<String> callback) {

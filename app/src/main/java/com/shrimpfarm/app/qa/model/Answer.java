@@ -15,4 +15,7 @@ public class Answer {
     @SerializedName("updated_at") public String updatedAt;
 
     public transient String displayName;
+    public transient int upvotes;
+    public transient int downvotes;
+    public transient int userVote;
 }

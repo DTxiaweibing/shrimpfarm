@@ -106,6 +106,7 @@ public class QaDetailActivity extends AppCompatActivity {
         answerAdapter.setCurrentUserId(currentUserId);
         answerAdapter.setAdminMode(isAdmin);
         answerAdapter.setDeleteListener((answer, position) -> confirmDeleteAnswer(answer, position));
+        answerAdapter.setVoteListener((answer, voteType) -> handleVote(answer, voteType));
         rv.setAdapter(answerAdapter);
 
         loadDetail();
@@ -204,6 +205,72 @@ public class QaDetailActivity extends AppCompatActivity {
                 .show();
     }
 
+    private void fetchVotes(List<Long> answerIds) {
+        api.getAnswerVotes(answerIds, new QaApi.QaCallback<java.util.Map<Long, int[]>>() {
+            @Override public void onSuccess(java.util.Map<Long, int[]> voteMap) {
+                if (isFinishing() || isDestroyed()) return;
+                for (Answer a : answers) {
+                    int[] v = voteMap.get(a.id);
+                    if (v != null) {
+                        a.upvotes = v[0];
+                        a.downvotes = v[1];
+                        a.userVote = v[2];
+                    }
+                }
+                answerAdapter.notifyDataSetChanged();
+            }
+            @Override public void onError(String error) {}
+        });
+    }
+
+    private void handleVote(Answer answer, int voteType) {
+        if (!api.isLoggedIn()) {
+            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int oldVote = answer.userVote;
+        if (voteType == 0) {
+            api.cancelVote(answer.id, voteCallback(answer, oldVote));
+            if (oldVote == 1) answer.upvotes--;
+            else answer.downvotes--;
+            answer.userVote = 0;
+            answerAdapter.notifyDataSetChanged();
+        } else if (voteType == 1) {
+            api.voteAnswer(answer.id, true, voteCallback(answer, oldVote));
+            if (oldVote == 1) {
+                answer.upvotes--;
+                answer.userVote = 0;
+            } else {
+                if (oldVote == -1) answer.downvotes--;
+                answer.upvotes++;
+                answer.userVote = 1;
+            }
+            answerAdapter.notifyDataSetChanged();
+        } else {
+            api.voteAnswer(answer.id, false, voteCallback(answer, oldVote));
+            if (oldVote == -1) {
+                answer.downvotes--;
+                answer.userVote = 0;
+            } else {
+                if (oldVote == 1) answer.upvotes--;
+                answer.downvotes++;
+                answer.userVote = -1;
+            }
+            answerAdapter.notifyDataSetChanged();
+        }
+    }
+
+    private QaApi.QaCallback<Void> voteCallback(Answer answer, int oldVote) {
+        return new QaApi.QaCallback<Void>() {
+            @Override public void onSuccess(Void result) {}
+            @Override public void onError(String error) {
+                answer.userVote = oldVote;
+                answerAdapter.notifyDataSetChanged();
+                Toast.makeText(QaDetailActivity.this, error, Toast.LENGTH_SHORT).show();
+            }
+        };
+    }
+
     private void loadDetail() {
         api.getQuestionDetail(questionId, new QaApi.QaCallback<Question>() {
             @Override public void onSuccess(Question q) {
@@ -231,6 +298,9 @@ public class QaDetailActivity extends AppCompatActivity {
             answers.clear();
             answers.addAll(q.answers);
             answerAdapter.notifyDataSetChanged();
+            List<Long> answerIds = new ArrayList<>();
+            for (Answer a : q.answers) answerIds.add(a.id);
+            fetchVotes(answerIds);
         }
 
         boolean isAuthor = currentUserId != null && currentUserId.equals(q.userId);

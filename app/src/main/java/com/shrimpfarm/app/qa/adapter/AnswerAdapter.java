@@ -27,6 +27,7 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
     private boolean isAdmin;
     private AcceptListener acceptListener;
     private DeleteListener deleteListener;
+    private VoteListener voteListener;
     private String currentUserId;
 
     public interface AcceptListener {
@@ -35,6 +36,10 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
 
     public interface DeleteListener {
         void onDelete(Answer answer, int position);
+    }
+
+    public interface VoteListener {
+        void onVote(Answer answer, int voteType);
     }
 
     public AnswerAdapter(List<Answer> answers, boolean isQuestionAuthor, AcceptListener listener) {
@@ -53,6 +58,10 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
 
     public void setDeleteListener(DeleteListener listener) {
         this.deleteListener = listener;
+    }
+
+    public void setVoteListener(VoteListener listener) {
+        this.voteListener = listener;
     }
 
     public void addAnswer(Answer answer) {
@@ -102,6 +111,30 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
             if (deleteListener != null) deleteListener.onDelete(a, position);
         });
 
+        boolean loggedIn = currentUserId != null && !currentUserId.isEmpty();
+        h.btnUpvote.setText("👍 " + a.upvotes);
+        h.btnDownvote.setText("👎 " + a.downvotes);
+        h.btnUpvote.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        h.btnDownvote.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+
+        if (a.userVote == 1) {
+            h.btnUpvote.setTextColor(0xFF2D8C42);
+            h.btnDownvote.setTextColor(0xFF333333);
+        } else if (a.userVote == -1) {
+            h.btnUpvote.setTextColor(0xFF333333);
+            h.btnDownvote.setTextColor(0xFFE53935);
+        } else {
+            h.btnUpvote.setTextColor(0xFF333333);
+            h.btnDownvote.setTextColor(0xFF333333);
+        }
+
+        h.btnUpvote.setOnClickListener(v -> {
+            if (voteListener != null) voteListener.onVote(a, a.userVote == 1 ? 0 : 1);
+        });
+        h.btnDownvote.setOnClickListener(v -> {
+            if (voteListener != null) voteListener.onVote(a, a.userVote == -1 ? 0 : -1);
+        });
+
         h.attachLongPress(a, position, deleteListener);
     }
 
@@ -111,6 +144,7 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
         TextView tvNickname, tvTime, tvContent, tvAccepted;
         Button btnAccept;
         ImageButton btnDelete;
+        TextView btnUpvote, btnDownvote;
         private Handler longPressHandler = new Handler(Looper.getMainLooper());
         private Runnable longPressRunnable;
 
@@ -122,6 +156,8 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
             tvAccepted = v.findViewById(R.id.tv_accepted);
             btnAccept = v.findViewById(R.id.btn_accept);
             btnDelete = v.findViewById(R.id.btn_delete_answer);
+            btnUpvote = v.findViewById(R.id.btn_upvote);
+            btnDownvote = v.findViewById(R.id.btn_downvote);
 
             tvNickname.setOnTouchListener((v1, event) -> {
                 switch (event.getAction()) {
