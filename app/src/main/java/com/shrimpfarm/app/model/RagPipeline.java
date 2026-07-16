@@ -52,7 +52,8 @@ public class RagPipeline {
         try {
             float[] queryEmb = embedder.embed(query);
             String route = enableRouting ? routeQuery(query) : null;
-            List<KnowledgeBase.ScoredIdx> candidates = kb.searchRaw(queryEmb, 20, route);
+
+            List<KnowledgeBase.ScoredIdx> candidates = kb.searchRaw(queryEmb, 10, route);
 
             List<String> docContents = new ArrayList<>();
             for (KnowledgeBase.ScoredIdx si : candidates) {
@@ -69,8 +70,8 @@ public class RagPipeline {
 
             StringBuilder sb = new StringBuilder();
             sb.append("用户问题：").append(query).append("\n\n");
-            for (Reranker.ScoredDoc sd : reranked) {
-                sb.append("【参考知识】\n").append(sd.content).append("\n\n");
+            for (Reranker.ScoredDoc doc : reranked) {
+                sb.append("【参考知识】\n").append(doc.content).append("\n\n");
             }
             if (!reranked.isEmpty()) {
                 sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");

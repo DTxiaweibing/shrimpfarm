@@ -42,13 +42,36 @@ public class KnowledgeBaseUpdater {
 
     public static int getLocalVersion(Context context) {
         File dbFile = new File(context.getFilesDir(), DB_NAME);
-        if (!dbFile.exists()) return 0;
-        try (SQLiteDatabase db = SQLiteDatabase.openDatabase(dbFile.getAbsolutePath(), null, SQLiteDatabase.OPEN_READONLY)) {
+        if (!dbFile.exists()) {
+            return readVersionFromAssets(context);
+        }
+        return readVersionFromDb(dbFile.getAbsolutePath());
+    }
+
+    private static int readVersionFromAssets(Context context) {
+        try {
+            File tmp = File.createTempFile("kb_ver_", ".db", context.getCacheDir());
+            try (InputStream is = context.getAssets().open(DB_NAME);
+                 FileOutputStream os = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[8192]; int len;
+                while ((len = is.read(buf)) != -1) os.write(buf, 0, len);
+            }
+            int ver = readVersionFromDb(tmp.getAbsolutePath());
+            tmp.delete();
+            return ver;
+        } catch (Exception e) {
+            Log.w(TAG, "Cannot read version from assets: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    private static int readVersionFromDb(String path) {
+        try (SQLiteDatabase db = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)) {
             try (Cursor c = db.rawQuery("SELECT value FROM metadata WHERE key='version'", null)) {
                 if (c.moveToFirst()) return Integer.parseInt(c.getString(0));
             }
         } catch (Exception e) {
-            Log.w(TAG, "No version in local DB, assuming v0");
+            Log.w(TAG, "No version in DB, assuming v0");
         }
         return 0;
     }
