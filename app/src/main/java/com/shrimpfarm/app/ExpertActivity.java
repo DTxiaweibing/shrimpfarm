@@ -83,6 +83,7 @@ public class ExpertActivity extends AppCompatActivity {
     private EditText inputMessage;
     private ImageButton btnSend;
     private ImageButton btnToggleInput;
+    private TextView btnUnleash;
     private LinearLayout btnHoldSpeak;
     private ImageView imgMicHold;
     private ChatAdapter adapter;
@@ -112,6 +113,13 @@ public class ExpertActivity extends AppCompatActivity {
                     }
                 }
             });
+
+    private boolean unleashed = false;
+
+    private String getSystemPrompt() {
+        if (unleashed) return null;
+        return SYSTEM_PROMPT;
+    }
 
     private final List<ChatMessage> messages = new ArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -203,6 +211,7 @@ public class ExpertActivity extends AppCompatActivity {
         btnToggleInput = findViewById(com.shrimpfarm.app.R.id.btn_toggle_input);
         btnHoldSpeak = findViewById(com.shrimpfarm.app.R.id.btn_hold_speak);
         imgMicHold = findViewById(com.shrimpfarm.app.R.id.img_mic_hold);
+        btnUnleash = findViewById(com.shrimpfarm.app.R.id.btn_unleash);
 
         chatList.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ChatAdapter(messages);
@@ -216,6 +225,11 @@ public class ExpertActivity extends AppCompatActivity {
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         btnSend.setOnClickListener(v -> sendMessage());
+        btnUnleash.setOnClickListener(v -> {
+            unleashed = !unleashed;
+            btnUnleash.setText(unleashed ? "放" : "严");
+            btnUnleash.setTextColor(unleashed ? 0xfff59e0b : 0xff10b981);
+        });
         inputMessage.setOnEditorActionListener((v, actionId, event) -> { sendMessage(); return true; });
 
         btnToggleInput.setOnClickListener(v -> toggleInputMode());
@@ -390,7 +404,7 @@ public class ExpertActivity extends AppCompatActivity {
         if (text.isEmpty()) return;
         inputMessage.setText("");
         addUserMessage(text);
-        startAnimation("正在提炼问题");
+        startAnimation(unleashed ? "直接回答" : "正在提炼问题");
         if (!initialized) { Log.w(TAG, "Not initialized"); stopAnimation(); btnSend.setEnabled(true); return; }
         if (cloudApiKey == null) { Log.w(TAG, "No API key"); stopAnimation(); btnSend.setEnabled(true); return; }
         btnSend.setEnabled(false);
@@ -402,6 +416,11 @@ public class ExpertActivity extends AppCompatActivity {
     private void processQuery(String query, boolean wasVoice) {
         try {
             Log.i(TAG, "Processing query: " + query);
+            if (unleashed) {
+                mainHandler.post(() -> transitionAnimation("正在联系专家"));
+                startStreamingResponse(query, wasVoice);
+                return;
+            }
             RagPipeline pipeline = new RagPipeline();
             RagPipeline.Result result = pipeline.process(query, embedder, knowledgeBase,
                     reranker, ENABLE_ROUTING, SYSTEM_PROMPT);
@@ -454,7 +473,7 @@ public class ExpertActivity extends AppCompatActivity {
         mainHandler.post(() -> transitionAnimation("专家思考中"));
 
         final boolean speak = wasVoice;
-        callCloudAPIStreaming(SYSTEM_PROMPT, userPrompt, new StreamCallback() {
+        callCloudAPIStreaming(getSystemPrompt(), userPrompt, new StreamCallback() {
             private final StringBuilder accumulated = new StringBuilder();
             private boolean firstChunk = true;
             private int botMsgIdx = -1;
@@ -525,8 +544,10 @@ public class ExpertActivity extends AppCompatActivity {
             body.put("model", CLOUD_MODEL);
             body.put("stream", true);
             JSONArray messages = new JSONArray();
-            JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", systemPrompt);
-            messages.put(sys);
+            if (systemPrompt != null) {
+                JSONObject sys = new JSONObject(); sys.put("role", "system"); sys.put("content", systemPrompt);
+                messages.put(sys);
+            }
             JSONObject usr = new JSONObject(); usr.put("role", "user"); usr.put("content", userPrompt);
             messages.put(usr);
             body.put("messages", messages); body.put("temperature", 0.2); body.put("max_tokens", 4096);
