@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.annotation.SuppressLint;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -27,12 +29,43 @@ public abstract class BaseActivity extends AppCompatActivity {
     private GestureDetector gestureDetector;
     private static final int SWIPE_THRESHOLD = 200;
     private static final int SWIPE_VELOCITY_THRESHOLD = 200;
+    private Handler integrityHandler;
+    private boolean integrityDialogShown = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (!AppIntegrityChecker.verified) {
             showPiratedBlockingDialog();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!AppIntegrityChecker.verified && !integrityDialogShown) {
+            showPiratedBlockingDialog();
+            return;
+        }
+        integrityHandler = new Handler(Looper.getMainLooper());
+        integrityHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || integrityDialogShown) return;
+                if (!AppIntegrityChecker.verified) {
+                    showPiratedBlockingDialog();
+                } else {
+                    integrityHandler.postDelayed(this, 800);
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (integrityHandler != null) {
+            integrityHandler.removeCallbacksAndMessages(null);
         }
     }
 
@@ -69,8 +102,10 @@ public abstract class BaseActivity extends AppCompatActivity {
         btn.setBackgroundResource(android.R.color.transparent);
         btn.setTextColor(0xFFE53935);
         btn.setOnClickListener(v -> {
+            integrityDialogShown = true;
             dialog.dismiss();
-            finishAndRemoveTask();
+            finishAffinity();
+            System.exit(0);
         });
         layout.addView(divider);
         layout.addView(btn, new LinearLayout.LayoutParams(
@@ -88,7 +123,10 @@ public abstract class BaseActivity extends AppCompatActivity {
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         }
-        if (!isFinishing()) dialog.show();
+        if (!isFinishing() && !integrityDialogShown) {
+            integrityDialogShown = true;
+            dialog.show();
+        }
     }
 
     @Override
