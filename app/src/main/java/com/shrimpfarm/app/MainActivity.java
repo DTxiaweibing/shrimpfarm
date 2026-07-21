@@ -42,6 +42,7 @@ import androidx.viewpager.widget.ViewPager;
 import com.google.android.material.navigation.NavigationView;
 import com.shrimpfarm.app.analysis.DataAnalysisActivity;
 import com.shrimpfarm.app.banner.BannerManager;
+import com.shrimpfarm.app.utils.DialogHelper;
 import com.shrimpfarm.app.model.AlertItem;
 import com.shrimpfarm.app.model.ExcelBasedFeedConversion;
 import com.shrimpfarm.app.home.AlertGenerator;
@@ -142,6 +143,8 @@ public class MainActivity extends BaseActivity {
             showConsentDialog();
             return;
         }
+
+        AppIntegrityChecker.startCheck(this);
 
         setContentView(R.layout.activity_main);
 

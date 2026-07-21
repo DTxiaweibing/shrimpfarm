@@ -378,7 +378,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     // ==================== 统计表操作 ====================
+    private boolean isSaveAllowed() {
+        return AppIntegrityChecker.checkEverStarted;
+    }
+
     public void insertFeedingStats(String batchId, String date, long avgDurationMillis, long recordTime) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_STATS_DATE, date);
@@ -390,6 +395,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // ==================== 查料分析表操作 ====================
     public void insertFeedingCheckAnalysis(String batchId, String date, double avgSeconds, double standardSeconds) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BATCH_ID, batchId);
@@ -405,6 +411,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                                    String nitrite, String ph, String dissolvedOxygen,
                                    String maxTemp, String minTemp,
                                    String chlorine, String hydrogenSulfide, String orp) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_WQ_DATE, date);
@@ -434,6 +441,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // ==================== 基础数据表操作 ====================
     public void saveBasicData(String batchId, String key, String value) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BD_KEY, key);
@@ -457,6 +465,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // ==================== 拌料动保预设表操作 ====================
     public void saveMixPreset(String batchId, int row, String name, String tags) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MIX_ROW, row);
@@ -523,6 +532,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // ==================== 调水动保预设表操作 ====================
     public void saveWaterPreset(String batchId, int row, String name, String tags) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_WATER_ROW, row);
@@ -680,6 +690,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_DATE, record.date);
@@ -776,6 +787,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public void insertCheckRecords(List<ContentValues> valuesList) {
         if (valuesList == null || valuesList.isEmpty()) return;
+        if (!isSaveAllowed()) return;
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {

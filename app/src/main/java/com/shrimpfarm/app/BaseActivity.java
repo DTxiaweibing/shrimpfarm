@@ -5,11 +5,14 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.annotation.SuppressLint;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -28,6 +31,64 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!AppIntegrityChecker.verified) {
+            showPiratedBlockingDialog();
+        }
+    }
+
+    @SuppressLint("InflateParams")
+    protected void showPiratedBlockingDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.setCancelable(false);
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setOnKeyListener((d, keyCode, event) -> keyCode == android.view.KeyEvent.KEYCODE_BACK);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(android.view.Gravity.CENTER);
+        layout.setBackgroundColor(0xFFFFFFFF);
+        layout.setPadding(0, 0, 0, 0);
+
+        TextView tv = new TextView(this);
+        tv.setText("检测到非正版应用，请从官方渠道下载。");
+        tv.setTextSize(18);
+        tv.setTextColor(0xFF333333);
+        tv.setGravity(android.view.Gravity.CENTER);
+        tv.setPadding(48, 48, 48, 48);
+        layout.addView(tv, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        View divider = new View(this);
+        divider.setBackgroundColor(0xFFE0E0E0);
+        divider.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 1));
+
+        Button btn = new Button(this);
+        btn.setText("退出");
+        btn.setTextSize(16);
+        btn.setBackgroundResource(android.R.color.transparent);
+        btn.setTextColor(0xFFE53935);
+        btn.setOnClickListener(v -> {
+            dialog.dismiss();
+            finishAndRemoveTask();
+        });
+        layout.addView(divider);
+        layout.addView(btn, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (int) (48 * getResources().getDisplayMetrics().density + 0.5f)));
+
+        dialog.setContentView(layout);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setGravity(android.view.Gravity.CENTER);
+            window.setDimAmount(0.6f);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        }
+        if (!isFinishing()) dialog.show();
     }
 
     @Override
