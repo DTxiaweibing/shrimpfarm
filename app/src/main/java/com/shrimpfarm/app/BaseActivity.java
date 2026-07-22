@@ -73,6 +73,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        AppIntegrityChecker.startCheck(this);
         if (!AppIntegrityChecker.verified && !integrityDialogShown) {
             showPiratedBlockingDialog();
             return;

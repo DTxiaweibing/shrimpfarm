@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -23,13 +25,22 @@ public class AppIntegrityChecker {
     public static volatile boolean verified = true;
     public static volatile boolean checkEverStarted = false;
 
+    public interface IntegrityCallback {
+        void onResult(boolean verified);
+    }
+
     public static void startCheck(Context context) {
+        startCheck(context, null);
+    }
+
+    public static void startCheck(Context context, IntegrityCallback callback) {
         checkEverStarted = true;
         new Thread(() -> {
             try {
                 String fingerprint = computeFingerprint(context);
                 if (fingerprint == null) {
                     Log.e(TAG, "指纹计算失败，放行");
+                    postResult(callback, true);
                     return;
                 }
                 Log.i(TAG, "本地指纹: " + fingerprint);
@@ -57,6 +68,7 @@ public class AppIntegrityChecker {
                 try (Response response = client.newCall(request).execute()) {
                     if (!response.isSuccessful()) {
                         Log.w(TAG, "Supabase 查询失败(" + response.code() + ")，放行");
+                        postResult(callback, true);
                         return;
                     }
 
@@ -64,6 +76,7 @@ public class AppIntegrityChecker {
                     JSONArray arr = new JSONArray(body);
                     if (arr.length() == 0) {
                         Log.w(TAG, "Supabase 无此版本记录，放行");
+                        postResult(callback, true);
                         return;
                     }
 
@@ -71,11 +84,19 @@ public class AppIntegrityChecker {
                     boolean match = allowed.equalsIgnoreCase(fingerprint);
                     verified = match;
                     Log.i(TAG, "校验结果: " + (match ? "通过" : "失败"));
+                    postResult(callback, match);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "校验异常，放行", e);
+                postResult(callback, true);
             }
         }).start();
+    }
+
+    private static void postResult(IntegrityCallback callback, boolean result) {
+        if (callback != null) {
+            new Handler(Looper.getMainLooper()).post(() -> callback.onResult(result));
+        }
     }
 
     private static String computeFingerprint(Context context) {

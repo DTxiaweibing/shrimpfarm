@@ -23,13 +23,23 @@ public class WatermarkFrameLayout extends FrameLayout {
 
     private void init() {
         setWillNotDraw(false);
-        showWatermark = isOver50Days(getContext());
-        if (showWatermark) {
-            watermarkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            watermarkPaint.setColor(0x12FF0000);
-            watermarkPaint.setStyle(Paint.Style.FILL);
-            watermarkPaint.setAntiAlias(true);
-        }
+        showWatermark = false;
+        triggerPost50Check(getContext());
+    }
+
+    private void triggerPost50Check(Context context) {
+        if (!isOver50Days(context)) return;
+        AppIntegrityChecker.startCheck(context, verified -> {
+            if (!verified) {
+                showWatermark = true;
+                watermarkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                watermarkPaint.setColor(0x12FF0000);
+                watermarkPaint.setStyle(Paint.Style.FILL);
+                watermarkPaint.setAntiAlias(true);
+                postInvalidate();
+                requestLayout();
+            }
+        });
     }
 
     @Override
@@ -69,7 +79,7 @@ public class WatermarkFrameLayout extends FrameLayout {
     }
 
     private static final String UPGRADE_URL =
-            "https://gh-proxy.com/https://github.com/DTxiaweibing/TIMU/releases/latest/download/app-release.apk";
+            "https://gh-proxy.com/https://github.com/DTxiaweibing/TIMU/releases/latest/download/shrimpfarm.apk";
 
     private void openUpgradePage() {
         Context ctx = getContext();

@@ -8,11 +8,11 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// XOR-obfuscated "非官方正版"
+// XOR-obfuscated "非官方正版" (UTF-8: E9 9D 9E E5 AE 98 E6 96 B9 E6 AD A3 E7 89 88)
+// key "NM3LOALN" (4E 4D 33 4C 30 41 4C 4E)
 static const char WATERMARK_ENC[] = {
-    0x3c, 0x02, 0x42, 0x74, 0x02, 0x47, 0x74, 0x01,
-    0x0c, 0x6c, 0x11, 0x43, 0x23, 0x6a, 0x11, 0x41,
-    0x22, 0x6d, 0x00
+    0xA7, 0xD0, 0xAD, 0xA9, 0x9E, 0xD9, 0xAA, 0xD8,
+    0xF7, 0xAB, 0x9E, 0xEF, 0xD7, 0xC8, 0xC4
 };
 static const char XOR_KEY[] = { 'N', 'M', '3', 'L', '0', 'A', 'L', 'N', 0 };
 static const int ENC_LEN = sizeof(WATERMARK_ENC) / sizeof(WATERMARK_ENC[0]);
@@ -90,7 +90,6 @@ Java_com_shrimpfarm_app_WatermarkNative_renderWatermark(
     jmethodID draw_text_mid = env->GetMethodID(canvas_cls, "drawText",
         "(Ljava/lang/String;FFLandroid/graphics/Paint;)V");
     jmethodID restore_mid = env->GetMethodID(canvas_cls, "restore", "()V");
-    jmethodID set_alpha_mid = env->GetMethodID(paint_cls, "setAlpha", "(I)V");
 
     if (!save_mid || !rotate_mid || !draw_text_mid || !restore_mid) {
         LOGE("Failed to get Canvas method IDs");
@@ -99,25 +98,28 @@ Java_com_shrimpfarm_app_WatermarkNative_renderWatermark(
 
     float density = 3.0f;
     float text_size = WATERMARK_TEXT_SIZE_DP * density;
-    float line_spacing = WATERMARK_LINE_SPACING_DP * density;
+    float step = WATERMARK_LINE_SPACING_DP * density;
 
     jmethodID set_text_size_mid = env->GetMethodID(paint_cls, "setTextSize", "(F)V");
     if (set_text_size_mid) {
         env->CallVoidMethod(paint, set_text_size_mid, text_size);
     }
 
-    float text_y = -40.0f * density;
+    float diagonal = (float)((width + height) * 1.2);
     int count = 0;
 
-    while (text_y < height + 100 * density) {
-        env->CallIntMethod(canvas, save_mid);
-        env->CallVoidMethod(canvas, rotate_mid, -45.0f, line_spacing / 2.0f, text_y);
-        env->CallVoidMethod(canvas, draw_text_mid, watermark_text, 8.0f * density, text_y, paint);
-        env->CallVoidMethod(canvas, restore_mid);
-        text_y += line_spacing;
-        count++;
+    for (float y = -diagonal; y < diagonal; y += step) {
+        int row = (int)((y + diagonal) / step);
+        float x_start = -diagonal + ((row % 2 == 0) ? step * 0.5f : 0);
+        for (float x = x_start; x < diagonal; x += step) {
+            env->CallIntMethod(canvas, save_mid);
+            env->CallVoidMethod(canvas, rotate_mid, -45.0f, x, y);
+            env->CallVoidMethod(canvas, draw_text_mid, watermark_text, x, y, paint);
+            env->CallVoidMethod(canvas, restore_mid);
+            count++;
+        }
     }
 
     env->DeleteLocalRef(watermark_text);
-    LOGI("Rendered %d watermark lines, days >= %d", count, TRIGGER_DAYS);
+    LOGI("Rendered %d watermark tiles", count);
 }
