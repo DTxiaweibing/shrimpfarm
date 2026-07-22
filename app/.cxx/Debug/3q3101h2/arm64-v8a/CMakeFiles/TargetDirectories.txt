@@ -1,0 +1,3 @@
+D:/shrimpfarm/app/.cxx/Debug/3q3101h2/arm64-v8a/CMakeFiles/native_watermark.dir
+D:/shrimpfarm/app/.cxx/Debug/3q3101h2/arm64-v8a/CMakeFiles/edit_cache.dir
+D:/shrimpfarm/app/.cxx/Debug/3q3101h2/arm64-v8a/CMakeFiles/rebuild_cache.dir

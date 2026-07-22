@@ -9,3 +9,5 @@ lint_err.log
 lint_out.log
 docx_output.txt
 app/release/
+app/.cxx/
+app/debug/
