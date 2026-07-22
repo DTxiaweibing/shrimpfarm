@@ -16,6 +16,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
@@ -31,6 +32,35 @@ public abstract class BaseActivity extends AppCompatActivity {
     private static final int SWIPE_VELOCITY_THRESHOLD = 200;
     private Handler integrityHandler;
     private boolean integrityDialogShown = false;
+    private boolean watermarkApplied = false;
+
+    @Override
+    public void setContentView(int layoutResID) {
+        View original = getLayoutInflater().inflate(layoutResID, null);
+        wrapWithWatermark(original);
+    }
+
+    @Override
+    public void setContentView(View view) {
+        wrapWithWatermark(view);
+    }
+
+    @Override
+    public void setContentView(View view, ViewGroup.LayoutParams params) {
+        wrapWithWatermark(view);
+    }
+
+    private void wrapWithWatermark(View content) {
+        if (content instanceof WatermarkFrameLayout) {
+            super.setContentView(content);
+            return;
+        }
+        WatermarkFrameLayout wfl = new WatermarkFrameLayout(this);
+        wfl.addView(content, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        super.setContentView(wfl);
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
