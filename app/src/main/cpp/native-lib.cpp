@@ -123,3 +123,22 @@ Java_com_shrimpfarm_app_WatermarkNative_renderWatermark(
     env->DeleteLocalRef(watermark_text);
     LOGI("Rendered %d watermark tiles", count);
 }
+
+// XOR-obfuscated "ShrimpFarm2024!!" (ASCII: 53 68 72 69 6D 70 46 61 72 6D 32 30 34 21 21)
+// key "NM3LOALN" (4E 4D 33 4C 30 41 4C 4E)
+static const char ROOT_KEY_ENC[] = {
+    0x1D, 0x25, 0x41, 0x25, 0x5D, 0x31, 0x0A, 0x2F,
+    0x3C, 0x20, 0x01, 0x7C, 0x04, 0x60, 0x6D
+};
+static const int ROOT_KEY_LEN = sizeof(ROOT_KEY_ENC) / sizeof(ROOT_KEY_ENC[0]);
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_shrimpfarm_app_WatermarkNative_getRootKey(JNIEnv *env, jclass clazz) {
+    char buf[32];
+    int klen = strlen(XOR_KEY);
+    for (int i = 0; i < ROOT_KEY_LEN; i++) {
+        buf[i] = ROOT_KEY_ENC[i] ^ XOR_KEY[i % klen];
+    }
+    buf[ROOT_KEY_LEN] = '\0';
+    return env->NewStringUTF(buf);
+}

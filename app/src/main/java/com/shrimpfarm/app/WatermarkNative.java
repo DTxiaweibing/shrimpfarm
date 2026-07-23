@@ -10,4 +10,5 @@ public class WatermarkNative {
 
     public static native boolean shouldShowWatermark(String stockingDate);
     public static native void renderWatermark(Canvas canvas, int width, int height, Paint paint);
+    public static native String getRootKey();
 }

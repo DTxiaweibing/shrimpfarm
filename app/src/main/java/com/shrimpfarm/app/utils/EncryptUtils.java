@@ -10,7 +10,14 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class EncryptUtils {
 
-    private static final String KEY = "ShrimpFarm2024!!";
+    private static String KEY = null;
+
+    private static String getKey() {
+        if (KEY == null) {
+            KEY = com.shrimpfarm.app.WatermarkNative.getRootKey();
+        }
+        return KEY;
+    }
     private static final int GCM_TAG_LENGTH = 128;
     private static final int GCM_IV_LENGTH = 12;
     private static final byte VERSION_LEGACY = 0;
@@ -23,7 +30,7 @@ public class EncryptUtils {
             return plainText;
         }
         try {
-            SecretKeySpec keySpec = new SecretKeySpec(KEY.getBytes("UTF-8"), "AES");
+            SecretKeySpec keySpec = new SecretKeySpec(getKey().getBytes("UTF-8"), "AES");
 
             byte[] iv = new byte[GCM_IV_LENGTH];
             RANDOM.nextBytes(iv);
@@ -74,7 +81,7 @@ public class EncryptUtils {
         byte[] encrypted = new byte[data.length - 1 - GCM_IV_LENGTH];
         System.arraycopy(data, 1 + GCM_IV_LENGTH, encrypted, 0, encrypted.length);
 
-        SecretKeySpec keySpec = new SecretKeySpec(KEY.getBytes("UTF-8"), "AES");
+        SecretKeySpec keySpec = new SecretKeySpec(getKey().getBytes("UTF-8"), "AES");
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
         cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec);
@@ -84,7 +91,7 @@ public class EncryptUtils {
 
     @android.annotation.SuppressLint("GetInstance")
     private static String decryptLegacy(String encryptedText) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(KEY.getBytes("UTF-8"), "AES");
+        SecretKeySpec keySpec = new SecretKeySpec(getKey().getBytes("UTF-8"), "AES");
         Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
         cipher.init(Cipher.DECRYPT_MODE, keySpec);
         byte[] decoded = Base64.decode(encryptedText, Base64.DEFAULT);
