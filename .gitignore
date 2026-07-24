@@ -11,3 +11,5 @@ docx_output.txt
 app/release/
 app/.cxx/
 app/debug/
+app/src/main/cpp/build/
+.cxx/

@@ -1,7 +1,0 @@
-# ninja log v5
-4	1788	8063969151702160	CMakeFiles/native_watermark.dir/native-lib.cpp.o	14d60b8452aae105
-1797	2294	8063969156484706	D:/shrimpfarm/app/build/intermediates/cxx/Debug/3q3101h2/obj/arm64-v8a/libnative_watermark.so	b904c46557361477
-91	2578	8064128210987174	CMakeFiles/native_watermark.dir/native-lib.cpp.o	14d60b8452aae105
-2582	3532	8064128220600933	D:/shrimpfarm/app/build/intermediates/cxx/Debug/3q3101h2/obj/arm64-v8a/libnative_watermark.so	b904c46557361477
-111	2351	8064985965971788	CMakeFiles/native_watermark.dir/native-lib.cpp.o	14d60b8452aae105
-2354	3029	8064985972589470	D:/shrimpfarm/app/build/intermediates/cxx/Debug/3q3101h2/obj/arm64-v8a/libnative_watermark.so	b904c46557361477
