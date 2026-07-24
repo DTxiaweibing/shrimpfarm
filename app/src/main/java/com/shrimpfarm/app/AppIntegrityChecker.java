@@ -39,58 +39,81 @@ public class AppIntegrityChecker {
             try {
                 String fingerprint = computeFingerprint(context);
                 if (fingerprint == null) {
-                    Log.e(TAG, "指纹计算失败，放行");
-                    postResult(callback, true);
+                    Log.e(TAG, "指纹计算失败");
+                    postResult(callback, false);
                     return;
                 }
                 Log.i(TAG, "本地指纹: " + fingerprint);
 
-                int versionCode = context.getPackageManager()
-                        .getPackageInfo(context.getPackageName(), 0).versionCode;
-
-                String url = SUPABASE_URL + "/rest/v1/app_checksums"
-                        + "?package_name=eq." + context.getPackageName()
-                        + "&version_code=eq." + versionCode
-                        + "&select=allowed_fingerprint";
-
-                Request request = new Request.Builder()
-                        .url(url)
-                        .header("apikey", ANON_KEY)
-                        .header("Authorization", "Bearer " + ANON_KEY)
-                        .get()
-                        .build();
-
-                OkHttpClient client = new OkHttpClient.Builder()
-                        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                        .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                        .build();
-
-                try (Response response = client.newCall(request).execute()) {
-                    if (!response.isSuccessful()) {
-                        Log.w(TAG, "Supabase 查询失败(" + response.code() + ")，放行");
-                        postResult(callback, true);
-                        return;
-                    }
-
-                    String body = response.body() != null ? response.body().string() : "[]";
-                    JSONArray arr = new JSONArray(body);
-                    if (arr.length() == 0) {
-                        Log.w(TAG, "Supabase 无此版本记录，放行");
-                        postResult(callback, true);
-                        return;
-                    }
-
-                    String allowed = arr.getJSONObject(0).getString("allowed_fingerprint");
-                    boolean match = allowed.equalsIgnoreCase(fingerprint);
-                    verified = match;
-                    Log.i(TAG, "校验结果: " + (match ? "通过" : "失败"));
-                    postResult(callback, match);
+                if (!checkWithSupabase(context, fingerprint)) {
+                    Log.w(TAG, "Supabase 校验失败，尝试本地指纹兜底");
+                    checkWithNative(fingerprint, callback);
+                    return;
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "校验异常，放行", e);
                 postResult(callback, true);
+            } catch (Exception e) {
+                Log.e(TAG, "校验异常，尝试本地指纹兜底", e);
+                try {
+                    checkWithNative(computeFingerprint(context), callback);
+                } catch (Exception ignored) {
+                    postResult(callback, false);
+                }
             }
         }).start();
+    }
+
+    private static boolean checkWithSupabase(Context context, String fingerprint) throws Exception {
+        int versionCode = context.getPackageManager()
+                .getPackageInfo(context.getPackageName(), 0).versionCode;
+
+        String url = SUPABASE_URL + "/rest/v1/app_checksums"
+                + "?package_name=eq." + context.getPackageName()
+                + "&version_code=eq." + versionCode
+                + "&select=allowed_fingerprint";
+
+        Request request = new Request.Builder()
+                .url(url)
+                .header("apikey", ANON_KEY)
+                .header("Authorization", "Bearer " + ANON_KEY)
+                .get()
+                .build();
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) return false;
+
+            String body = response.body() != null ? response.body().string() : "[]";
+            JSONArray arr = new JSONArray(body);
+            if (arr.length() == 0) return false;
+
+            String allowed = arr.getJSONObject(0).getString("allowed_fingerprint");
+            boolean match = allowed.equalsIgnoreCase(fingerprint);
+            verified = match;
+            Log.i(TAG, "Supabase 校验: " + (match ? "通过" : "失败"));
+            return match;
+        }
+    }
+
+    private static void checkWithNative(String fingerprint, IntegrityCallback callback) {
+        try {
+            String nativeFp = WatermarkNative.getOfficialFingerprint();
+            if (nativeFp == null || nativeFp.isEmpty()) {
+                Log.e(TAG, "本地指纹为空，不通过");
+                postResult(callback, false);
+                return;
+            }
+            boolean match = nativeFp.equalsIgnoreCase(fingerprint);
+            verified = match;
+            Log.i(TAG, "本地指纹校验: " + (match ? "通过" : "失败"));
+            postResult(callback, match);
+        } catch (Exception e) {
+            Log.e(TAG, "本地指纹校验异常，不通过", e);
+            postResult(callback, false);
+        }
     }
 
     private static void postResult(IntegrityCallback callback, boolean result) {
