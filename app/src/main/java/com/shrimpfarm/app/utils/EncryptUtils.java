@@ -1,7 +1,6 @@
 package com.shrimpfarm.app.utils;
 
 import android.util.Base64;
-import android.util.Log;
 
 import java.security.SecureRandom;
 
@@ -16,14 +15,6 @@ public class EncryptUtils {
     private static String getKey() {
         if (KEY == null) {
             KEY = com.shrimpfarm.app.WatermarkNative.getRootKey();
-            if (KEY != null) {
-                byte[] kb = KEY.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                StringBuilder sb = new StringBuilder();
-                for (byte b : kb) {
-                    sb.append(String.format("%02X ", b & 0xFF));
-                }
-                Log.d("EncryptKey", "native key bytes=" + kb.length + " hex=" + sb.toString().trim());
-            }
             if (KEY == null || KEY.getBytes(java.nio.charset.StandardCharsets.UTF_8).length != 16) {
                 throw new RuntimeException("native getRootKey returned invalid key (must be 16 bytes)");
             }
