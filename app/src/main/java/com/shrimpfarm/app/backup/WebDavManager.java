@@ -72,14 +72,17 @@ public class WebDavManager {
     }
 
     public String getSavedPassword() {
-        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).getString(KEY_PASSWORD, "");
+        String stored = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).getString(KEY_PASSWORD, "");
+        String decrypted = com.shrimpfarm.app.utils.EncryptUtils.decrypt(stored);
+        return decrypted != null ? decrypted : stored;
     }
 
     public void saveConfig(String username, String password) {
+        String encrypted = com.shrimpfarm.app.utils.EncryptUtils.encrypt(password);
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_USERNAME, username)
-                .putString(KEY_PASSWORD, password)
+                .putString(KEY_PASSWORD, encrypted)
                 .putBoolean(KEY_CONNECTED, true)
                 .apply();
         initConnection(username, password);
