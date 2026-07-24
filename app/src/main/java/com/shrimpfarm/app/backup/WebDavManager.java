@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Locale;
 
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -44,11 +43,7 @@ public class WebDavManager {
 
     public WebDavManager(Context context) {
         this.context = context;
-        this.client = new OkHttpClient.Builder()
-                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
+        this.client = com.shrimpfarm.app.utils.HttpClientSingleton.getInstance();
     }
 
     public void initConnection(String username, String password) {
@@ -105,7 +100,7 @@ public class WebDavManager {
             count++;
             idx += 12;
         }
-        return "连接成功，根目录共 " + count + " 个文件/文件夹";
+        return "连接成功，根目录�?" + count + " 个文�?文件�?;
     }
 
     public void ensureBackupDir() throws Exception {

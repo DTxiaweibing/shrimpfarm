@@ -33,17 +33,13 @@ public class SupabaseAuthManager {
     private static final String KEY_ENCRYPTED_EMAIL = "encrypted_email";
     private static final String KEY_ENCRYPTED_PASSWORD = "encrypted_password";
     private static final String KEY_LAST_LOGIN_TIME = "last_login_time";
-    private static final long LOGIN_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2小时内不再重复登录
-
+    private static final long LOGIN_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2小时内不再重复登�?
     private final Context context;
     private final OkHttpClient client;
 
     public SupabaseAuthManager(Context context) {
         this.context = context;
-        this.client = new OkHttpClient.Builder()
-                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
+        this.client = com.shrimpfarm.app.utils.HttpClientSingleton.getInstance();
     }
 
     public boolean isLoggedIn() {
@@ -58,16 +54,14 @@ public class SupabaseAuthManager {
     public String getValidToken() {
         String token = getToken();
         if (token.isEmpty()) {
-            // 如果本地没有 token，尝试用保存的账号密码自动登录
-            return autoRelogin();
+            // 如果本地没有 token，尝试用保存的账号密码自动登�?            return autoRelogin();
         }
         if (isTokenExpired(token)) {
             String newToken = refreshAccessToken();
             if (newToken != null && !newToken.isEmpty()) {
                 return newToken;
             }
-            // refresh token 也过期了，尝试用保存的账号密码自动重新登录
-            return autoRelogin();
+            // refresh token 也过期了，尝试用保存的账号密码自动重新登�?            return autoRelogin();
         }
         return token;
     }
@@ -120,14 +114,12 @@ public class SupabaseAuthManager {
     }
 
     /**
-     * 用本地加密保存的账号密码静默重新登录，2小时内不重复登录。
-     */
+     * 用本地加密保存的账号密码静默重新登录�?小时内不重复登录�?     */
     private String autoRelogin() {
         long lastLogin = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .getLong(KEY_LAST_LOGIN_TIME, 0);
         if (System.currentTimeMillis() - lastLogin < LOGIN_COOLDOWN_MS) {
-            return ""; // 2小时内刚登录过，可能是密码已修改，不再重试
-        }
+            return ""; // 2小时内刚登录过，可能是密码已修改，不再重�?        }
         String email = getSavedEmail();
         String password = getSavedPassword();
         if (email.isEmpty() || password.isEmpty()) return "";
@@ -164,8 +156,7 @@ public class SupabaseAuthManager {
     }
 
     /**
-     * 供 HelpActivity 调用：打开帮助页时后台静默刷新登录状态
-     */
+     * �?HelpActivity 调用：打开帮助页时后台静默刷新登录状�?     */
     public void backgroundRefresh() {
         new Thread(() -> {
             String token = getValidToken();
@@ -174,8 +165,7 @@ public class SupabaseAuthManager {
     }
 
     /**
-     * 登录成功后保存加密的账号密码，用于后续自动重新登录
-     */
+     * 登录成功后保存加密的账号密码，用于后续自动重新登�?     */
     private void saveCredentials(String email, String password) {
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()
@@ -478,7 +468,7 @@ public class SupabaseAuthManager {
     private String updateMetadataFields(JSONObject fields) {
         try {
             JSONObject cur = getCurrentUser();
-            if (cur == null) return "无法获取当前用户信息，请检查网络";
+            if (cur == null) return "无法获取当前用户信息，请检查网�?;
             JSONObject meta = cur.optJSONObject("user_metadata");
             android.util.Log.i("SupabaseAuth", "当前user_metadata: " + (meta != null ? meta.toString() : "null"));
             if (meta == null) meta = new JSONObject();
@@ -615,7 +605,7 @@ public class SupabaseAuthManager {
                 }
                 String respBody = response.body() != null ? response.body().string() : "";
                 JSONObject json = new JSONObject(respBody);
-                return json.optString("msg", json.optString("error_description", "发送失败"));
+                return json.optString("msg", json.optString("error_description", "发送失�?));
             }
         } catch (Exception e) {
             return "网络错误: " + e.getMessage();
@@ -644,7 +634,7 @@ public class SupabaseAuthManager {
                 .apply();
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                 .edit()
-                .putString("login_user_name", "未登录")
+                .putString("login_user_name", "未登�?)
                 .apply();
     }
 
