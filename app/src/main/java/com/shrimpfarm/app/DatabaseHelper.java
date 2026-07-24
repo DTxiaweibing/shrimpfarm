@@ -349,6 +349,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        for (int i = oldVersion; i < newVersion; i++) {
+            switch (i) {
+                case 1:
+                    // v1 → v2: 示例 — 给 water_quality 加一列
+                    // db.execSQL("ALTER TABLE " + TABLE_WATER_QUALITY + " ADD COLUMN water_temperature REAL DEFAULT 0");
+                    break;
+                case 2:
+                    // v2 → v3
+                    break;
+            }
+        }
     }
 
     // ==================== 加密封装 ====================
