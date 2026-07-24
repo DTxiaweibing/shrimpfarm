@@ -1,21 +1,33 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# JNI native methods
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# WatermarkNative JNI bridge
+-keep class com.shrimpfarm.app.WatermarkNative { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Gson serialization
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.shrimpfarm.app.qa.model.** { *; }
+-keep class com.shrimpfarm.app.model.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# ONNX Runtime
+-keep class com.microsoft.onnxruntime.** { *; }
+-dontwarn com.microsoft.onnxruntime.**
+
+# Glide
+-keep class com.bumptech.glide.** { *; }
+
+# WebView JS interface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep crash handler accessible
+-keep class com.shrimpfarm.app.CrashHandler { *; }
+-keep class com.shrimpfarm.app.CrashReportActivity { *; }

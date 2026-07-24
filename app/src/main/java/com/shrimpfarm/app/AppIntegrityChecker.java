@@ -8,12 +8,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.shrimpfarm.app.utils.EncryptUtils;
-
 import org.json.JSONArray;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.security.MessageDigest;
 
 import okhttp3.OkHttpClient;
@@ -23,8 +19,8 @@ import okhttp3.Response;
 public class AppIntegrityChecker {
 
     private static final String SUPABASE_URL = "https://apumkkayconibhkaawdn.supabase.co";
+    private static final String ANON_KEY = "sb_publishable_Tn8FsSUL4iDqUsNQGzos6Q_6zMKytC5";
     private static final String TAG = "Integrity";
-    private static String anonKey = null;
 
     public static volatile boolean verified = true;
     public static volatile boolean checkEverStarted = false;
@@ -41,15 +37,6 @@ public class AppIntegrityChecker {
         checkEverStarted = true;
         new Thread(() -> {
             try {
-                if (anonKey == null) {
-                    anonKey = loadAnonKey(context);
-                }
-                if (anonKey == null) {
-                    Log.e(TAG, "无法加载Supabase密钥，放行");
-                    postResult(callback, true);
-                    return;
-                }
-
                 String fingerprint = computeFingerprint(context);
                 if (fingerprint == null) {
                     Log.e(TAG, "指纹计算失败，放行");
@@ -68,8 +55,8 @@ public class AppIntegrityChecker {
 
                 Request request = new Request.Builder()
                         .url(url)
-                        .header("apikey", anonKey)
-                        .header("Authorization", "Bearer " + anonKey)
+                        .header("apikey", ANON_KEY)
+                        .header("Authorization", "Bearer " + ANON_KEY)
                         .get()
                         .build();
 
@@ -104,24 +91,6 @@ public class AppIntegrityChecker {
                 postResult(callback, true);
             }
         }).start();
-    }
-
-    private static String loadAnonKey(Context context) {
-        try {
-            StringBuilder sb = new StringBuilder();
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(context.getAssets().open("supabase_key.enc")));
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-            br.close();
-            String encrypted = sb.toString().trim();
-            if (encrypted.isEmpty()) return null;
-            String decrypted = EncryptUtils.decrypt(encrypted);
-            return decrypted;
-        } catch (Exception e) {
-            Log.e(TAG, "加载Supabase密钥失败", e);
-            return null;
-        }
     }
 
     private static void postResult(IntegrityCallback callback, boolean result) {

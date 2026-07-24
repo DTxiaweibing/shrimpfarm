@@ -10,7 +10,7 @@
 
 // XOR-obfuscated "非官方正版" (UTF-8: E9 9D 9E E5 AE 98 E6 96 B9 E6 AD A3 E7 89 88)
 // key "NM3LOALN" (4E 4D 33 4C 30 41 4C 4E)
-static const char WATERMARK_ENC[] = {
+static const unsigned char WATERMARK_ENC[] = {
     0xA7, 0xD0, 0xAD, 0xA9, 0x9E, 0xD9, 0xAA, 0xD8,
     0xF7, 0xAB, 0x9E, 0xEF, 0xD7, 0xC8, 0xC4
 };
@@ -124,11 +124,11 @@ Java_com_shrimpfarm_app_WatermarkNative_renderWatermark(
     LOGI("Rendered %d watermark tiles", count);
 }
 
-// XOR-obfuscated "ShrimpFarm2024!!" (ASCII: 53 68 72 69 6D 70 46 61 72 6D 32 30 34 21 21)
-// key "NM3LOALN" (4E 4D 33 4C 30 41 4C 4E)
-static const char ROOT_KEY_ENC[] = {
+// XOR-obfuscated "ShrimpFarm2024!!" (ASCII: 53 68 72 69 6D 70 46 61 72 6D 32 30 32 34 21 21)
+// key "NM3L0ALN" (4E 4D 33 4C 30 41 4C 4E)
+static const unsigned char ROOT_KEY_ENC[] = {
     0x1D, 0x25, 0x41, 0x25, 0x5D, 0x31, 0x0A, 0x2F,
-    0x3C, 0x20, 0x01, 0x7C, 0x04, 0x60, 0x6D
+    0x3C, 0x20, 0x01, 0x7C, 0x02, 0x75, 0x6D, 0x6F
 };
 static const int ROOT_KEY_LEN = sizeof(ROOT_KEY_ENC) / sizeof(ROOT_KEY_ENC[0]);
 
