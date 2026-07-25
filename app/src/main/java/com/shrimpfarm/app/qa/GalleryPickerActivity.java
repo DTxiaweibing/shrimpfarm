@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.shrimpfarm.app.R;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -194,7 +195,9 @@ public class GalleryPickerActivity extends AppCompatActivity {
         try {
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inJustDecodeBounds = true;
-            BitmapFactory.decodeStream(getContentResolver().openInputStream(uri), null, opts);
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                BitmapFactory.decodeStream(is, null, opts);
+            }
             return opts.outWidth >= 200 && opts.outHeight >= 200;
         } catch (Exception e) {
             return true;

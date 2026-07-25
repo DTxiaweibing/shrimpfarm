@@ -615,20 +615,21 @@ public class SupabaseAuthManager {
     }
 
     public void logout() {
-        // clear webdav from cloud first
-        try {
-            String token = getToken();
-            if (!token.isEmpty()) {
-                JSONObject cur = getCurrentUser();
-                JSONObject meta = cur != null ? cur.optJSONObject("user_metadata") : null;
-                if (meta != null) {
-                    meta.remove("webdav_account");
-                    meta.remove("webdav_password");
-                    putUserMetadata(meta);
+        new Thread(() -> {
+            try {
+                String token = getToken();
+                if (!token.isEmpty()) {
+                    JSONObject cur = getCurrentUser();
+                    JSONObject meta = cur != null ? cur.optJSONObject("user_metadata") : null;
+                    if (meta != null) {
+                        meta.remove("webdav_account");
+                        meta.remove("webdav_password");
+                        putUserMetadata(meta);
+                    }
                 }
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
-        }
+        }).start();
 
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()

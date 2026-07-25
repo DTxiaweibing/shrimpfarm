@@ -15,6 +15,7 @@ import com.shrimpfarm.app.utils.HttpClientSingleton;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -679,8 +680,9 @@ public class QaApi {
     private static File compressImage(Context ctx, Uri uri) throws IOException {
         android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
         opts.inJustDecodeBounds = true;
-        android.graphics.BitmapFactory.decodeStream(
-                ctx.getContentResolver().openInputStream(uri), null, opts);
+        try (java.io.InputStream is = ctx.getContentResolver().openInputStream(uri)) {
+            android.graphics.BitmapFactory.decodeStream(is, null, opts);
+        }
         int maxW = 1920, maxH = 1920;
         int sample = 1;
         while (opts.outWidth / sample > maxW || opts.outHeight / sample > maxH) {
@@ -688,8 +690,10 @@ public class QaApi {
         }
         opts.inJustDecodeBounds = false;
         opts.inSampleSize = sample;
-        android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeStream(
-                ctx.getContentResolver().openInputStream(uri), null, opts);
+        android.graphics.Bitmap bitmap;
+        try (java.io.InputStream is = ctx.getContentResolver().openInputStream(uri)) {
+            bitmap = android.graphics.BitmapFactory.decodeStream(is, null, opts);
+        }
         if (bitmap == null) return null;
         int w = bitmap.getWidth(), h = bitmap.getHeight();
         if (w > maxW || h > maxH) {
@@ -703,9 +707,9 @@ public class QaApi {
         File dir = new File(ctx.getCacheDir(), "qa_uploads");
         if (!dir.exists()) dir.mkdirs();
         File outFile = new File(dir, UUID.randomUUID().toString() + ".jpg");
-        java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
-        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, fos);
-        fos.close();
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, fos);
+        }
         bitmap.recycle();
         return outFile;
     }

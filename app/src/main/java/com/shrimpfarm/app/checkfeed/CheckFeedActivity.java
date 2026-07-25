@@ -2,6 +2,7 @@ package com.shrimpfarm.app.checkfeed;
 
 import android.annotation.SuppressLint;
 import android.content.ContentValues;
+import android.util.Log;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -534,7 +535,7 @@ public class CheckFeedActivity extends BaseActivity {
                         rowData.put("isExcluded", isExcluded);
                         tableData.put(rowData);
                     } catch (JSONException e) {
-                        e.printStackTrace();
+                        Log.e("CheckFeed", "JSON error", e);
                     }
                 }
             }
@@ -711,7 +712,7 @@ public class CheckFeedActivity extends BaseActivity {
             recalculateAllFeedingDurations();
             markAllDurationsByRank();
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e("CheckFeed", "recalc error", e);
         }
     }
 
@@ -747,7 +748,7 @@ public class CheckFeedActivity extends BaseActivity {
             String recordDate = dateFmt.format(today);
             dbHelper.insertFeedingCheckAnalysis(currentBatchId, recordDate, (double) avgSeconds, (double) standardSeconds);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("CheckFeed", "insert analysis error", e);
         }
     }
 
@@ -1498,7 +1499,7 @@ public class CheckFeedActivity extends BaseActivity {
                 showTimeoutWarning(sb.toString());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("CheckFeed", "timeout warning error", e);
         }
     }
 

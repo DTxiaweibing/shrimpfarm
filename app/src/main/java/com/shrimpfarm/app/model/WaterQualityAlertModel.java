@@ -22,6 +22,7 @@ public class WaterQualityAlertModel {
 
         if (!c.moveToFirst()) { c.close(); return alerts; }
 
+        Cursor dc = null;
         try {
             double tempC = parseDecrypted(c, c.getColumnIndexOrThrow("max_temp"));
             double pH = parseDecrypted(c, c.getColumnIndexOrThrow("ph"));
@@ -36,7 +37,7 @@ public class WaterQualityAlertModel {
             c.close();
 
             int day = 0;
-            Cursor dc = db.rawQuery("SELECT value FROM basic_data WHERE batch_id=? AND key='stocking_date'", new String[]{batchId});
+            dc = db.rawQuery("SELECT value FROM basic_data WHERE batch_id=? AND key='stocking_date'", new String[]{batchId});
             if (dc.moveToFirst()) {
                 String sd = EncryptUtils.decrypt(dc.getString(0));
                 if (sd != null && !sd.isEmpty() && !sd.equals("选择日期")) {
@@ -50,7 +51,7 @@ public class WaterQualityAlertModel {
                     } catch (Exception ignored) {}
                 }
             }
-            dc.close();
+            if (dc != null) dc.close();
 
             if (enableCore && tempC > 0 && pH > 0) {
                 ShrimpAdviceHelper.AdviceResult result = ShrimpAdviceHelper.getAllAdvice(tempC, pH, salinity, tan, day);
@@ -90,6 +91,7 @@ public class WaterQualityAlertModel {
             }
         } catch (Exception e) {
             if (!c.isClosed()) c.close();
+            if (dc != null && !dc.isClosed()) dc.close();
         }
 
         return alerts;

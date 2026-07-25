@@ -14,6 +14,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.util.Log;
 import androidx.appcompat.widget.Toolbar;
 import com.shrimpfarm.app.DatabaseHelper;
 import com.shrimpfarm.app.utils.DialogHelper;
@@ -80,7 +81,7 @@ public class BatchManageActivity extends BaseActivity {
                     batchList.add(item);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e("BatchManage", "load error", e);
             }
         }
         // 如果当前批次不在列表中，添加进去
@@ -116,7 +117,7 @@ public class BatchManageActivity extends BaseActivity {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(BatchManageActivity.this);
             dbHelper.saveBasicData("_meta", "_batch_list_json", json);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("BatchManage", "save error", e);
         }
     }
 
