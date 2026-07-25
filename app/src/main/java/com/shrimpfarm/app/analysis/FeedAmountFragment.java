@@ -8,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+
+import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
@@ -190,7 +192,7 @@ public class FeedAmountFragment extends Fragment {
                 updateLineChart();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("FeedAmount", "loadDataByDateRange failed", e);
             if (chartFeedAmount != null) {
                 chartFeedAmount.setNoDataText("数据加载失败");
             }

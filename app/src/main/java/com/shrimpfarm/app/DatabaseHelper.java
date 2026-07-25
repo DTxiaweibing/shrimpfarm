@@ -648,25 +648,28 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             " ORDER BY " + COLUMN_DATE + " ASC";
         Cursor cursor = db.rawQuery(sql, new String[]{batchId, startDate, endDate});
         Map<String, FeedingRecordActivity.DayRecord> recordMap = new LinkedHashMap<>();
-        while (cursor.moveToNext()) {
-            FeedingRecordActivity.DayRecord r = new FeedingRecordActivity.DayRecord();
-            r.date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DATE));
-            r.breakfast = decryptField(cursor, COLUMN_BREAKFAST);
-            r.lunch = decryptField(cursor, COLUMN_LUNCH);
-            r.dinner = decryptField(cursor, COLUMN_DINNER);
-            r.nightSnack = decryptField(cursor, COLUMN_NIGHT_SNACK);
-            r.waterMix1 = decryptField(cursor, COLUMN_WATER_MIX1);
-            r.waterMix2 = decryptField(cursor, COLUMN_WATER_MIX2);
-            r.waterMix3 = decryptField(cursor, COLUMN_WATER_MIX3);
-            r.waterMix4 = decryptField(cursor, COLUMN_WATER_MIX4);
-            r.mix1 = decryptField(cursor, COLUMN_MIX1);
-            r.mix2 = decryptField(cursor, COLUMN_MIX2);
-            r.mix3 = decryptField(cursor, COLUMN_MIX3);
-            r.mix4 = decryptField(cursor, COLUMN_MIX4);
-            r.remark = decryptField(cursor, COLUMN_REMARK);
-            recordMap.put(r.date, r);
+        try {
+            while (cursor.moveToNext()) {
+                FeedingRecordActivity.DayRecord r = new FeedingRecordActivity.DayRecord();
+                r.date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+                r.breakfast = decryptField(cursor, COLUMN_BREAKFAST);
+                r.lunch = decryptField(cursor, COLUMN_LUNCH);
+                r.dinner = decryptField(cursor, COLUMN_DINNER);
+                r.nightSnack = decryptField(cursor, COLUMN_NIGHT_SNACK);
+                r.waterMix1 = decryptField(cursor, COLUMN_WATER_MIX1);
+                r.waterMix2 = decryptField(cursor, COLUMN_WATER_MIX2);
+                r.waterMix3 = decryptField(cursor, COLUMN_WATER_MIX3);
+                r.waterMix4 = decryptField(cursor, COLUMN_WATER_MIX4);
+                r.mix1 = decryptField(cursor, COLUMN_MIX1);
+                r.mix2 = decryptField(cursor, COLUMN_MIX2);
+                r.mix3 = decryptField(cursor, COLUMN_MIX3);
+                r.mix4 = decryptField(cursor, COLUMN_MIX4);
+                r.remark = decryptField(cursor, COLUMN_REMARK);
+                recordMap.put(r.date, r);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         Calendar cal = parseDate(startDate);
         Calendar endCal = parseDate(endDate);
         int skipCount = 0;
@@ -830,34 +833,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = db.query(TABLE_FEEDING_CHECK_RECORDS, null,
                 "batch_id = ? AND record_date = ?",
                 new String[]{batchId, date}, null, null, "shed_row_index ASC");
-        while (cursor.moveToNext()) {
-            CheckRecord record = new CheckRecord();
-            record.id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
-            record.batchId = cursor.getString(cursor.getColumnIndexOrThrow("batch_id"));
-            record.recordDate = cursor.getString(cursor.getColumnIndexOrThrow("record_date"));
-            record.shedRowIndex = cursor.getInt(cursor.getColumnIndexOrThrow("shed_row_index"));
-            record.excluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded")) == 1;
-            record.waterPercentage = cursor.getInt(cursor.getColumnIndexOrThrow("water_percentage"));
-            record.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"));
+        try {
+            while (cursor.moveToNext()) {
+                CheckRecord record = new CheckRecord();
+                record.id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
+                record.batchId = cursor.getString(cursor.getColumnIndexOrThrow("batch_id"));
+                record.recordDate = cursor.getString(cursor.getColumnIndexOrThrow("record_date"));
+                record.shedRowIndex = cursor.getInt(cursor.getColumnIndexOrThrow("shed_row_index"));
+                record.excluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded")) == 1;
+                record.waterPercentage = cursor.getInt(cursor.getColumnIndexOrThrow("water_percentage"));
+                record.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"));
 
-            record.startTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("start_time")));
-            record.endTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("end_time")));
-            record.shedNumber = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("shed_number")));
-            record.checkTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("check_time")));
+                record.startTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("start_time")));
+                record.endTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("end_time")));
+                record.shedNumber = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("shed_number")));
+                record.checkTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("check_time")));
 
-            String encryptedDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
-            if (encryptedDuration != null && !encryptedDuration.isEmpty()) {
-                try {
-                    record.durationSeconds = Long.parseLong(EncryptUtils.decrypt(encryptedDuration));
-                } catch (NumberFormatException e) {
+                String encryptedDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
+                if (encryptedDuration != null && !encryptedDuration.isEmpty()) {
+                    try {
+                        record.durationSeconds = Long.parseLong(EncryptUtils.decrypt(encryptedDuration));
+                    } catch (NumberFormatException e) {
+                        record.durationSeconds = 0;
+                    }
+                } else {
                     record.durationSeconds = 0;
                 }
-            } else {
-                record.durationSeconds = 0;
+                list.add(record);
             }
-            list.add(record);
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return list;
     }
 
@@ -869,21 +875,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_BATCH_ID + "=? AND " + COLUMN_DATE + " BETWEEN ? AND ?",
                 new String[]{batchId, startDate, endDate},
                 null, null, COLUMN_DATE + " ASC");
-        while (cursor.moveToNext()) {
-            String date = cursor.getString(0);
-            float total = 0;
-            for (int i = 1; i <= 4; i++) {
-                String encVal = cursor.getString(i);
-                if (encVal != null && !encVal.isEmpty()) {
-                    String val = EncryptUtils.decrypt(encVal);
-                    if (val != null && !val.isEmpty()) {
-                        total += Float.parseFloat(val);
+        try {
+            while (cursor.moveToNext()) {
+                String date = cursor.getString(0);
+                float total = 0;
+                for (int i = 1; i <= 4; i++) {
+                    String encVal = cursor.getString(i);
+                    if (encVal != null && !encVal.isEmpty()) {
+                        String val = EncryptUtils.decrypt(encVal);
+                        if (val != null && !val.isEmpty()) {
+                            total += Float.parseFloat(val);
+                        }
                     }
                 }
+                list.add(new DailyFeedSummary(date, total));
             }
-            list.add(new DailyFeedSummary(date, total));
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return list;
     }
 
@@ -901,18 +910,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 selection, selectionArgs,
                 null, null, "record_date ASC");
         Map<String, List<Long>> dateDurationMap = new HashMap<>();
-        while (cursor.moveToNext()) {
-            try {
-                String date = cursor.getString(cursor.getColumnIndexOrThrow("record_date"));
-                String encDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
-                int isExcluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded"));
-                if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
-                    long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
-                    dateDurationMap.computeIfAbsent(date, k -> new ArrayList<>()).add(duration);
-                }
-            } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShed", e); }
+        try {
+            while (cursor.moveToNext()) {
+                try {
+                    String date = cursor.getString(cursor.getColumnIndexOrThrow("record_date"));
+                    String encDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
+                    int isExcluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded"));
+                    if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
+                        long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
+                        dateDurationMap.computeIfAbsent(date, k -> new ArrayList<>()).add(duration);
+                    }
+                } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShed", e); }
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         for (Map.Entry<String, List<Long>> entry : dateDurationMap.entrySet()) {
             List<Long> durations = entry.getValue();
             long total = 0;
@@ -931,18 +943,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_BATCH_ID + "=?",
                 new String[]{batchId},
                 null, null, null, null);
-        while (cursor.moveToNext()) {
-            String encShedNumber = cursor.getString(0);
-            if (encShedNumber != null && !encShedNumber.isEmpty()) {
-                try {
-                    String decrypted = EncryptUtils.decrypt(encShedNumber);
-                    if (!list.contains(decrypted)) list.add(decrypted);
-                } catch (Exception e) {
-                    if (!list.contains(encShedNumber)) list.add(encShedNumber);
+        try {
+            while (cursor.moveToNext()) {
+                String encShedNumber = cursor.getString(0);
+                if (encShedNumber != null && !encShedNumber.isEmpty()) {
+                    try {
+                        String decrypted = EncryptUtils.decrypt(encShedNumber);
+                        if (!list.contains(decrypted)) list.add(decrypted);
+                    } catch (Exception e) {
+                        if (!list.contains(encShedNumber)) list.add(encShedNumber);
+                    }
                 }
             }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         list.sort((a, b) -> {
             try { return Integer.parseInt(a) - Integer.parseInt(b); }
             catch (NumberFormatException e) { return a.compareTo(b); }
@@ -959,19 +974,22 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[]{batchId, startDate, endDate},
                 null, null, "shed_number ASC");
         Map<String, List<Long>> shedDurationMap = new HashMap<>();
-        while (cursor.moveToNext()) {
-            try {
-                String encShedNumber = cursor.getString(cursor.getColumnIndexOrThrow("shed_number"));
-                String encDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
-                int isExcluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded"));
-                if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
-                    long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
-                    String shedNumber = EncryptUtils.decrypt(encShedNumber);
-                    shedDurationMap.computeIfAbsent(shedNumber, k -> new ArrayList<>()).add(duration);
-                }
-            } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShedGrouped", e); }
+        try {
+            while (cursor.moveToNext()) {
+                try {
+                    String encShedNumber = cursor.getString(cursor.getColumnIndexOrThrow("shed_number"));
+                    String encDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
+                    int isExcluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded"));
+                    if (isExcluded == 0 && encDuration != null && !encDuration.isEmpty()) {
+                        long duration = Long.parseLong(EncryptUtils.decrypt(encDuration));
+                        String shedNumber = EncryptUtils.decrypt(encShedNumber);
+                        shedDurationMap.computeIfAbsent(shedNumber, k -> new ArrayList<>()).add(duration);
+                    }
+                } catch (Exception e) { Log.e("DBHelper", "getFeedingDurationByShedGrouped", e); }
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         for (Map.Entry<String, List<Long>> entry : shedDurationMap.entrySet()) {
             List<Long> durations = entry.getValue();
             if (durations.isEmpty()) continue;
@@ -994,10 +1012,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 " ORDER BY " + COLUMN_RECORD_TIME + " DESC LIMIT 1";
         Cursor c = getReadableDatabase().rawQuery(sql, new String[]{batchId, today});
         long result = 0;
-        if (c.moveToFirst()) {
-            result = c.getLong(0);
+        try {
+            if (c.moveToFirst()) {
+                result = c.getLong(0);
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
         }
-        c.close();
         return result;
     }
 
@@ -1008,10 +1029,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 " WHERE " + COLUMN_BATCH_ID + " = ? AND " + COLUMN_STATS_DATE + " BETWEEN ? AND ? " +
                 " GROUP BY " + COLUMN_STATS_DATE + " ORDER BY " + COLUMN_STATS_DATE;
         Cursor c = getReadableDatabase().rawQuery(sql, new String[]{batchId, startDate, endDate});
-        while (c.moveToNext()) {
-            list.add(new DurationSummary(c.getString(0), (long) c.getDouble(1)));
+        try {
+            while (c.moveToNext()) {
+                list.add(new DurationSummary(c.getString(0), (long) c.getDouble(1)));
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
         }
-        c.close();
         return list;
     }
 
@@ -1023,20 +1047,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "SELECT category, item_name, price FROM " + TABLE_MARKET_PRICES +
                         " WHERE date = ? ORDER BY category, item_name",
                 new String[]{date});
-        while (cursor.moveToNext()) {
-            String catTitle = cursor.getString(0);
-            String name = cursor.getString(1);
-            String price = cursor.getString(2);
-            PriceCategory cat = map.get(catTitle);
-            if (cat == null) {
-                cat = new PriceCategory();
-                cat.title = catTitle;
-                cat.items = new ArrayList<>();
-                map.put(catTitle, cat);
+        try {
+            while (cursor.moveToNext()) {
+                String catTitle = cursor.getString(0);
+                String name = cursor.getString(1);
+                String price = cursor.getString(2);
+                PriceCategory cat = map.get(catTitle);
+                if (cat == null) {
+                    cat = new PriceCategory();
+                    cat.title = catTitle;
+                    cat.items = new ArrayList<>();
+                    map.put(catTitle, cat);
+                }
+                cat.items.add(new PriceItem(name, price));
             }
-            cat.items.add(new PriceItem(name, price));
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return new ArrayList<>(map.values());
     }
 
@@ -1072,29 +1099,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = db.rawQuery(
                 "SELECT DISTINCT date FROM " + TABLE_MARKET_PRICES +
                         " ORDER BY date DESC LIMIT 1", null);
-        if (cursor.moveToNext()) {
-            latestDate = cursor.getString(0);
+        try {
+            if (cursor.moveToNext()) {
+                latestDate = cursor.getString(0);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         if (latestDate == null) return null;
         cursor = db.rawQuery(
                 "SELECT category, item_name, price FROM " + TABLE_MARKET_PRICES +
                         " WHERE date = ? ORDER BY category, item_name",
                 new String[]{latestDate});
-        while (cursor.moveToNext()) {
-            String catTitle = cursor.getString(0);
-            String name = cursor.getString(1);
-            String price = cursor.getString(2);
-            PriceCategory cat = map.get(catTitle);
-            if (cat == null) {
-                cat = new PriceCategory();
-                cat.title = catTitle;
-                cat.items = new ArrayList<>();
-                map.put(catTitle, cat);
+        try {
+            while (cursor.moveToNext()) {
+                String catTitle = cursor.getString(0);
+                String name = cursor.getString(1);
+                String price = cursor.getString(2);
+                PriceCategory cat = map.get(catTitle);
+                if (cat == null) {
+                    cat = new PriceCategory();
+                    cat.title = catTitle;
+                    cat.items = new ArrayList<>();
+                    map.put(catTitle, cat);
+                }
+                cat.items.add(new PriceItem(name, price));
             }
-            cat.items.add(new PriceItem(name, price));
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return new PriceData(latestDate, new ArrayList<>(map.values()));
     }
 
@@ -1104,14 +1137,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = db.query(TABLE_MARKET_PRICES,
                 new String[]{"date", "price"}, "item_name = ?",
                 new String[]{itemName}, null, null, "date ASC");
-        while (cursor.moveToNext()) {
-            String date = cursor.getString(0);
-            String price = cursor.getString(1);
-            float mid = parseMidPrice(price);
-            PricePoint point = new PricePoint(date, mid);
-            list.add(point);
+        try {
+            while (cursor.moveToNext()) {
+                String date = cursor.getString(0);
+                String price = cursor.getString(1);
+                float mid = parseMidPrice(price);
+                PricePoint point = new PricePoint(date, mid);
+                list.add(point);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return list;
     }
 
@@ -1151,6 +1187,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String dateStr = getBasicData(batchId, "stocking_date");
         if (dateStr == null || dateStr.isEmpty() || "选择日期".equals(dateStr)) return 0;
         double total = 0;
+        Cursor c = null;
         try {
             String[] formats = {"yyyy/MM/dd", "yyyy-MM-dd", "yyyy.M.d"};
             java.util.Date stockingDate = null;
@@ -1170,7 +1207,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             cal.add(Calendar.DAY_OF_YEAR, toDay - fromDay);
             String endDate = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(cal.getTime());
 
-            Cursor c = getReadableDatabase().rawQuery(
+            c = getReadableDatabase().rawQuery(
                     "SELECT " + COLUMN_BREAKFAST + "," + COLUMN_LUNCH + "," + COLUMN_DINNER + "," + COLUMN_NIGHT_SNACK +
                     " FROM " + TABLE_DAILY_RECORDS +
                     " WHERE " + COLUMN_BATCH_ID + "=? AND " + COLUMN_DATE + ">=? AND " + COLUMN_DATE + "<=?",
@@ -1183,8 +1220,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     }
                 }
             }
-            c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {} finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
         return total;
     }
 
@@ -1253,23 +1291,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void completeTask(long taskId, String batchId) {
         SQLiteDatabase db = getWritableDatabase();
         Cursor c = db.query(TABLE_PLAN_TASKS, null, COLUMN_TASK_ID + "=?", new String[]{String.valueOf(taskId)}, null, null, null);
-        if (c.moveToFirst()) {
-            int startValue = c.getInt(c.getColumnIndexOrThrow(COLUMN_START_VALUE));
-            int unitType = c.getInt(c.getColumnIndexOrThrow(COLUMN_UNIT_TYPE));
-            int stockingDay = getStockingDay(batchId);
-            c.close();
+        try {
+            if (c.moveToFirst()) {
+                int startValue = c.getInt(c.getColumnIndexOrThrow(COLUMN_START_VALUE));
+                int unitType = c.getInt(c.getColumnIndexOrThrow(COLUMN_UNIT_TYPE));
+                int stockingDay = getStockingDay(batchId);
 
-            ContentValues cv = new ContentValues();
-            if (unitType == 0) {
-                cv.put(COLUMN_LAST_TRIGGER_DAY, stockingDay);
-            } else {
-                double feed = getAccumulatedFeed(batchId, startValue, stockingDay);
-                cv.put(COLUMN_LAST_TRIGGER_FEED, feed);
+                ContentValues cv = new ContentValues();
+                if (unitType == 0) {
+                    cv.put(COLUMN_LAST_TRIGGER_DAY, stockingDay);
+                } else {
+                    double feed = getAccumulatedFeed(batchId, startValue, stockingDay);
+                    cv.put(COLUMN_LAST_TRIGGER_FEED, feed);
+                }
+                cv.put(COLUMN_TASK_STATUS, 1);
+                db.update(TABLE_PLAN_TASKS, cv, COLUMN_TASK_ID + "=?", new String[]{String.valueOf(taskId)});
             }
-            cv.put(COLUMN_TASK_STATUS, 1);
-            db.update(TABLE_PLAN_TASKS, cv, COLUMN_TASK_ID + "=?", new String[]{String.valueOf(taskId)});
-        } else {
-            c.close();
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
         }
     }
 

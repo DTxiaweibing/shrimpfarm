@@ -576,29 +576,30 @@ public class ExpertActivity extends AppCompatActivity {
                         callback.onError("API返回" + response.code() + detail);
                         return;
                     }
-                    BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8));
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data: ")) {
-                            String data = line.substring(6);
-                            if ("[DONE]".equals(data)) {
-                                callback.onComplete();
-                                return;
-                            }
-                            JSONObject chunk = new JSONObject(data);
-                            JSONArray choices = chunk.getJSONArray("choices");
-                            if (choices.length() > 0) {
-                                String delta = choices.getJSONObject(0)
-                                        .getJSONObject("delta")
-                                        .optString("content", "");
-                                if (!delta.isEmpty()) {
-                                    callback.onChunk(delta);
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (line.startsWith("data: ")) {
+                                String data = line.substring(6);
+                                if ("[DONE]".equals(data)) {
+                                    callback.onComplete();
+                                    return;
+                                }
+                                JSONObject chunk = new JSONObject(data);
+                                JSONArray choices = chunk.getJSONArray("choices");
+                                if (choices.length() > 0) {
+                                    String delta = choices.getJSONObject(0)
+                                            .getJSONObject("delta")
+                                            .optString("content", "");
+                                    if (!delta.isEmpty()) {
+                                        callback.onChunk(delta);
+                                    }
                                 }
                             }
                         }
+                        callback.onComplete();
                     }
-                    callback.onComplete();
                 } catch (Exception e) {
                     callback.onError(e.getMessage());
                 }

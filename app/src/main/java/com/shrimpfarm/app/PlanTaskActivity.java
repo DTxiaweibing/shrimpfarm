@@ -76,38 +76,44 @@ public class PlanTaskActivity extends BaseActivity {
         taskList.clear();
         Cursor cursor = dbHelper.getAllMainTasks(currentBatchId);
         if (cursor != null) {
-            while (cursor.moveToNext()) {
-                TaskItem task = new TaskItem();
-                task.id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
-                task.title = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_NAME));
-                Cursor subCursor = dbHelper.getSubTasks(task.id);
-                while (subCursor.moveToNext()) {
-                    SubTaskItem sub = new SubTaskItem();
-                    sub.id = subCursor.getLong(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
-                    sub.startValue = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
-                    sub.endValue = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
-                    sub.intervalValue = subCursor.getDouble(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
-                    sub.unitType = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
-                    sub.frequency = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_FREQUENCY));
-                    int lastTriggerDay = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
-                    double lastTriggerFeed = subCursor.getDouble(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
+            try {
+                while (cursor.moveToNext()) {
+                    TaskItem task = new TaskItem();
+                    task.id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
+                    task.title = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_NAME));
+                    Cursor subCursor = dbHelper.getSubTasks(task.id);
+                    try {
+                        while (subCursor.moveToNext()) {
+                            SubTaskItem sub = new SubTaskItem();
+                            sub.id = subCursor.getLong(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
+                            sub.startValue = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
+                            sub.endValue = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
+                            sub.intervalValue = subCursor.getDouble(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
+                            sub.unitType = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
+                            sub.frequency = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_FREQUENCY));
+                            int lastTriggerDay = subCursor.getInt(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
+                            double lastTriggerFeed = subCursor.getDouble(subCursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
 
-                    if (stockingDay > 0 && stockingDay >= sub.startValue && stockingDay <= sub.endValue) {
-                        if (sub.unitType == 0) {
-                            int nextDay = (lastTriggerDay > 0) ? lastTriggerDay + (int) sub.intervalValue : sub.startValue;
-                            sub.isDue = stockingDay >= nextDay;
-                        } else {
-                            double currentFeed = dbHelper.getAccumulatedFeed(currentBatchId, sub.startValue, stockingDay);
-                            double nextThreshold = lastTriggerFeed + sub.intervalValue;
-                            sub.isDue = currentFeed >= nextThreshold;
+                            if (stockingDay > 0 && stockingDay >= sub.startValue && stockingDay <= sub.endValue) {
+                                if (sub.unitType == 0) {
+                                    int nextDay = (lastTriggerDay > 0) ? lastTriggerDay + (int) sub.intervalValue : sub.startValue;
+                                    sub.isDue = stockingDay >= nextDay;
+                                } else {
+                                    double currentFeed = dbHelper.getAccumulatedFeed(currentBatchId, sub.startValue, stockingDay);
+                                    double nextThreshold = lastTriggerFeed + sub.intervalValue;
+                                    sub.isDue = currentFeed >= nextThreshold;
+                                }
+                            }
+                            task.subTasks.add(sub);
                         }
+                    } finally {
+                        if (subCursor != null && !subCursor.isClosed()) subCursor.close();
                     }
-                    task.subTasks.add(sub);
+                    taskList.add(task);
                 }
-                subCursor.close();
-                taskList.add(task);
+            } finally {
+                if (cursor != null && !cursor.isClosed()) cursor.close();
             }
-            cursor.close();
         }
         adapter = new TaskAdapter();
         recyclerView.setAdapter(adapter);

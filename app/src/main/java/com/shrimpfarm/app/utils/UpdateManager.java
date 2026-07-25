@@ -182,13 +182,13 @@ public class UpdateManager {
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)");
 
             if (conn.getResponseCode() == 200) {
-                BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream(), "UTF-8"));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) sb.append(line);
-                reader.close();
-                return sb.toString();
+                try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) sb.append(line);
+                    return sb.toString();
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "读取raw URL失败: " + e.getMessage());
@@ -213,14 +213,16 @@ public class UpdateManager {
             }
 
             if (conn.getResponseCode() == 200) {
-                BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream(), "UTF-8"));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) sb.append(line);
-                reader.close();
+                String responseBody;
+                try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) sb.append(line);
+                    responseBody = sb.toString();
+                }
 
-                JsonObject apiJson = JsonParser.parseString(sb.toString()).getAsJsonObject();
+                JsonObject apiJson = JsonParser.parseString(responseBody).getAsJsonObject();
                 String base64Content = apiJson.get("content").getAsString().replaceAll("\\s", "");
                 byte[] decoded = android.util.Base64.decode(base64Content, android.util.Base64.DEFAULT);
                 return new String(decoded, "UTF-8");

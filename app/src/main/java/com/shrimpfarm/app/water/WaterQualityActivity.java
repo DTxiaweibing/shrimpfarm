@@ -91,36 +91,39 @@ public class WaterQualityActivity extends BaseActivity {
 
     private void loadLastRecord() {
         Cursor cursor = dbHelper.getAllWaterQuality(currentBatchId);
-        if (cursor != null && cursor.moveToFirst()) {
-            try {
-                String vibrio = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_VIBRIO)));
-                String salinity = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_SALINITY)));
-                String ammonia = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_AMMONIA)));
-                String nitrite = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_NITRITE)));
-                String ph = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_PH)));
-                String dissolvedOxygen = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_DISSOLVED_OXYGEN)));
-                String maxTemp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_MAX_TEMP)));
-                String minTemp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_MIN_TEMP)));
-                String chlorine = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_CHLORINE)));
-                String hydrogenSulfide = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_HYDROGEN_SULFIDE)));
-                String orp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ORP)));
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                try {
+                    String vibrio = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_VIBRIO)));
+                    String salinity = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_SALINITY)));
+                    String ammonia = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_AMMONIA)));
+                    String nitrite = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_NITRITE)));
+                    String ph = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_PH)));
+                    String dissolvedOxygen = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_DISSOLVED_OXYGEN)));
+                    String maxTemp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_MAX_TEMP)));
+                    String minTemp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_MIN_TEMP)));
+                    String chlorine = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_CHLORINE)));
+                    String hydrogenSulfide = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_HYDROGEN_SULFIDE)));
+                    String orp = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_ORP)));
 
-                etVibrio.setText(vibrio);
-                etSalinity.setText(salinity);
-                etAmmonia.setText(ammonia);
-                etNitrite.setText(nitrite);
-                etPh.setText(ph);
-                etDissolvedOxygen.setText(dissolvedOxygen);
-                etMaxTemp.setText(maxTemp);
-                etMinTemp.setText(minTemp);
-                etChlorine.setText(chlorine);
-                etHydrogenSulfide.setText(hydrogenSulfide);
-                etOrp.setText(orp);
-            } catch (Exception e) {
-                // 解密失败，保持空字段
+                    etVibrio.setText(vibrio);
+                    etSalinity.setText(salinity);
+                    etAmmonia.setText(ammonia);
+                    etNitrite.setText(nitrite);
+                    etPh.setText(ph);
+                    etDissolvedOxygen.setText(dissolvedOxygen);
+                    etMaxTemp.setText(maxTemp);
+                    etMinTemp.setText(minTemp);
+                    etChlorine.setText(chlorine);
+                    etHydrogenSulfide.setText(hydrogenSulfide);
+                    etOrp.setText(orp);
+                } catch (Exception e) {
+                    // 解密失败，保持空字段
+                }
             }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        if (cursor != null) cursor.close();
     }
 
     private void clearAllFields() {

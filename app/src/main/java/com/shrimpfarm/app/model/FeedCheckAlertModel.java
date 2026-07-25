@@ -23,14 +23,17 @@ public class FeedCheckAlertModel {
                 null, null, "record_time DESC", "2");
 
         List<Double> ratios = new ArrayList<>();
-        while (c.moveToNext()) {
-            double avgSec = c.getDouble(c.getColumnIndexOrThrow("avg_seconds"));
-            double stdSec = c.getDouble(c.getColumnIndexOrThrow("standard_seconds"));
-            if (stdSec > 0) {
-                ratios.add((avgSec - stdSec) / stdSec);
+        try {
+            while (c.moveToNext()) {
+                double avgSec = c.getDouble(c.getColumnIndexOrThrow("avg_seconds"));
+                double stdSec = c.getDouble(c.getColumnIndexOrThrow("standard_seconds"));
+                if (stdSec > 0) {
+                    ratios.add((avgSec - stdSec) / stdSec);
+                }
             }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
         }
-        c.close();
 
         if (ratios.size() < 2) return alerts;
 
@@ -64,12 +67,15 @@ public class FeedCheckAlertModel {
                     "SELECT nightSnack FROM daily_records WHERE batch_id = ? AND date = ?",
                     new String[]{batchId, date});
                 boolean hasNightSnack = false;
-                if (cursor.moveToFirst()) {
-                    String nightSnack = cursor.getString(0);
-                    hasNightSnack = nightSnack != null && !nightSnack.trim().isEmpty()
-                        && !nightSnack.equals("0") && !nightSnack.equals("0.0");
+                try {
+                    if (cursor.moveToFirst()) {
+                        String nightSnack = cursor.getString(0);
+                        hasNightSnack = nightSnack != null && !nightSnack.trim().isEmpty()
+                            && !nightSnack.equals("0") && !nightSnack.equals("0.0");
+                    }
+                } finally {
+                    if (cursor != null && !cursor.isClosed()) cursor.close();
                 }
-                cursor.close();
                 if (hasNightSnack) nightSnackCount++;
                 cal.add(Calendar.DAY_OF_YEAR, -1);
             }

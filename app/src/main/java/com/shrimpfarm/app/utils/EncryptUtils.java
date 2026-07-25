@@ -1,6 +1,7 @@
 package com.shrimpfarm.app.utils;
 
 import android.util.Base64;
+import android.util.Log;
 
 import java.security.SecureRandom;
 
@@ -49,7 +50,7 @@ public class EncryptUtils {
 
             return Base64.encodeToString(combined, Base64.DEFAULT);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("EncryptUtils", "encrypt failed", e);
             return plainText;
         }
     }

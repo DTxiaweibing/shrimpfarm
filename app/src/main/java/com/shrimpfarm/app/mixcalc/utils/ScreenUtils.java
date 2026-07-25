@@ -5,6 +5,7 @@ import android.content.Context;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
+import android.util.Log;
 
 public class ScreenUtils {
 
@@ -27,7 +28,7 @@ public class ScreenUtils {
             // 对角线大于8英寸即为平板
             return diagonalInches >= 8.0;
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("ScreenUtils", "isTablet failed", e);
             return false;
         }
     }
@@ -43,8 +44,8 @@ public class ScreenUtils {
             display.getMetrics(outMetrics);
             return outMetrics.widthPixels;
         } catch (Exception e) {
-            e.printStackTrace();
-            return 1080; // 默认宽度
+            Log.e("ScreenUtils", "getScreenWidthPx failed", e);
+            return 1080;
         }
     }
 
@@ -59,8 +60,8 @@ public class ScreenUtils {
             display.getMetrics(outMetrics);
             return outMetrics.heightPixels;
         } catch (Exception e) {
-            e.printStackTrace();
-            return 1920; // 默认高度
+            Log.e("ScreenUtils", "getScreenHeightPx failed", e);
+            return 1920;
         }
     }
 
@@ -71,7 +72,7 @@ public class ScreenUtils {
         try {
             return context.getResources().getDisplayMetrics().density;
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("ScreenUtils", "getDensity failed", e);
             return 1.0f;
         }
     }

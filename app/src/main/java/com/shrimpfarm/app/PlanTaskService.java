@@ -86,35 +86,38 @@ public class PlanTaskService extends Service {
 
         Cursor c = db.getAllSubTasks(batchId);
         if (c != null) {
-            while (c.moveToNext()) {
-                long taskId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
-                int unitType = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
-                int startValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
-                int endValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
-                double intervalValue = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
-                int lastTriggerDay = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
-                double lastTriggerFeed = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
+            try {
+                while (c.moveToNext()) {
+                    long taskId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
+                    int unitType = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
+                    int startValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
+                    int endValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
+                    double intervalValue = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
+                    int lastTriggerDay = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
+                    double lastTriggerFeed = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
 
-                if (unitType == 0) {
-                    int nextDay = (lastTriggerDay > 0) ? lastTriggerDay + (int)intervalValue : startValue;
-                    if (stockingDay < startValue || stockingDay > endValue) continue;
+                    if (unitType == 0) {
+                        int nextDay = (lastTriggerDay > 0) ? lastTriggerDay + (int)intervalValue : startValue;
+                        if (stockingDay < startValue || stockingDay > endValue) continue;
 
-                    if (stockingDay > nextDay) {
-                        overdueCount++;
-                    } else if (stockingDay == nextDay) {
-                        todayCount++;
-                    } else if (stockingDay == nextDay - 1) {
-                        tomorrowCount++;
-                    }
-                } else {
-                    double currentFeed = db.getAccumulatedFeed(batchId, startValue, stockingDay);
-                    double nextThreshold = lastTriggerFeed + intervalValue;
-                    if (currentFeed >= nextThreshold) {
-                        todayCount++;
+                        if (stockingDay > nextDay) {
+                            overdueCount++;
+                        } else if (stockingDay == nextDay) {
+                            todayCount++;
+                        } else if (stockingDay == nextDay - 1) {
+                            tomorrowCount++;
+                        }
+                    } else {
+                        double currentFeed = db.getAccumulatedFeed(batchId, startValue, stockingDay);
+                        double nextThreshold = lastTriggerFeed + intervalValue;
+                        if (currentFeed >= nextThreshold) {
+                            todayCount++;
+                        }
                     }
                 }
+            } finally {
+                if (c != null && !c.isClosed()) c.close();
             }
-            c.close();
         }
 
         sp.edit()

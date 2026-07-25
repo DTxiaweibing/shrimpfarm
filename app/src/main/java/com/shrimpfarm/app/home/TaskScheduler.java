@@ -39,27 +39,31 @@ public class TaskScheduler {
         Cursor c = dbHelper.getAllSubTasks(batchId);
         if (c == null) return result;
 
-        while (c.moveToNext()) {
-            long taskId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
-            long parentId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_PARENT_ID));
-            String subName = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_NAME));
-            int unitType = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
-            int startValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
-            int endValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
-            double intervalValue = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
-            int lastTriggerDay = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
-            double lastTriggerFeed = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
+        try {
+            while (c.moveToNext()) {
+                long taskId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_ID));
+                long parentId = c.getLong(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_PARENT_ID));
+                String subName = c.getString(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_TASK_NAME));
+                int unitType = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_UNIT_TYPE));
+                int startValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_START_VALUE));
+                int endValue = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_END_VALUE));
+                double intervalValue = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_INTERVAL_VALUE));
+                int lastTriggerDay = c.getInt(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_DAY));
+                double lastTriggerFeed = c.getDouble(c.getColumnIndexOrThrow(DatabaseHelper.COLUMN_LAST_TRIGGER_FEED));
 
-            String mainName = subName;
-            if (parentId > 0) {
-                Cursor pc = dbHelper.getReadableDatabase().query(
-                        DatabaseHelper.TABLE_PLAN_TASKS,
-                        new String[]{DatabaseHelper.COLUMN_TASK_NAME},
-                        DatabaseHelper.COLUMN_TASK_ID + "=?", new String[]{String.valueOf(parentId)},
-                        null, null, null);
-                if (pc.moveToFirst()) mainName = pc.getString(0);
-                pc.close();
-            }
+                String mainName = subName;
+                if (parentId > 0) {
+                    Cursor pc = dbHelper.getReadableDatabase().query(
+                            DatabaseHelper.TABLE_PLAN_TASKS,
+                            new String[]{DatabaseHelper.COLUMN_TASK_NAME},
+                            DatabaseHelper.COLUMN_TASK_ID + "=?", new String[]{String.valueOf(parentId)},
+                            null, null, null);
+                    try {
+                        if (pc.moveToFirst()) mainName = pc.getString(0);
+                    } finally {
+                        if (pc != null && !pc.isClosed()) pc.close();
+                    }
+                }
             if (mainName == null || mainName.isEmpty()) mainName = "任务";
 
             boolean showOverdue = false, showToday = false, showTomorrow = false;
@@ -102,7 +106,9 @@ public class TaskScheduler {
             if (showToday) today.add(new TaskItem(taskId, batchId, taskLabel, "今天", 0xFF0000FF));
             if (showTomorrow) tomorrow.add(new TaskItem(taskId, batchId, taskLabel, "明天", 0xFF0C8918));
         }
-        c.close();
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
 
         result.addAll(overdue);
         result.addAll(today);

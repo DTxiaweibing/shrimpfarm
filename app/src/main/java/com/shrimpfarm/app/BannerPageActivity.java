@@ -58,16 +58,14 @@ public class BannerPageActivity extends AppCompatActivity {
     }
 
     private String readFileContent(String filePath) {
-        try {
-            File file = new File(filePath);
-            if (!file.exists()) return null;
-            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
+        File file = new File(filePath);
+        if (!file.exists()) return null;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"))) {
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line).append("\n");
             }
-            reader.close();
             return sb.toString();
         } catch (Exception e) {
             return null;

@@ -929,10 +929,11 @@ public class MainActivity extends BaseActivity {
 
     private double calculateTotalFeed(String batchId) {
         double total = 0;
+        Cursor cursor = null;
         try {
             Calendar cal = Calendar.getInstance();
             String todayStr = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(cal.getTime());
-            Cursor cursor = dbHelper.getReadableDatabase().rawQuery(
+            cursor = dbHelper.getReadableDatabase().rawQuery(
                     "SELECT " + DatabaseHelper.COLUMN_BREAKFAST + ", " +
                     DatabaseHelper.COLUMN_LUNCH + ", " +
                     DatabaseHelper.COLUMN_DINNER + ", " +
@@ -954,8 +955,8 @@ public class MainActivity extends BaseActivity {
                     }
                 }
             }
-            cursor.close();
         } catch (Exception ignored) {}
+        finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
         return total;
     }
 

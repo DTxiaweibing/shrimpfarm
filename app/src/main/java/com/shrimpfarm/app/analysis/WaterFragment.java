@@ -312,8 +312,9 @@ public class WaterFragment extends Fragment {
         Map<String, WaterDataPoint> dailyMap = new LinkedHashMap<>();
         Map<String, Integer> countMap = new HashMap<>();
 
+        Cursor cursor = null;
         try {
-            Cursor cursor = dbHelper.getReadableDatabase().query(
+            cursor = dbHelper.getReadableDatabase().query(
                 DatabaseHelper.TABLE_WATER_QUALITY, null,
                 DatabaseHelper.COLUMN_BATCH_ID + "=? AND " + DatabaseHelper.COLUMN_WQ_DATE + " BETWEEN ? AND ?",
                 new String[]{currentBatchId, startDate, endDate},
@@ -346,9 +347,8 @@ public class WaterFragment extends Fragment {
                             } catch (NumberFormatException ignored) {}
                         }
                     }
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) { Log.e("WaterFragment", "queryWaterData parse error", e); }
             }
-            cursor.close();
 
             for (Map.Entry<String, WaterDataPoint> entry : dailyMap.entrySet()) {
                 WaterDataPoint point = entry.getValue();
@@ -360,15 +360,17 @@ public class WaterFragment extends Fragment {
                 }
                 result.add(point);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { Log.e("WaterFragment", "queryWaterData error", e); }
+        finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
         return result;
     }
 
     private List<WaterDataPoint> queryWaterRawData(String startDate, String endDate) {
         List<WaterDataPoint> result = new ArrayList<>();
         if (dbHelper == null || currentBatchId == null || currentBatchId.isEmpty()) return result;
+        Cursor cursor = null;
         try {
-            Cursor cursor = dbHelper.getReadableDatabase().query(
+            cursor = dbHelper.getReadableDatabase().query(
                 DatabaseHelper.TABLE_WATER_QUALITY, null,
                 DatabaseHelper.COLUMN_BATCH_ID + "=? AND " + DatabaseHelper.COLUMN_WQ_DATE + " BETWEEN ? AND ?",
                 new String[]{currentBatchId, startDate, endDate},
@@ -394,18 +396,19 @@ public class WaterFragment extends Fragment {
                         }
                     }
                     result.add(point);
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) { Log.e("WaterFragment", "queryWaterRawData parse error", e); }
             }
-            cursor.close();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { Log.e("WaterFragment", "queryWaterRawData error", e); }
+        finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
         return result;
     }
 
     private WaterDataPoint queryWaterDataForDate(String date) {
         if (dbHelper == null || currentBatchId == null || currentBatchId.isEmpty()) return null;
         List<WaterDataPoint> points = new ArrayList<>();
+        Cursor cursor = null;
         try {
-            Cursor cursor = dbHelper.getReadableDatabase().query(
+            cursor = dbHelper.getReadableDatabase().query(
                 DatabaseHelper.TABLE_WATER_QUALITY, null,
                 DatabaseHelper.COLUMN_BATCH_ID + "=? AND " + DatabaseHelper.COLUMN_WQ_DATE + " = ?",
                 new String[]{currentBatchId, date},
@@ -428,8 +431,8 @@ public class WaterFragment extends Fragment {
                     points.add(point);
                 } catch (Exception ignored) {}
             }
-            cursor.close();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { Log.e("WaterFragment", "queryWaterDataForDate error", e); }
+        finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
         if (points.isEmpty()) return null;
         // 同一天多条记录时计算平均
         Date parsedDate;

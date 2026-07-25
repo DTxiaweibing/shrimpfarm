@@ -77,19 +77,22 @@ public class AlertGenerator {
                     DatabaseHelper.TABLE_FEEDING_CHECK_ANALYSIS, null,
                     "batch_id=?", new String[]{batchId},
                     null, null, "record_time DESC", "1");
-            if (ft.moveToFirst()) {
-                double avgSec = ft.getDouble(ft.getColumnIndexOrThrow("avg_seconds"));
-                double stdSec = ft.getDouble(ft.getColumnIndexOrThrow("standard_seconds"));
-                if (stdSec > 0) {
-                    double ratio = (avgSec - stdSec) / stdSec;
-                    if (ratio > 0.20) {
-                        alerts.add(new AlertItem("整体吃料超时20%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！", "FEED_TIME"));
-                    } else if (ratio > 0.10) {
-                        alerts.add(new AlertItem("整体吃料超时10%以上，减缓加料幅度，或适度减料！", "FEED_TIME"));
+            try {
+                if (ft.moveToFirst()) {
+                    double avgSec = ft.getDouble(ft.getColumnIndexOrThrow("avg_seconds"));
+                    double stdSec = ft.getDouble(ft.getColumnIndexOrThrow("standard_seconds"));
+                    if (stdSec > 0) {
+                        double ratio = (avgSec - stdSec) / stdSec;
+                        if (ratio > 0.20) {
+                            alerts.add(new AlertItem("整体吃料超时20%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！", "FEED_TIME"));
+                        } else if (ratio > 0.10) {
+                            alerts.add(new AlertItem("整体吃料超时10%以上，减缓加料幅度，或适度减料！", "FEED_TIME"));
+                        }
                     }
                 }
+            } finally {
+                if (ft != null && !ft.isClosed()) ft.close();
             }
-            ft.close();
         }
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "water_quality", true))

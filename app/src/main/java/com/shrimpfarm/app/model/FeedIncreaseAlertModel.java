@@ -48,26 +48,29 @@ public class FeedIncreaseAlertModel {
                 "batch_id=? AND date=?", new String[]{batchId, date},
                 null, null, null);
         float total = 0;
-        if (cursor.moveToFirst()) {
-            String[] fields = {
-                    DatabaseHelper.COLUMN_BREAKFAST,
-                    DatabaseHelper.COLUMN_LUNCH,
-                    DatabaseHelper.COLUMN_DINNER,
-                    DatabaseHelper.COLUMN_NIGHT_SNACK
-            };
-            for (String field : fields) {
-                String enc = cursor.getString(cursor.getColumnIndexOrThrow(field));
-                if (enc != null && !enc.isEmpty()) {
-                    try {
-                        String dec = EncryptUtils.decrypt(enc);
-                        if (dec != null && !dec.isEmpty()) {
-                            total += Float.parseFloat(dec);
-                        }
-                    } catch (Exception ignored) {}
+        try {
+            if (cursor.moveToFirst()) {
+                String[] fields = {
+                        DatabaseHelper.COLUMN_BREAKFAST,
+                        DatabaseHelper.COLUMN_LUNCH,
+                        DatabaseHelper.COLUMN_DINNER,
+                        DatabaseHelper.COLUMN_NIGHT_SNACK
+                };
+                for (String field : fields) {
+                    String enc = cursor.getString(cursor.getColumnIndexOrThrow(field));
+                    if (enc != null && !enc.isEmpty()) {
+                        try {
+                            String dec = EncryptUtils.decrypt(enc);
+                            if (dec != null && !dec.isEmpty()) {
+                                total += Float.parseFloat(dec);
+                            }
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return total;
     }
 

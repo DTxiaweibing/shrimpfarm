@@ -8,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+
+import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
@@ -71,14 +73,14 @@ public class FeedDurationFragment extends Fragment {
         try {
             setupChart();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("FeedDuration", "setupChart failed", e);
         }
 
         if (currentBatchId != null && !currentBatchId.isEmpty()) {
             try {
                 loadData(selectedDays);
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e("FeedDuration", "loadData failed", e);
             }
         } else {
             chartFeedDuration.setNoDataText("请先选择批次");
@@ -177,7 +179,7 @@ public class FeedDurationFragment extends Fragment {
                 updateChartForShedMode(summaries);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("FeedDuration", "loadDataByDateRange failed", e);
             chartFeedDuration.setNoDataText("数据加载失败");
             resetSummary();
         }
