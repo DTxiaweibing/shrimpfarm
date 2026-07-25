@@ -45,7 +45,7 @@ public class HqChartActivity extends AppCompatActivity {
         chart = findViewById(R.id.line_chart);
         setupChart();
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
         loadData(itemName);
     }
 

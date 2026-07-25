@@ -45,7 +45,7 @@ public class PriceUpdateWorker extends Worker {
                 return Result.failure();
             }
 
-            DatabaseHelper dbHelper = new DatabaseHelper(getApplicationContext());
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(getApplicationContext());
             dbHelper.saveMarketPrices(data);
 
             return Result.success();

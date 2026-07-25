@@ -62,7 +62,7 @@ public class BasicDataActivity extends BaseActivity {
             return;
         }
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
 
         initViews();
         setupTabs();

@@ -550,7 +550,7 @@ public class MainActivity extends BaseActivity {
     }
 
     private void setupFunctionGrid() {
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
         fcrModel = new ExcelBasedFeedConversion();
 
         List<Map<String, Object>> items = new ArrayList<>();
@@ -636,7 +636,7 @@ public class MainActivity extends BaseActivity {
         layoutAlertBars.setVisibility(View.GONE);
         layoutTaskBars.removeAllViews();
         if (batchId.isEmpty()) { scrollTaskBars.setVisibility(View.INVISIBLE); return; }
-        if (dbHelper == null) dbHelper = new DatabaseHelper(this);
+        if (dbHelper == null) dbHelper = DatabaseHelper.getInstance(this);
 
         SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
         if (!TaskScheduler.isTaskTimeVisible(sp)) {

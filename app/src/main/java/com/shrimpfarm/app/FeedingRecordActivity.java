@@ -78,7 +78,7 @@ public class FeedingRecordActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_feeding_record);
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
 
         TextView headerFixedDate = findViewById(R.id.header_fixed_date);
         headerScrollContainer = findViewById(R.id.header_scroll_container);

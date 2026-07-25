@@ -142,6 +142,7 @@ public class SupabaseAuthManager {
                 if (response.isSuccessful()) {
                     String respBody = response.body() != null ? response.body().string() : "";
                     JSONObject json = new JSONObject(respBody);
+                    android.util.Log.i("SupabaseAuth", "autoRelogin success");
                     String newToken = json.getString("access_token");
                     String newRefreshToken = json.optString("refresh_token", "");
                     context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -150,8 +151,7 @@ public class SupabaseAuthManager {
                             .putString(KEY_REFRESH_TOKEN, newRefreshToken)
                             .putLong(KEY_LAST_LOGIN_TIME, System.currentTimeMillis())
                             .apply();
-                    android.util.Log.i("SupabaseAuth", "autoRelogin success");
-                    return newToken;
+                return newToken;
                 }
             }
         } catch (Exception e) {
@@ -267,7 +267,6 @@ public class SupabaseAuthManager {
 
             try (Response response = client.newCall(request).execute()) {
                 String respBody = response.body() != null ? response.body().string() : "";
-                android.util.Log.i("SupabaseAuth", "登录响应: " + respBody);
                 JSONObject json = new JSONObject(respBody);
 
                 if (!response.isSuccessful()) {
@@ -477,7 +476,6 @@ public class SupabaseAuthManager {
             JSONObject cur = getCurrentUser();
             if (cur == null) return "无法获取当前用户信息，请检查网络";
             JSONObject meta = cur.optJSONObject("user_metadata");
-            android.util.Log.i("SupabaseAuth", "当前user_metadata: " + (meta != null ? meta.toString() : "null"));
             if (meta == null) meta = new JSONObject();
             JSONArray keys = fields.names();
             if (keys != null) {
@@ -486,7 +484,6 @@ public class SupabaseAuthManager {
                     meta.put(k, fields.get(k));
                 }
             }
-            android.util.Log.i("SupabaseAuth", "PUT新的user_metadata: " + meta.toString());
             return putUserMetadata(meta);
         } catch (Exception e) {
             return "网络错误: " + e.getMessage();
@@ -508,7 +505,6 @@ public class SupabaseAuthManager {
                     .build();
             try (Response response = client.newCall(req).execute()) {
                 String body = response.body() != null ? response.body().string() : "";
-                android.util.Log.i("SupabaseAuth", "GET /auth/v1/user 状态码: " + response.code() + " 响应: " + body);
                 if (!response.isSuccessful() || body.isEmpty()) return null;
                 return new JSONObject(body);
             }
@@ -533,7 +529,6 @@ public class SupabaseAuthManager {
 
             try (Response response = client.newCall(req).execute()) {
                 String respBody = response.body() != null ? response.body().string() : "";
-                android.util.Log.i("SupabaseAuth", "PUT /auth/v1/user 状态码: " + response.code() + " 响应: " + respBody);
                 if (!response.isSuccessful()) {
                     JSONObject json = new JSONObject(respBody);
                     return json.optString("msg", json.optString("error_description", "保存失败"));

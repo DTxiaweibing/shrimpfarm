@@ -61,7 +61,7 @@ public class FeedDurationFragment extends Fragment {
         tvSlowestDate = view.findViewById(R.id.tv_slowest_date);
         tvSlowestValue = view.findViewById(R.id.tv_slowest_value);
 
-        dbHelper = new DatabaseHelper(getContext());
+        dbHelper = DatabaseHelper.getInstance(getContext());
         if (getActivity() != null) {
             currentBatchId = getActivity()
                 .getSharedPreferences("app_prefs", getContext().MODE_PRIVATE)

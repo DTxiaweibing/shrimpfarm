@@ -42,7 +42,7 @@ public class WaterQualityActivity extends BaseActivity {
             return;
         }
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
 
         if (!isBasicDataComplete()) {
             showBasicDataIncompleteDialog();

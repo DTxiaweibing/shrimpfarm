@@ -32,8 +32,6 @@ public class BannerUpdateWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        Log.d(TAG, "后台开始下载最新 banner.json");
-
         OkHttpClient client = HttpClientSingleton.getInstance();
 
         try {
@@ -56,7 +54,6 @@ public class BannerUpdateWorker extends Worker {
                     .putString(PREFS_BANNER_JSON_CACHE, newJson)
                     .apply();
 
-            Log.d(TAG, "后台更新成功，已缓存最新 JSON");
             return Result.success();
 
         } catch (Exception e) {

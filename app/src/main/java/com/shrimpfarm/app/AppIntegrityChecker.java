@@ -43,8 +43,6 @@ public class AppIntegrityChecker {
                     postResult(callback, false);
                     return;
                 }
-                Log.i(TAG, "本地指纹: " + fingerprint);
-
                 if (!checkWithSupabase(context, fingerprint)) {
                     Log.w(TAG, "Supabase 校验失败，尝试本地指纹兜底");
                     checkWithNative(fingerprint, callback);

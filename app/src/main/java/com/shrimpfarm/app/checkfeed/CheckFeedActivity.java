@@ -128,7 +128,7 @@ public class CheckFeedActivity extends BaseActivity {
             return;
         }
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
         sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
         // 获取水百分比

@@ -317,7 +317,7 @@ public class BackupActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                String filePath = localManager.exportToLocal();
+                String filePath = localManager.exportToLocal(true);
                 runOnUiThread(() -> {
                     pd.dismiss();
                     Toast.makeText(BackupActivity.this, "本地备份成功！\n" + filePath, Toast.LENGTH_LONG).show();
@@ -402,9 +402,10 @@ public class BackupActivity extends AppCompatActivity {
 
     private long parseDateFromName(String name) {
         try {
-            String dateStr = name.replace("DataBackup_", "").replace("（手动备份）", "").replace(".db", "");
+            String s = name.substring("DataBackup_".length());
+            if (s.length() > 16) s = s.substring(0, 16);
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
-            Date date = sdf.parse(dateStr);
+            Date date = sdf.parse(s);
             return date != null ? date.getTime() : 0;
         } catch (Exception e) {
             return 0;
@@ -543,11 +544,7 @@ public class BackupActivity extends AppCompatActivity {
             TextView tv = convertView instanceof TextView ? (TextView) convertView : new TextView(BackupActivity.this);
             BackupEntry entry = historyList.get(position);
 
-            String label = entry.name;
-            if (entry.size > 0) {
-                label += " (" + formatSize(entry.size) + ")";
-            }
-            tv.setText(label);
+            tv.setText(entry.name);
             tv.setTextSize(14);
             tv.setTextColor(0xFF444444);
             tv.setPadding(20, 16, 20, 16);

@@ -415,7 +415,6 @@ public class ExpertActivity extends AppCompatActivity {
 
     private void processQuery(String query, boolean wasVoice) {
         try {
-            Log.i(TAG, "Processing query: " + query);
             if (unleashed) {
                 mainHandler.post(() -> transitionAnimation("正在联系专家"));
                 startStreamingResponse(query, wasVoice);

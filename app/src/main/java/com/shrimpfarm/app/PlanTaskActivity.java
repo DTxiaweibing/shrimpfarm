@@ -60,7 +60,7 @@ public class PlanTaskActivity extends BaseActivity {
         recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         currentBatchId = prefs.getString("current_batch_id", "");
         if (currentBatchId.isEmpty()) {

@@ -17,8 +17,8 @@
 -dontwarn okio.**
 
 # ONNX Runtime
--keep class com.microsoft.onnxruntime.** { *; }
--dontwarn com.microsoft.onnxruntime.**
+-keep class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
 
 # Glide
 -keep class com.bumptech.glide.** { *; }

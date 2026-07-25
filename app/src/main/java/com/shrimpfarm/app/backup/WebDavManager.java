@@ -141,8 +141,18 @@ public class WebDavManager {
         // 写入前先清理超出上限的旧备份
         cleanupOldBackups();
 
+        long fileSize = dbFile.length();
+        String sizeStr;
+        if (fileSize < 1024) {
+            sizeStr = fileSize + "B";
+        } else if (fileSize < 1024 * 1024) {
+            sizeStr = String.format(Locale.getDefault(), "%.1fKB", fileSize / 1024.0);
+        } else {
+            sizeStr = String.format(Locale.getDefault(), "%.1fMB", fileSize / (1024.0 * 1024.0));
+        }
+
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
-        String fileName = "DataBackup_" + sdf.format(new Date()) + (isManual ? "（手动备份）.db" : ".db");
+        String fileName = "DataBackup_" + sdf.format(new Date()) + "_" + sizeStr + (isManual ? "（手动备份）.db" : ".db");
         String remotePath = WEBDAV_URL + BACKUP_DIR + fileName;
 
         execPut(remotePath, dbFile);

@@ -181,7 +181,7 @@ public class MixCalcActivity extends BaseActivity {
             // ---------- 批次与基础数据检查 ----------
             SharedPreferences appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
             currentBatchId = appPrefs.getString("current_batch_id", "");
-            dbHelper = new DatabaseHelper(this);
+            dbHelper = DatabaseHelper.getInstance(this);
 
             if (currentBatchId.isEmpty()) {
                 showNoBatchDialog();
@@ -1002,32 +1002,20 @@ public class MixCalcActivity extends BaseActivity {
             shedCountLimit = loadedLimit;
 
             if (shedCountLimit > 0) {
-                Log.d(TAG, "当前棚数限制: " + shedCountLimit);
-
                 double totalShedCount = 0;
                 for (FeedData data : dataList) {
                     totalShedCount += data.getShedCount();
                 }
 
-                Log.d(TAG, "当前总棚数: " + totalShedCount + ", 限制: " + shedCountLimit);
-
                 boolean newExceedStatus = totalShedCount > shedCountLimit;
 
                 if (newExceedStatus != isShedCountExceeded) {
                     isShedCountExceeded = newExceedStatus;
-
-                    if (isShedCountExceeded) {
-                        Log.d(TAG, "棚数超过限制，总棚数=" + totalShedCount + " > 限制=" + shedCountLimit);
-                    } else {
-                        Log.d(TAG, "棚数恢复正常，总棚数=" + totalShedCount + " ≤ 限制=" + shedCountLimit);
-                    }
-
                     for (int i = 0; i < dataList.size(); i++) {
                         updateRowInputEnabled(i);
                     }
                 }
             } else {
-                Log.d(TAG, "未设置棚数限制");
                 if (isShedCountExceeded) {
                     isShedCountExceeded = false;
                     for (int i = 0; i < dataList.size(); i++) {
@@ -1042,8 +1030,6 @@ public class MixCalcActivity extends BaseActivity {
 
     // 数据格式化和传递方法
     private String formatDataToMessage() {
-        Log.d(TAG, "开始格式化数据为简洁消息");
-
         try {
             StringBuilder messageBuilder = new StringBuilder();
 
@@ -1155,7 +1141,6 @@ public class MixCalcActivity extends BaseActivity {
             messageBuilder.append(summary);
 
             String message = messageBuilder.toString();
-            Log.d(TAG, "两边补空格格式数据格式化完成");
             return message;
 
         } catch (Exception e) {
@@ -1231,8 +1216,6 @@ public class MixCalcActivity extends BaseActivity {
 
     // 准备数据并跳转到查料表
     private void prepareDataAndNavigate() {
-        Log.d(TAG, "准备数据并跳转到查料表");
-
         try {
             String message = formatDataToMessage();
 
@@ -1244,8 +1227,6 @@ public class MixCalcActivity extends BaseActivity {
 
             startActivity(intent);
             finish();
-
-            Log.d(TAG, "数据已准备并跳转到查料表");
         } catch (Exception e) {
             Log.e(TAG, "准备数据异常: " + e.getMessage());
             Toast.makeText(this, "数据处理失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -1507,7 +1488,6 @@ public class MixCalcActivity extends BaseActivity {
                     adjustedTotal += adaptiveColumnWidths[i];
                 }
 
-                Log.d(TAG, "列宽调整: 缩放因子=" + scale + ", 调整后总宽=" + adjustedTotal);
             }
 
         } catch (Exception e) {
@@ -1529,15 +1509,11 @@ public class MixCalcActivity extends BaseActivity {
     // 刷新所有单元格显示
     private void refreshAllCells() {
         try {
-            Log.d(TAG, "开始刷新所有单元格显示");
-
             for (int i = 0; i < dataList.size(); i++) {
                 refreshRowCells(i);
             }
 
             updateFooterRow();
-
-            Log.d(TAG, "所有单元格刷新完成");
         } catch (Exception e) {
             Log.e(TAG, "刷新所有单元格异常: " + e.getMessage(), e);
         }
@@ -1678,7 +1654,6 @@ public class MixCalcActivity extends BaseActivity {
                 columnVisibility.put(columnIds[i], true);
             }
 
-            Log.d(TAG, "列可见性初始化完成");
         } catch (Exception e) {
             Log.e(TAG, "initColumnVisibility异常: " + e.getMessage());
         }
@@ -1690,8 +1665,6 @@ public class MixCalcActivity extends BaseActivity {
             for (int i = 1; i < columnIds.length; i++) {
                 columnFixed.put(columnIds[i], false);
             }
-
-            Log.d(TAG, "列固定状态初始化完成");
         } catch (Exception e) {
             Log.e(TAG, "initColumnFixedState异常: " + e.getMessage());
         }
@@ -1705,7 +1678,6 @@ public class MixCalcActivity extends BaseActivity {
                 boolean visible = prefs.getBoolean(KEY_COLUMN_VISIBILITY + columnId, true);
                 columnVisibility.put(columnId, visible);
             }
-            Log.d(TAG, "列可见性加载完成");
         } catch (Exception e) {
             Log.e(TAG, "加载列可见性异常: " + e.getMessage());
         }
@@ -1719,7 +1691,6 @@ public class MixCalcActivity extends BaseActivity {
                 boolean fixed = prefs.getBoolean(KEY_FIXED_COLUMN + columnId, false);
                 columnFixed.put(columnId, fixed);
             }
-            Log.d(TAG, "列固定状态加载完成");
         } catch (Exception e) {
             Log.e(TAG, "加载列固定状态异常: " + e.getMessage());
         }
@@ -1760,7 +1731,6 @@ public class MixCalcActivity extends BaseActivity {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putInt(KEY_GLOBAL_WATER, globalWaterPercentage);
             editor.apply();
-            Log.d(TAG, "保存全局水百分比: " + globalWaterPercentage);
         } catch (Exception e) {
             Log.e(TAG, "保存全局水百分比异常: " + e.getMessage());
         }
@@ -1771,7 +1741,6 @@ public class MixCalcActivity extends BaseActivity {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             globalWaterPercentage = prefs.getInt(KEY_GLOBAL_WATER, 20);
-            Log.d(TAG, "加载全局水百分比: " + globalWaterPercentage);
         } catch (Exception e) {
             Log.e(TAG, "加载全局水百分比异常: " + e.getMessage());
             globalWaterPercentage = 20;
@@ -1785,7 +1754,6 @@ public class MixCalcActivity extends BaseActivity {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean(KEY_FERMENTED_INCLUDED_IN_WATER, fermentedIncludedInWater);
             editor.apply();
-            Log.d(TAG, "保存发酵料参与水分计算设置: " + fermentedIncludedInWater);
         } catch (Exception e) {
             Log.e(TAG, "保存发酵料参与水分计算设置异常: " + e.getMessage());
         }
@@ -1796,7 +1764,6 @@ public class MixCalcActivity extends BaseActivity {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             fermentedIncludedInWater = prefs.getBoolean(KEY_FERMENTED_INCLUDED_IN_WATER, false);
-            Log.d(TAG, "加载发酵料参与水分计算设置: " + fermentedIncludedInWater);
         } catch (Exception e) {
             Log.e(TAG, "加载发酵料参与水分计算设置异常: " + e.getMessage());
             fermentedIncludedInWater = false;
@@ -1810,7 +1777,6 @@ public class MixCalcActivity extends BaseActivity {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean(KEY_FERMENTED_INCLUDED_IN_AVERAGE, fermentedIncludedInAverage);
             editor.apply();
-            Log.d(TAG, "保存发酵料参与平均吃料计算设置: " + fermentedIncludedInAverage);
         } catch (Exception e) {
             Log.e(TAG, "保存发酵料参与平均吃料计算设置异常: " + e.getMessage());
         }
@@ -1821,7 +1787,6 @@ public class MixCalcActivity extends BaseActivity {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             fermentedIncludedInAverage = prefs.getBoolean(KEY_FERMENTED_INCLUDED_IN_AVERAGE, false);
-            Log.d(TAG, "加载发酵料参与平均吃料计算设置: " + fermentedIncludedInAverage);
         } catch (Exception e) {
             Log.e(TAG, "加载发酵料参与平均吃料计算设置异常: " + e.getMessage());
             fermentedIncludedInAverage = false;
@@ -1843,8 +1808,6 @@ public class MixCalcActivity extends BaseActivity {
             String dataJson = jsonArray.toString();
             editor.putString(KEY_SAVED_DATA, dataJson);
             editor.apply();
-
-            Log.d(TAG, "数据保存完成，共保存" + dataList.size() + "条记录");
         } catch (Exception e) {
             Log.e(TAG, "保存所有数据异常: " + e.getMessage());
         }
@@ -1901,7 +1864,6 @@ public class MixCalcActivity extends BaseActivity {
                 }
             }
 
-            Log.d(TAG, "所有滚动监听器已清理");
         } catch (Exception e) {
             Log.e(TAG, "清理滚动监听器异常: " + e.getMessage());
         }
@@ -1912,8 +1874,6 @@ public class MixCalcActivity extends BaseActivity {
             cellViewMap.clear();
             rowLayoutMap.clear();
             footerCellMap.clear();
-
-            Log.d(TAG, "所有单元格监听器已清理");
         } catch (Exception e) {
             Log.e(TAG, "清理单元格监听器异常: " + e.getMessage());
         }
@@ -1929,8 +1889,6 @@ public class MixCalcActivity extends BaseActivity {
 
             rowScrollViews.clear();
             fixedDataRows.clear();
-
-            Log.d(TAG, "所有视图已清理");
         } catch (Exception e) {
             Log.e(TAG, "清理视图异常: " + e.getMessage());
         }
@@ -1953,7 +1911,6 @@ public class MixCalcActivity extends BaseActivity {
     private void buildTableFromScratch() {
         try {
             int scrollWidth = calculateScrollWidth();
-            Log.d(TAG, "滚动宽度: " + scrollWidth + "px");
 
             buildHeader(scrollWidth);
             buildFooter(scrollWidth);
@@ -2443,7 +2400,6 @@ public class MixCalcActivity extends BaseActivity {
             for (int i = 0; i < dataList.size(); i++) {
                 buildDataRow(i, scrollWidth);
             }
-            Log.d(TAG, "构建了" + dataList.size() + "行数据");
         } catch (Exception e) {
             Log.e(TAG, "构建数据行异常: " + e.getMessage());
         }
@@ -3203,8 +3159,6 @@ public class MixCalcActivity extends BaseActivity {
             for (HorizontalScrollView scrollView : rowScrollViews) {
                 setupScrollViewListener(scrollView);
             }
-
-            Log.d(TAG, "滚动同步设置完成");
 
         } catch (Exception e) {
             Log.e(TAG, "设置滚动同步异常: " + e.getMessage());

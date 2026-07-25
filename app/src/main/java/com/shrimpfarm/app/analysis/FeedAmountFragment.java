@@ -76,7 +76,7 @@ public class FeedAmountFragment extends Fragment {
         tvMinFeedValue = view.findViewById(R.id.tv_min_feed_value);
 
         // 初始化数据库
-        dbHelper = new DatabaseHelper(getContext());
+        dbHelper = DatabaseHelper.getInstance(getContext());
         if (getActivity() != null) {
             currentBatchId = getActivity()
                 .getSharedPreferences("app_prefs", getContext().MODE_PRIVATE)

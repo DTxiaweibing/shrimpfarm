@@ -61,7 +61,7 @@ public class DataAnalysisActivity extends BaseActivity {
         appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         currentBatchId = appPrefs.getString("current_batch_id", "");
         currentBatchName = appPrefs.getString("current_batch_name", "");
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
 
         if (currentBatchId.isEmpty()) {
             showNoBatchDialog();

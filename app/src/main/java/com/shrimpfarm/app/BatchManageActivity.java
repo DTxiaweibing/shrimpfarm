@@ -113,9 +113,8 @@ public class BatchManageActivity extends BaseActivity {
             }
             String json = jsonArray.toString();
             prefs.edit().putString("batch_list_json", json).apply();
-            DatabaseHelper dbHelper = new DatabaseHelper(BatchManageActivity.this);
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(BatchManageActivity.this);
             dbHelper.saveBasicData("_meta", "_batch_list_json", json);
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -194,7 +193,7 @@ public class BatchManageActivity extends BaseActivity {
                 new DialogInterface.OnClickListener[]{
                     null,
                     (d, w) -> {
-                        DatabaseHelper dbHelper = new DatabaseHelper(BatchManageActivity.this);
+                        DatabaseHelper dbHelper = DatabaseHelper.getInstance(BatchManageActivity.this);
                         dbHelper.deleteAllDataByBatchId(batchItem.id);
                         batchList.remove(position);
                         saveBatchList();

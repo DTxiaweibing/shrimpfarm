@@ -35,7 +35,7 @@ public class HqActivity extends AppCompatActivity {
         setContentView(R.layout.activity_hq);
 
         try {
-            dbHelper = new DatabaseHelper(this);
+            dbHelper = DatabaseHelper.getInstance(this);
             tvDate = findViewById(R.id.tv_date);
             recyclerMarket = findViewById(R.id.recycler_market);
             Button btnRefresh = findViewById(R.id.btn_refresh);

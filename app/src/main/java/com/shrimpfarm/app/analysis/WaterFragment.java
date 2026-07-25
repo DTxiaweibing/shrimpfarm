@@ -84,7 +84,7 @@ public class WaterFragment extends Fragment {
         initViews(view);
         setupChart();
 
-        dbHelper = new DatabaseHelper(getContext());
+        dbHelper = DatabaseHelper.getInstance(getContext());
         if (getActivity() != null) {
             currentBatchId = getActivity()
                 .getSharedPreferences("app_prefs", getContext().MODE_PRIVATE)

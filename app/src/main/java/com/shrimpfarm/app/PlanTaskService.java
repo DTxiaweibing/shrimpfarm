@@ -57,7 +57,7 @@ public class PlanTaskService extends Service {
     }
 
     private void checkAndSaveTasks() {
-        DatabaseHelper db = new DatabaseHelper(this);
+        DatabaseHelper db = DatabaseHelper.getInstance(this);
         SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
         String batchId = sp.getString("current_batch_id", "");
         if (batchId.isEmpty()) return;
