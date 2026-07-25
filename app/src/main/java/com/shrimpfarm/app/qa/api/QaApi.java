@@ -88,7 +88,7 @@ public class QaApi {
     }
 
     private String getAuthToken() {
-        return auth.getValidToken();
+        return auth.getToken();
     }
 
     public String getCurrentUserId() {

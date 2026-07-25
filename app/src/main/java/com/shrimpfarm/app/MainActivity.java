@@ -643,42 +643,44 @@ public class MainActivity extends BaseActivity {
             scrollTaskBars.setVisibility(View.INVISIBLE); return;
         }
 
-        // 提醒条
-        int alertCount = 0;
-        List<AlertItem> alerts = AlertGenerator.generate(dbHelper, sp, batchId);
-        Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
-        for (AlertItem alert : alerts) {
-            if (!dismissed.contains(String.valueOf(alert.id))) {
-                alertBarsContainer.addView(buildAlertBar(alert));
-                alertCount++;
-            }
-        }
+        new Thread(() -> {
+            List<AlertItem> alerts = AlertGenerator.generate(dbHelper, sp, batchId);
+            Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
+            List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(dbHelper, batchId);
 
-        if (alertCount > 0) {
-            layoutAlertBars.post(() -> {
-                positionAlertBars();
-                layoutAlertBars.setVisibility(View.VISIBLE);
+            runOnUiThread(() -> {
+                int alertCount = 0;
+                for (AlertItem alert : alerts) {
+                    if (!dismissed.contains(String.valueOf(alert.id))) {
+                        alertBarsContainer.addView(buildAlertBar(alert));
+                        alertCount++;
+                    }
+                }
+
+                if (alertCount > 0) {
+                    layoutAlertBars.post(() -> {
+                        positionAlertBars();
+                        layoutAlertBars.setVisibility(View.VISIBLE);
+                    });
+                } else {
+                    layoutAlertBars.setVisibility(View.GONE);
+                }
+
+                int taskCount = tasks.size();
+                if (taskCount > 0) {
+                    scrollTaskBars.setVisibility(View.VISIBLE);
+                    for (TaskScheduler.TaskItem task : tasks) {
+                        layoutTaskBars.addView(buildTaskBar(task.taskId, task.batchId, task.label, task.badgeText, task.bgColor));
+                    }
+                    final ScrollView sv = findViewById(R.id.scroll_task_bars);
+                    if (sv != null) {
+                        sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
+                    }
+                } else {
+                    scrollTaskBars.setVisibility(View.INVISIBLE);
+                }
             });
-        } else {
-            layoutAlertBars.setVisibility(View.GONE);
-        }
-
-        // 任务条
-        List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(dbHelper, batchId);
-        int taskCount = tasks.size();
-
-        if (taskCount > 0) {
-            scrollTaskBars.setVisibility(View.VISIBLE);
-            for (TaskScheduler.TaskItem task : tasks) {
-                layoutTaskBars.addView(buildTaskBar(task.taskId, task.batchId, task.label, task.badgeText, task.bgColor));
-            }
-            final ScrollView sv = findViewById(R.id.scroll_task_bars);
-            if (sv != null) {
-                sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
-            }
-        } else {
-            scrollTaskBars.setVisibility(View.INVISIBLE);
-        }
+        }, "MainActivity-loadPlanTasks").start();
     }
 
     private View buildTaskBar(final long taskId, final String batchId, String label,

@@ -562,8 +562,6 @@ public class CheckFeedActivity extends BaseActivity {
 
         String recordDate = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
 
-        dbHelper.deleteCheckRecordsByDate(currentBatchId, recordDate);
-
         List<ContentValues> allRecords = new ArrayList<>();
         int childCount = tableContainer.getChildCount();
         for (int i = 0; i < childCount; i++) {
@@ -609,26 +607,30 @@ public class CheckFeedActivity extends BaseActivity {
             }
         }
 
-        if (!allRecords.isEmpty()) {
-            dbHelper.insertCheckRecords(allRecords);
+        final String finalRecordDate = recordDate;
+        new Thread(() -> {
+            dbHelper.deleteCheckRecordsByDate(currentBatchId, finalRecordDate);
 
-            // 计算平均吃料时间并保存到 feeding_stats 表
-            long totalDuration = 0;
-            int validCount = 0;
-            for (ContentValues record : allRecords) {
-                Long duration = record.getAsLong("duration_seconds");
-                if (duration != null && duration > 0) {
-                    totalDuration += duration;
-                    validCount++;
+            if (!allRecords.isEmpty()) {
+                dbHelper.insertCheckRecords(allRecords);
+
+                long totalDuration = 0;
+                int validCount = 0;
+                for (ContentValues record : allRecords) {
+                    Long duration = record.getAsLong("duration_seconds");
+                    if (duration != null && duration > 0) {
+                        totalDuration += duration;
+                        validCount++;
+                    }
+                }
+                if (validCount > 0) {
+                    long avgDurationMillis = (totalDuration / validCount) * 1000;
+                    dbHelper.insertFeedingStats(currentBatchId, finalRecordDate, avgDurationMillis, System.currentTimeMillis());
                 }
             }
-            if (validCount > 0) {
-                long avgDurationMillis = (totalDuration / validCount) * 1000;
-                dbHelper.insertFeedingStats(currentBatchId, recordDate, avgDurationMillis, System.currentTimeMillis());
-            }
-        }
 
-        updateTitleTimeDisplay();
+            runOnUiThread(this::updateTitleTimeDisplay);
+        }, "CheckFeedActivity-saveToDatabase").start();
     }
 
     private long parseDurationToSeconds(String duration) {
@@ -740,15 +742,23 @@ public class CheckFeedActivity extends BaseActivity {
             if (diffMs < 0) return;
             int dayIndex = (int)(diffMs / (24 * 60 * 60 * 1000)) + 1;
 
-            boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
-            long standardSeconds = FeedingTimeStandard.getStandardSeconds(dayIndex, isFourMeals);
             long avgSeconds = calculateTodayAvgDuration();
-            if (avgSeconds <= 0 || standardSeconds <= 0) return;
+            if (avgSeconds <= 0) return;
 
+            int fDayIndex = dayIndex;
             String recordDate = dateFmt.format(today);
-            dbHelper.insertFeedingCheckAnalysis(currentBatchId, recordDate, (double) avgSeconds, (double) standardSeconds);
+            new Thread(() -> {
+                try {
+                    boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
+                    long standardSeconds = FeedingTimeStandard.getStandardSeconds(fDayIndex, isFourMeals);
+                    if (standardSeconds <= 0) return;
+                    dbHelper.insertFeedingCheckAnalysis(currentBatchId, recordDate, (double) avgSeconds, (double) standardSeconds);
+                } catch (Exception ex) {
+                    Log.e("CheckFeed", "insert analysis error", ex);
+                }
+            }, "CheckFeedActivity-saveAnalysis").start();
         } catch (Exception e) {
-            Log.e("CheckFeed", "insert analysis error", e);
+            Log.e("CheckFeed", "save analysis setup error", e);
         }
     }
 
