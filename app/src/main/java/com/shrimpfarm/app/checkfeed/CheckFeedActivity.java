@@ -608,7 +608,7 @@ public class CheckFeedActivity extends BaseActivity {
         }
 
         final String finalRecordDate = recordDate;
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             dbHelper.deleteCheckRecordsByDate(currentBatchId, finalRecordDate);
 
             if (!allRecords.isEmpty()) {
@@ -630,7 +630,9 @@ public class CheckFeedActivity extends BaseActivity {
             }
 
             runOnUiThread(this::updateTitleTimeDisplay);
-        }, "CheckFeedActivity-saveToDatabase").start();
+        }, "CheckFeedActivity-saveToDatabase");
+        t.setDaemon(true);
+        t.start();
     }
 
     private long parseDurationToSeconds(String duration) {
@@ -747,7 +749,7 @@ public class CheckFeedActivity extends BaseActivity {
 
             int fDayIndex = dayIndex;
             String recordDate = dateFmt.format(today);
-            new Thread(() -> {
+            Thread t = new Thread(() -> {
                 try {
                     boolean isFourMeals = FeedCheckAlertModel.isFourMeals(dbHelper.getWritableDatabase(), currentBatchId);
                     long standardSeconds = FeedingTimeStandard.getStandardSeconds(fDayIndex, isFourMeals);
@@ -756,7 +758,9 @@ public class CheckFeedActivity extends BaseActivity {
                 } catch (Exception ex) {
                     Log.e("CheckFeed", "insert analysis error", ex);
                 }
-            }, "CheckFeedActivity-saveAnalysis").start();
+            }, "CheckFeedActivity-saveAnalysis");
+            t.setDaemon(true);
+            t.start();
         } catch (Exception e) {
             Log.e("CheckFeed", "save analysis setup error", e);
         }

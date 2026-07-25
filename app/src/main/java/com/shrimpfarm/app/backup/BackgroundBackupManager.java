@@ -24,7 +24,7 @@ public class BackgroundBackupManager {
 
         prefs.edit().putLong(KEY_LAST_BACKGROUND_BACKUP, now).apply();
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 WebDavManager webDav = new WebDavManager(context);
                 webDav.initConnection(username, password);
@@ -33,6 +33,8 @@ public class BackgroundBackupManager {
             } catch (Exception e) {
                 android.util.Log.e("BgBackup", "后台备份失败: " + e.getMessage());
             }
-        }).start();
+        }, "BackgroundBackup-run");
+        t.setDaemon(true);
+        t.start();
     }
 }

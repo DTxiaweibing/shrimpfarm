@@ -643,7 +643,7 @@ public class MainActivity extends BaseActivity {
             scrollTaskBars.setVisibility(View.INVISIBLE); return;
         }
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             List<AlertItem> alerts = AlertGenerator.generate(dbHelper, sp, batchId);
             Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
             List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(dbHelper, batchId);
@@ -680,7 +680,9 @@ public class MainActivity extends BaseActivity {
                     scrollTaskBars.setVisibility(View.INVISIBLE);
                 }
             });
-        }, "MainActivity-loadPlanTasks").start();
+        }, "MainActivity-loadPlanTasks");
+        t.setDaemon(true);
+        t.start();
     }
 
     private View buildTaskBar(final long taskId, final String batchId, String label,

@@ -35,7 +35,7 @@ public class AppIntegrityChecker {
 
     public static void startCheck(Context context, IntegrityCallback callback) {
         checkEverStarted = true;
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 String fingerprint = computeFingerprint(context);
                 if (fingerprint == null) {
@@ -57,7 +57,9 @@ public class AppIntegrityChecker {
                     postResult(callback, false);
                 }
             }
-        }).start();
+        }, "AppIntegrity-check");
+        t.setDaemon(true);
+        t.start();
     }
 
     private static boolean checkWithSupabase(Context context, String fingerprint) throws Exception {

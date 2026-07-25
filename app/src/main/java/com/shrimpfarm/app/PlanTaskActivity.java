@@ -72,7 +72,7 @@ public class PlanTaskActivity extends BaseActivity {
     }
 
     private void loadTasks() {
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             int stockingDay = dbHelper.getStockingDay(currentBatchId);
             List<TaskItem> loadedTasks = new ArrayList<>();
             Cursor cursor = dbHelper.getAllMainTasks(currentBatchId);
@@ -122,7 +122,9 @@ public class PlanTaskActivity extends BaseActivity {
                 adapter = new TaskAdapter();
                 recyclerView.setAdapter(adapter);
             });
-        }, "PlanTaskActivity-loadTasks").start();
+        }, "PlanTaskActivity-loadTasks");
+        t.setDaemon(true);
+        t.start();
     }
 
     @Override

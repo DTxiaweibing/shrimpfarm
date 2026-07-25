@@ -24,7 +24,7 @@ public class KnowledgeBaseUpdater {
     private static final String DB_URL = "https://dtxiaweibing.github.io/TIMU/knowledge_base.db";
 
     public static void checkUpdate(Context context) {
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 int localVersion = getLocalVersion(context);
                 int remoteVersion = fetchRemoteVersion();
@@ -37,7 +37,9 @@ public class KnowledgeBaseUpdater {
             } catch (Exception e) {
                 Log.w(TAG, "KB update check failed: " + e.getMessage());
             }
-        }).start();
+        }, "KnowledgeBase-update");
+        t.setDaemon(true);
+        t.start();
     }
 
     public static int getLocalVersion(Context context) {

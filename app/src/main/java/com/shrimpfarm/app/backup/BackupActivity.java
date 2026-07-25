@@ -144,7 +144,9 @@ public class BackupActivity extends AppCompatActivity {
                             webDavManager.clearConfig();
                             updateUI();
                             if (showingLocal) refreshHistory();
-                            new Thread(() -> authManager.clearWebDavFromCloud()).start();
+                            Thread t = new Thread(() -> authManager.clearWebDavFromCloud(), "BackupActivity-clearCloud");
+                            t.setDaemon(true);
+                            t.start();
                         }
                     });
         });
@@ -248,7 +250,7 @@ public class BackupActivity extends AppCompatActivity {
             updateUI();
         }
         // always try to refresh from cloud
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             String err = authManager.loadWebDavFromCloud();
             if (err == null) {
                 runOnUiThread(() -> {
@@ -261,12 +263,14 @@ public class BackupActivity extends AppCompatActivity {
                     }
                 });
             }
-        }).start();
+        }, "BackupActivity-loadCloud");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void testWebDavConnection(String username, String password) {
         final ProgressDialog pd = ProgressDialog.show(this, "", "正在测试连接...", true);
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 webDavManager.initConnection(username, password);
                 String msg = webDavManager.testConnection();
@@ -304,7 +308,9 @@ public class BackupActivity extends AppCompatActivity {
                             userMsg, new String[]{"确定"}, null);
                 });
             }
-        }).start();
+        }, "BackupActivity-testConnection");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void doLocalBackup() {
@@ -315,7 +321,7 @@ public class BackupActivity extends AppCompatActivity {
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 String filePath = localManager.exportToLocal(true);
                 runOnUiThread(() -> {
@@ -338,7 +344,9 @@ public class BackupActivity extends AppCompatActivity {
                             new DialogInterface.OnClickListener[]{ null, (d, w) -> doLocalBackup() });
                 });
             }
-        }).start();
+        }, "BackupActivity-exportLocal");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void doWebDavBackup() {
@@ -349,7 +357,7 @@ public class BackupActivity extends AppCompatActivity {
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 String fileName = webDavManager.uploadBackup(true);
                 runOnUiThread(() -> {
@@ -366,7 +374,9 @@ public class BackupActivity extends AppCompatActivity {
                             new DialogInterface.OnClickListener[]{ null, (d, w) -> doWebDavBackup() });
                 });
             }
-        }).start();
+        }, "BackupActivity-exportWebDav");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void refreshHistory() {
@@ -378,7 +388,7 @@ public class BackupActivity extends AppCompatActivity {
             }
             historyAdapter.notifyDataSetChanged();
         } else {
-            new Thread(() -> {
+            Thread t = new Thread(() -> {
                 try {
                     List<String> cloudFiles = webDavManager.listBackups();
                     java.util.Collections.sort(cloudFiles, (a, b) -> Long.compare(parseDateFromName(b), parseDateFromName(a)));
@@ -396,7 +406,9 @@ public class BackupActivity extends AppCompatActivity {
                     runOnUiThread(() -> Toast.makeText(BackupActivity.this,
                             "获取坚果云备份列表失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            }, "BackupActivity-refreshCloudList");
+            t.setDaemon(true);
+            t.start();
         }
     }
 
@@ -428,7 +440,7 @@ public class BackupActivity extends AppCompatActivity {
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 String batchListJson = "";
                 if (entry.isLocal) {
@@ -485,7 +497,9 @@ public class BackupActivity extends AppCompatActivity {
                             userMsg, new String[]{"确定"}, null);
                 });
             }
-        }).start();
+        }, "BackupActivity-restoreBackup");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void updateUI() {

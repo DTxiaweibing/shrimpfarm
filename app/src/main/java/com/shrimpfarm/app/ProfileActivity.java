@@ -60,12 +60,14 @@ public class ProfileActivity extends BaseActivity {
     protected void onResume() {
         super.onResume();
         if (authManager.isLoggedIn()) {
-            new Thread(() -> {
+            Thread t = new Thread(() -> {
                 String err = authManager.loadWebDavFromCloud();
                 if (err == null) {
                     runOnUiThread(this::updateUI);
                 }
-            }).start();
+            }, "Profile-refresh");
+            t.setDaemon(true);
+            t.start();
         }
     }
 
@@ -106,7 +108,7 @@ public class ProfileActivity extends BaseActivity {
 
         final ProgressDialog pd = ProgressDialog.show(this, "", isRegisterMode ? "注册中..." : "登录中...", true);
 
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             final SupabaseAuthManager.AuthResult result;
             if (isRegisterMode) {
                 String nickname = etNickname.getText().toString().trim();
@@ -125,7 +127,9 @@ public class ProfileActivity extends BaseActivity {
                     showError(result.message);
                 }
             });
-        }).start();
+        }, "Profile-auth");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void showError(String msg) {
@@ -138,7 +142,7 @@ public class ProfileActivity extends BaseActivity {
         if (email.isEmpty()) { showError("请先输入邮箱"); return; }
 
         final ProgressDialog pd = ProgressDialog.show(this, "", "发送中...", true);
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             final String error = authManager.forgotPassword(email);
             runOnUiThread(() -> {
                 pd.dismiss();
@@ -150,7 +154,9 @@ public class ProfileActivity extends BaseActivity {
                     showError(error);
                 }
             });
-        }).start();
+        }, "Profile-forgotPwd");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void showEditNicknameDialog() {
@@ -169,12 +175,14 @@ public class ProfileActivity extends BaseActivity {
             if (newNick.isEmpty()) { return; }
             authManager.saveNickname(newNick);
             updateUI();
-            new Thread(() -> {
+            Thread t = new Thread(() -> {
                 String error = authManager.updateNickname(newNick);
                 if (error != null) {
                     runOnUiThread(() -> showError("云端同步失败（本地已保存）: " + error));
                 }
-            }).start();
+            }, "Profile-updateNickname");
+            t.setDaemon(true);
+            t.start();
         });
         builder.setNegativeButton("取消", null);
         builder.show();

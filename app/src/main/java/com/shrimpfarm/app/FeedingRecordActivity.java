@@ -250,7 +250,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
     private void loadInitialData() {
         if (loadingOverlay != null) loadingOverlay.setVisibility(View.VISIBLE);
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             int totalDays = dbHelper.getTotalDaysInBatch(currentBatchId);
             List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, totalDays, 0);
             hasMoreData = false;
@@ -260,13 +260,15 @@ public class FeedingRecordActivity extends BaseActivity {
                 if (loadingOverlay != null) loadingOverlay.setVisibility(View.GONE);
                 scrollToYesterday();
             });
-        }).start();
+        }, "FeedingRecord-loadInitial");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void loadMoreData() {
         if (isLoadingMore || !hasMoreData) return;
         isLoadingMore = true;
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             int offset = allRecords.size();
             List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, PAGE_SIZE, offset);
             hasMoreData = records.size() >= PAGE_SIZE;
@@ -276,7 +278,9 @@ public class FeedingRecordActivity extends BaseActivity {
                 adapter.notifyItemRangeInserted(startPos, records.size());
                 isLoadingMore = false;
             });
-        }).start();
+        }, "FeedingRecord-loadMore");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void scrollToYesterday() {

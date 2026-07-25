@@ -164,10 +164,12 @@ public class SupabaseAuthManager {
      * 供 HelpActivity 调用：打开帮助页时后台静默刷新登录状态
      */
     public void backgroundRefresh() {
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             String token = getValidToken();
             android.util.Log.i("SupabaseAuth", "backgroundRefresh: " + (!token.isEmpty() ? "token valid" : "not logged in"));
-        }).start();
+        }, "SupabaseAuth-autoRelogin");
+        t.setDaemon(true);
+        t.start();
     }
 
     /**
@@ -326,7 +328,9 @@ public class SupabaseAuthManager {
 
                 syncRecorderToPrefs();
                 // try to restore latest data from cloud
-                new Thread(() -> restoreFromCloud()).start();
+                Thread t = new Thread(() -> restoreFromCloud(), "SupabaseAuth-restoreCloud");
+                t.setDaemon(true);
+                t.start();
                 return new AuthResult(true, "登录成功", currentNickname, userEmail);
             }
         } catch (Exception e) {
@@ -615,7 +619,7 @@ public class SupabaseAuthManager {
     }
 
     public void logout() {
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 String token = getToken();
                 if (!token.isEmpty()) {
@@ -629,7 +633,9 @@ public class SupabaseAuthManager {
                 }
             } catch (Exception ignored) {
             }
-        }).start();
+        }, "SupabaseAuth-logout");
+        t.setDaemon(true);
+        t.start();
 
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()

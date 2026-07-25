@@ -15,6 +15,7 @@ public class WatermarkFrameLayout extends FrameLayout {
     private boolean showWatermark = false;
     private boolean buttonAdded = false;
     private TextView upgradeBtn;
+    private volatile Boolean isOver50 = null;
 
     public WatermarkFrameLayout(Context context) {
         super(context);
@@ -24,11 +25,18 @@ public class WatermarkFrameLayout extends FrameLayout {
     private void init() {
         setWillNotDraw(false);
         showWatermark = false;
-        triggerPost50Check(getContext());
+        Thread t = new Thread(() -> {
+            boolean over50 = isOver50Days(getContext());
+            isOver50 = over50;
+            if (over50) {
+                post(() -> triggerPost50Check(getContext()));
+            }
+        }, "WatermarkFrameLayout-over50Check");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void triggerPost50Check(Context context) {
-        if (!isOver50Days(context)) return;
         AppIntegrityChecker.startCheck(context, verified -> {
             if (!verified) {
                 showWatermark = true;

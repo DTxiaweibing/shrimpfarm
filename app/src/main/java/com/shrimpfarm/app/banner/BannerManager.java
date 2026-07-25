@@ -134,7 +134,7 @@ public class BannerManager implements SharedPreferences.OnSharedPreferenceChange
      * 预加载所有图片和网页，成功后更新UI
      */
     private void tryPreloadAndApply(List<BannerItem> newItems) {
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             if (isDestroyed) return;
 
             // 1. 预加载全部图片到 Glide 磁盘缓存
@@ -151,7 +151,9 @@ public class BannerManager implements SharedPreferences.OnSharedPreferenceChange
                 // 4. 标记为"已成功显示过网络图"
                 prefs.edit().putBoolean(PREFS_BANNER_READY, true).apply();
             });
-        }).start();
+        }, "BannerManager-preload");
+        t.setDaemon(true);
+        t.start();
     }
 
     private boolean preloadAllImages(List<BannerItem> items) {
