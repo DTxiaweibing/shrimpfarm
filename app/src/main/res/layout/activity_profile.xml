@@ -78,6 +78,17 @@
             android:textColor="#FFFFFFFF"
             android:background="#FFE53935"
             android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tv_delete_account"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_gravity="center_horizontal"
+            android:text="@string/btn_delete_account"
+            android:textSize="13sp"
+            android:textColor="#FF999999"
+            android:padding="4dp" />
     </LinearLayout>
 
     <!-- 未登录区域 -->

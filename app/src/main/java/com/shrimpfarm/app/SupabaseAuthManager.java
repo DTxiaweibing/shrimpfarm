@@ -693,6 +693,37 @@ public class SupabaseAuthManager {
                 .apply();
     }
 
+    public String deleteAccount() {
+        String token = getToken();
+        if (token.isEmpty()) return "未登录，无法注销";
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+
+        Request req = new Request.Builder()
+                .url(SupabaseConfig.SUPABASE_URL + "/functions/v1/delete-account")
+                .header("Authorization", "Bearer " + token)
+                .delete()
+                .build();
+
+        try (Response resp = client.newCall(req).execute()) {
+            if (!resp.isSuccessful() && resp.code() != 404) {
+                String body = resp.body() != null ? resp.body().string() : "";
+                return "删除失败 (" + resp.code() + "): " + body;
+            }
+        } catch (java.io.IOException e) {
+            return "网络错误: " + e.getMessage();
+        }
+
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit().clear().apply();
+        context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                .edit().clear().apply();
+        return null;
+    }
+
     public static class AuthResult {
         public final boolean success;
         public final String message;

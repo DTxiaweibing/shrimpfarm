@@ -17,7 +17,7 @@ public class ProfileActivity extends BaseActivity {
     private SupabaseAuthManager authManager;
     private LinearLayout layoutLoggedIn;
     private ScrollView layoutLogin;
-    private TextView tvNickname, tvEmail, tvRecorderInfo, tvError, tvLogoutOnLogin;
+    private TextView tvNickname, tvEmail, tvRecorderInfo, tvError, tvLogoutOnLogin, tvDeleteAccount;
     private EditText etEmail, etPassword, etNickname;
     private ImageView ivTogglePwd;
     private Button btnLogin, btnRegister;
@@ -68,6 +68,8 @@ public class ProfileActivity extends BaseActivity {
             updateUI();
         });
         btnEditNickname.setOnClickListener(v -> showEditNicknameDialog());
+        tvDeleteAccount = findViewById(R.id.tv_delete_account);
+        tvDeleteAccount.setOnClickListener(v -> showDeleteAccountDialog());
 
         setupBottomNavigation();
         enableSwipeNavigation();
@@ -230,5 +232,29 @@ public class ProfileActivity extends BaseActivity {
         });
         builder.setNegativeButton("取消", null);
         builder.show();
+    }
+
+    private void showDeleteAccountDialog() {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("注销账号")
+                .setMessage("确认要永久注销此账号吗？所有数据将被删除且无法恢复。")
+                .setPositiveButton("确认注销", (dialog, which) -> {
+                    final ProgressDialog pd = ProgressDialog.show(this, "", "注销中...", true);
+                    Thread t = new Thread(() -> {
+                        String err = authManager.deleteAccount();
+                        runOnUiThread(() -> {
+                            pd.dismiss();
+                            if (err == null) {
+                                updateUI();
+                            } else {
+                                showError(err);
+                            }
+                        });
+                    }, "Profile-deleteAccount");
+                    t.setDaemon(true);
+                    t.start();
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 }
