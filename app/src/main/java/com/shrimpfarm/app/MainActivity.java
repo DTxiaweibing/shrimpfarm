@@ -493,6 +493,7 @@ public class MainActivity extends BaseActivity {
                 SwitchCompat sw = row.findViewById(R.id.switch_agent);
                 if (sw != null) sw.setEnabled(isChecked);
             }
+            loadPlanTasks();
         });
 
         Dialog dialog = new Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
@@ -542,7 +543,14 @@ public class MainActivity extends BaseActivity {
             sw.setEnabled(masterOn);
 
             final int index = i;
-            sw.setOnCheckedChangeListener((buttonView, isChecked) -> sp.edit().putBoolean(PREF_SMART_PREFIX + SMART_AGENTS[index][1], isChecked).apply());
+            final String agentKey = key;
+            sw.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                sp.edit().putBoolean(PREF_SMART_PREFIX + agentKey, isChecked).apply();
+                loadPlanTasks();
+                if ("estimate".equals(agentKey) && gvFunctions != null) {
+                    gvFunctions.invalidateViews();
+                }
+            });
 
             agentList.addView(row);
         }
