@@ -3,9 +3,11 @@ package com.shrimpfarm.app;
 import android.app.ProgressDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -17,7 +19,9 @@ public class ProfileActivity extends BaseActivity {
     private ScrollView layoutLogin;
     private TextView tvNickname, tvEmail, tvRecorderInfo, tvError, tvLogoutOnLogin;
     private EditText etEmail, etPassword, etNickname;
+    private ImageView ivTogglePwd;
     private Button btnLogin, btnRegister;
+    private boolean pwdVisible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +42,7 @@ public class ProfileActivity extends BaseActivity {
         etNickname = findViewById(R.id.et_nickname);
         btnLogin = findViewById(R.id.btn_login);
         btnRegister = findViewById(R.id.btn_register);
+        ivTogglePwd = findViewById(R.id.iv_toggle_pwd);
         Button btnLogout = findViewById(R.id.btn_logout);
         Button btnEditNickname = findViewById(R.id.btn_edit_nickname);
 
@@ -45,6 +50,14 @@ public class ProfileActivity extends BaseActivity {
 
         btnLogin.setOnClickListener(v -> doLogin());
         btnRegister.setOnClickListener(v -> doRegister());
+        ivTogglePwd.setOnClickListener(v -> {
+            pwdVisible = !pwdVisible;
+            int pos = etPassword.getSelectionEnd();
+            etPassword.setInputType(pwdVisible ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            etPassword.setSelection(pos);
+            ivTogglePwd.setImageResource(pwdVisible ? R.drawable.ic_eye_open : R.drawable.ic_eye_closed);
+        });
         tvForgotPwd.setOnClickListener(v -> doForgotPassword());
         btnLogout.setOnClickListener(v -> {
             authManager.logout();
