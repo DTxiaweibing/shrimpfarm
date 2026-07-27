@@ -295,7 +295,7 @@ public class CheckFeedActivity extends BaseActivity {
                             int shedCount = Integer.parseInt(shedCountStr);
                             intent.putExtra("SHED_COUNT", shedCount);
                             intent.putExtra("SHED_COUNT_LIMIT", shedCount);
-                        } catch (NumberFormatException ignored) {}
+                        } catch (NumberFormatException ignored) { /* ignored */ }
                         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                         startActivity(intent);
                         finish();
@@ -1060,7 +1060,7 @@ public class CheckFeedActivity extends BaseActivity {
                         if (!checkTime.isEmpty()) {
                             calculateFeedingDuration(rowNum, tvCheckTime, tvDuration);
                         }
-                    } catch (NumberFormatException e) {}
+                    } catch (NumberFormatException e) { /* ignored */ }
                 }
             }
         }
@@ -1115,7 +1115,7 @@ public class CheckFeedActivity extends BaseActivity {
                                 if (millis > 0) {
                                     durationList.add(new DurationData(i, millis, tvDuration, tvRowNumber));
                                 }
-                            } catch (Exception e) {}
+                            } catch (Exception e) { /* ignored */ }
                         }
                     }
                 }
@@ -1257,7 +1257,7 @@ public class CheckFeedActivity extends BaseActivity {
                         if (rowNum == currentRowNumber) {
                             currentValidIndex = validRowCount;
                         }
-                    } catch (NumberFormatException e) {}
+                    } catch (NumberFormatException e) { /* ignored */ }
                 }
             }
         }
@@ -1319,7 +1319,7 @@ public class CheckFeedActivity extends BaseActivity {
             if (imm != null) {
                 imm.showSoftInput(view, 0);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { /* ignored */ }
     }
 
     @Override

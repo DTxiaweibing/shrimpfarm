@@ -26,8 +26,7 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
     public void uncaughtException(Thread thread, Throwable throwable) {
         try {
             saveCrashLog(throwable);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { /* ignored */ }
 
         Intent intent = new Intent(context, CrashReportActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -51,8 +50,7 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
             pw.println();
             throwable.printStackTrace(pw);
             pw.flush();
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { /* ignored */ }
     }
 
     public static boolean hasCrashLog(Context context) {

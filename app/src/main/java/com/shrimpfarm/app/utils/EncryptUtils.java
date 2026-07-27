@@ -51,6 +51,15 @@ public class EncryptUtils {
             return Base64.encodeToString(combined, Base64.DEFAULT);
         } catch (Exception e) {
             Log.e("EncryptUtils", "encrypt failed", e);
+            return "";
+        }
+    }
+
+    public static String encryptSilent(String plainText) {
+        if (plainText == null || plainText.isEmpty()) return plainText;
+        try {
+            return encrypt(plainText);
+        } catch (Exception e) {
             return plainText;
         }
     }
@@ -66,7 +75,8 @@ public class EncryptUtils {
             }
             return decryptLegacy(encryptedText);
         } catch (Exception e) {
-            return encryptedText;
+            Log.e("EncryptUtils", "decrypt failed", e);
+            return "";
         }
     }
 

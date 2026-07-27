@@ -109,7 +109,6 @@ public class MixCalcActivity extends BaseActivity {
     // 懒加载相关变量
     private int screenVisibleRows = 10;
     private int currentlyLoadedRows = 0;
-    private Handler lazyHandler = new Handler();
 
     // 列管理
     private Map<String, Boolean> columnVisibility = new HashMap<String, Boolean>();
@@ -219,11 +218,11 @@ public class MixCalcActivity extends BaseActivity {
             // 第3步：计算屏幕能显示多少行
             calculateScreenVisibleRows();
 
-            // 第4步：先创建空表格（不带监听器）
-            buildEmptyTableWithoutListeners();
-
-            // 第5步：立即加载监听器和数据（优化：只为有数据的行）
-            lazyInitializeListenersAndData();
+            // 第4步：延迟创建表格（允许UI先完成渲染，避免ANR）
+            new Handler().post(() -> {
+                buildEmptyTableWithoutListeners();
+                lazyInitializeListenersAndData();
+            });
 
         } catch (Exception e) {
             Log.e(TAG, "启动异常: " + e.getMessage(), e);

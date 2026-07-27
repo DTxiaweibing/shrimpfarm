@@ -525,7 +525,7 @@ public class QaApi {
                             counts[2] = voteType ? 1 : -1;
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { /* ignored */ }
                 Map<Long, int[]> finalResult = new HashMap<>(result);
                 for (Long id : answerIds) {
                     if (!finalResult.containsKey(id)) {
@@ -585,41 +585,44 @@ public class QaApi {
     // ========== 图片上传 ==========
 
     public void uploadImage(Uri imageUri, QaCallback<String> callback) {
-        try {
-            File compressed = compressImage(context, imageUri);
-            if (compressed == null) {
-                postMain(() -> callback.onError("图片压缩失败"));
-                return;
-            }
-            String fileName = UUID.randomUUID().toString() + ".jpg";
-            String uploadUrl = SUPABASE_URL + "/storage/v1/object/qa-images/" + fileName;
-            RequestBody fileBody = RequestBody.create(compressed, MediaType.get("image/jpeg"));
-            Request request = new Request.Builder()
-                    .url(uploadUrl)
-                    .addHeader("apikey", ANON_KEY)
-                    .addHeader("Authorization", "Bearer " + getAuthToken())
-                    .put(fileBody)
-                    .build();
-            client.newCall(request).enqueue(new okhttp3.Callback() {
-                @Override public void onFailure(okhttp3.Call call, IOException e) {
-                    postMain(() -> callback.onError("上传失败: " + e.getMessage()));
+        Thread t = new Thread(() -> {
+            try {
+                File compressed = compressImage(context, imageUri);
+                if (compressed == null) {
+                    postMain(() -> callback.onError("图片压缩失败"));
+                    return;
                 }
-                @Override public void onResponse(okhttp3.Call call, Response response) {
-                    if (response.isSuccessful()) {
-                        String publicUrl = SUPABASE_URL + "/storage/v1/object/public/qa-images/" + fileName;
-                        postMain(() -> callback.onSuccess(publicUrl));
-                    } else {
-                        if (handleAuthError(response.code(), true)) {
-                            // 静默处理，不打扰用户
+                String fileName = UUID.randomUUID().toString() + ".jpg";
+                String uploadUrl = SUPABASE_URL + "/storage/v1/object/qa-images/" + fileName;
+                RequestBody fileBody = RequestBody.create(compressed, MediaType.get("image/jpeg"));
+                Request request = new Request.Builder()
+                        .url(uploadUrl)
+                        .addHeader("apikey", ANON_KEY)
+                        .addHeader("Authorization", "Bearer " + getAuthToken())
+                        .put(fileBody)
+                        .build();
+                client.newCall(request).enqueue(new okhttp3.Callback() {
+                    @Override public void onFailure(okhttp3.Call call, IOException e) {
+                        postMain(() -> callback.onError("上传失败: " + e.getMessage()));
+                    }
+                    @Override public void onResponse(okhttp3.Call call, Response response) {
+                        if (response.isSuccessful()) {
+                            String publicUrl = SUPABASE_URL + "/storage/v1/object/public/qa-images/" + fileName;
+                            postMain(() -> callback.onSuccess(publicUrl));
                         } else {
-                            postMain(() -> callback.onError("上传失败: " + response.code()));
+                            if (handleAuthError(response.code(), true)) {
+                            } else {
+                                postMain(() -> callback.onError("上传失败: " + response.code()));
+                            }
                         }
                     }
-                }
-            });
-        } catch (Exception e) {
-            postMain(() -> callback.onError("图片处理失败: " + e.getMessage()));
-        }
+                });
+            } catch (Exception e) {
+                postMain(() -> callback.onError("图片处理失败: " + e.getMessage()));
+            }
+        }, "QaApi-uploadImage");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ========== 助手方法 ==========
@@ -670,7 +673,7 @@ public class QaApi {
                             q.answerCount = countMap.getOrDefault(q.id, 0);
                             q.latestAnswerAt = latestMap.get(q.id);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) { /* ignored */ }
                 }
                 done.run();
             }

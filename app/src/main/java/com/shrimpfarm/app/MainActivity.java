@@ -202,8 +202,7 @@ public class MainActivity extends BaseActivity {
                 int navBarH = navigationView.getPaddingBottom();
                 if (navBarH > 0) tvVersion.setPadding(0, 8, 0, navBarH + 12);
             });
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { /* ignored */ }
     }
 
     private void initViews() {
@@ -857,7 +856,7 @@ public class MainActivity extends BaseActivity {
             };
             IntentFilter filter = new IntentFilter("com.shrimpfarm.app.TASK_UPDATE");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(taskUpdateReceiver, filter, Context.RECEIVER_EXPORTED);
+                registerReceiver(taskUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
             } else {
                 registerReceiver(taskUpdateReceiver, filter);
             }
@@ -868,7 +867,7 @@ public class MainActivity extends BaseActivity {
     protected void onPause() {
         super.onPause();
         if (taskUpdateReceiver != null) {
-            try { unregisterReceiver(taskUpdateReceiver); } catch (Exception ignored) {}
+            try { unregisterReceiver(taskUpdateReceiver); } catch (Exception ignored) { /* ignored */ }
             taskUpdateReceiver = null;
         }
     }
@@ -955,11 +954,11 @@ public class MainActivity extends BaseActivity {
                             if (val != null && !val.isEmpty()) {
                                 total += Double.parseDouble(val);
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) { /* ignored */ }
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { /* ignored */ }
         finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
         return total;
     }
@@ -993,7 +992,7 @@ public class MainActivity extends BaseActivity {
                 Calendar now = Calendar.getInstance();
                 long diff = now.getTimeInMillis() - stockCal.getTimeInMillis();
                 return (int) (diff / (1000 * 60 * 60 * 24));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
         return 0;
     }

@@ -298,7 +298,7 @@ public class FeedingRecordActivity extends BaseActivity {
                     parsed = true;
                     break;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
         if (!parsed) return;
 
@@ -314,7 +314,7 @@ public class FeedingRecordActivity extends BaseActivity {
                 if (!recordCal.after(today)) {
                     targetIndex = i;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
         if (targetIndex >= 0) {
             int finalTarget = targetIndex;
@@ -768,7 +768,7 @@ public class FeedingRecordActivity extends BaseActivity {
                                 et.setText(formatted);
                                 et.setSelection(formatted.length());
                                 et.addTextChangedListener(watcher);
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) { /* ignored */ }
                         }
                     }
                 });
@@ -785,7 +785,13 @@ public class FeedingRecordActivity extends BaseActivity {
 
     // ==================== Data class ====================
 
-    public static class DayRecord {
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        debounceHandler.removeCallbacksAndMessages(null);
+    }
+
+    static class DayRecord {
         public String date = "";
         public String breakfast = "";
         public String lunch = "";

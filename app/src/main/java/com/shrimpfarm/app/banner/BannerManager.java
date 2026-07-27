@@ -221,7 +221,7 @@ public class BannerManager implements SharedPreferences.OnSharedPreferenceChange
                         }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
     }
 

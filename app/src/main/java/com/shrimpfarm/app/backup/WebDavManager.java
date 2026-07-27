@@ -181,7 +181,7 @@ public class WebDavManager {
         java.util.Collections.sort(backups);
         int toDelete = backups.size() - MAX_BACKUPS;
         for (int i = 0; i < toDelete; i++) {
-            try { execDelete(WEBDAV_URL + BACKUP_DIR + backups.get(i)); } catch (Exception ignored) {}
+            try { execDelete(WEBDAV_URL + BACKUP_DIR + backups.get(i)); } catch (Exception ignored) { /* ignored */ }
         }
     }
 
@@ -233,7 +233,7 @@ public class WebDavManager {
                 }
                 eventType = parser.next();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { /* ignored */ }
         return names;
     }
 

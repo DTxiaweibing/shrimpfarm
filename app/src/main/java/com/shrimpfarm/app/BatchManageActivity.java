@@ -220,6 +220,17 @@ public class BatchManageActivity extends BaseActivity {
     }
 
     private class BatchAdapter extends BaseAdapter {
+        class ViewHolder {
+            TextView tvName;
+            ImageView ivCheck;
+            ImageView ivDelete;
+            ViewHolder(View v) {
+                tvName = v.findViewById(R.id.tv_batch_name);
+                ivCheck = v.findViewById(R.id.iv_check);
+                ivDelete = v.findViewById(R.id.iv_delete);
+            }
+        }
+
         @Override
         public int getCount() {
             return batchList.size();
@@ -237,26 +248,28 @@ public class BatchManageActivity extends BaseActivity {
 
         @Override
         public View getView(final int position, View convertView, ViewGroup parent) {
+            ViewHolder holder;
             if (convertView == null) {
                 convertView = LayoutInflater.from(BatchManageActivity.this)
                     .inflate(R.layout.item_batch, parent, false);
+                holder = new ViewHolder(convertView);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolder) convertView.getTag();
             }
-            TextView tvName = convertView.findViewById(R.id.tv_batch_name);
-            ImageView ivCheck = convertView.findViewById(R.id.iv_check);
-            ImageView ivDelete = convertView.findViewById(R.id.iv_delete);
 
             final BatchItem batch = batchList.get(position);
-            tvName.setText(batch.name);
+            holder.tvName.setText(batch.name);
 
             if (batch.id.equals(currentBatchId)) {
-                ivCheck.setVisibility(View.VISIBLE);
-                tvName.setTextColor(0xFF4CAF50);
+                holder.ivCheck.setVisibility(View.VISIBLE);
+                holder.tvName.setTextColor(0xFF4CAF50);
             } else {
-                ivCheck.setVisibility(View.GONE);
-                tvName.setTextColor(0xFF333333);
+                holder.ivCheck.setVisibility(View.GONE);
+                holder.tvName.setTextColor(0xFF333333);
             }
 
-            ivDelete.setOnClickListener(new View.OnClickListener() {
+            holder.ivDelete.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         confirmDeleteBatch(batch, position);

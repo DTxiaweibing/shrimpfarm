@@ -48,7 +48,7 @@ public class WaterQualityAlertModel {
                             long diff = System.currentTimeMillis() - stocking.getTime();
                             if (diff > 0) day = (int)(diff / (24L * 60 * 60 * 1000)) + 1;
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) { /* ignored */ }
                 }
             }
             if (dc != null) dc.close();

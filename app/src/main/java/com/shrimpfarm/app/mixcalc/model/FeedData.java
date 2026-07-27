@@ -148,8 +148,7 @@ public class FeedData {
                             return result;
                         }
                     }
-                } catch (NumberFormatException e) {
-                }
+                } catch (NumberFormatException e) { /* ignored */ }
             }
         }
         if (isValidNumber(part)) {

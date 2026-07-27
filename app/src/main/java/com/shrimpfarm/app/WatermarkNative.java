@@ -12,4 +12,5 @@ public class WatermarkNative {
     public static native void renderWatermark(Canvas canvas, int width, int height, Paint paint);
     public static native String getRootKey();
     public static native String getOfficialFingerprint();
+    public static native String getAiFallbackKey();
 }

@@ -167,3 +167,27 @@ Java_com_shrimpfarm_app_WatermarkNative_getOfficialFingerprint(JNIEnv *env, jcla
     buf[FINGERPRINT_LEN] = '\0';
     return env->NewStringUTF(buf);
 }
+
+// XOR-obfuscated AI API key fallback (remote fetch失败时使用，用完即销毁)
+// key "NM3L0ALN" (4E 4D 33 4C 30 41 4C 4E)
+static const unsigned char AI_FALLBACK_KEY_ENC[] = {
+    0x2B, 0x7C, 0x55, 0x7C, 0x51, 0x77, 0x74, 0x7E,
+    0x2F, 0x2B, 0x00, 0x7F, 0x04, 0x70, 0x75, 0x7A,
+    0x2F, 0x74, 0x57, 0x78, 0x08, 0x27, 0x2E, 0x2F,
+    0x2A, 0x29, 0x57, 0x2A, 0x55, 0x77, 0x2E, 0x79,
+    0x60, 0x3D, 0x4A, 0x19, 0x6A, 0x2F, 0x34, 0x25,
+    0x28, 0x2A, 0x40, 0x2A, 0x05, 0x06, 0x06, 0x39,
+    0x77
+};
+static const int AI_FALLBACK_KEY_LEN = sizeof(AI_FALLBACK_KEY_ENC) / sizeof(AI_FALLBACK_KEY_ENC[0]);
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_shrimpfarm_app_WatermarkNative_getAiFallbackKey(JNIEnv *env, jclass clazz) {
+    char buf[64];
+    int klen = strlen(XOR_KEY);
+    for (int i = 0; i < AI_FALLBACK_KEY_LEN; i++) {
+        buf[i] = AI_FALLBACK_KEY_ENC[i] ^ XOR_KEY[i % klen];
+    }
+    buf[AI_FALLBACK_KEY_LEN] = '\0';
+    return env->NewStringUTF(buf);
+}

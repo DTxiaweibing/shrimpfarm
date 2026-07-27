@@ -2,6 +2,7 @@ package com.shrimpfarm.app;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -40,15 +41,19 @@ public class BannerPageActivity extends AppCompatActivity {
         settings.setDomStorageEnabled(true);
         settings.setLoadsImagesAutomatically(true);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setAllowFileAccess(true);
+        settings.setAllowFileAccess(false);
 
         String filePath = getIntent().getStringExtra("file_path");
         String baseUrl = getIntent().getStringExtra("base_url");
         if (filePath != null) {
-            String content = readFileContent(filePath);
-            if (content != null) {
-                webView.loadDataWithBaseURL(baseUrl != null ? baseUrl : null, content, "text/html", "UTF-8", null);
-                return;
+            if (!filePath.startsWith(getFilesDir().getAbsolutePath()) && !filePath.startsWith(getCacheDir().getAbsolutePath())) {
+                Log.w("BannerPage", "blocked file path traversal: " + filePath);
+            } else {
+                String content = readFileContent(filePath);
+                if (content != null) {
+                    webView.loadDataWithBaseURL(baseUrl != null ? baseUrl : null, content, "text/html", "UTF-8", null);
+                    return;
+                }
             }
         }
         // 缓存文件不存在或损坏，直接加载在线页面

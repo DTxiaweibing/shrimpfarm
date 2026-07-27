@@ -46,7 +46,7 @@ public class AppStartupManager {
         try {
             currentVersion = context.getPackageManager()
                     .getPackageInfo(context.getPackageName(), 0).versionName;
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { /* ignored */ }
 
         updateManager.setCallback(new UpdateManager.UpdateCallback() {
             @Override

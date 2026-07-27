@@ -69,7 +69,6 @@ public class ExpertActivity extends AppCompatActivity {
     private static final String CLOUD_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
     private static final String CLOUD_MODEL = "glm-4-flash";
     private static final String KEY_REMOTE_URL = "https://dtxiaweibing.github.io/TIMU/ai_key.txt";
-    private static final String KEY_FALLBACK = "f2g1b791bg4452:5b:e59gcbeeegf7c8/qzV[oylghtg6HKx:";
     private static final String TAG = "ExpertActivity";
     private static final String SYSTEM_PROMPT =
         "你是一位南美白对虾小棚养殖专家。你的任务是：\n" +
@@ -288,8 +287,8 @@ public class ExpertActivity extends AppCompatActivity {
                     }
                 }
             }
-        } catch (Exception ignored) {}
-        cloudApiKey = deobfuscate(KEY_FALLBACK);
+        } catch (Exception ignored) { /* ignored */ }
+        cloudApiKey = WatermarkNative.getAiFallbackKey();
         Log.i(TAG, "API: fallback key");
     }
 
@@ -572,7 +571,7 @@ public class ExpertActivity extends AppCompatActivity {
                                 int len = Math.min(120, bodyStr.length());
                                 detail = " (" + bodyStr.replaceAll("[\\r\\n]", " ").substring(0, len) + ")";
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) { /* ignored */ }
                         callback.onError("API返回" + response.code() + detail);
                         return;
                     }

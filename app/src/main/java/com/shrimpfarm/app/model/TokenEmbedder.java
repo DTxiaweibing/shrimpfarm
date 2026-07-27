@@ -134,6 +134,6 @@ public class TokenEmbedder implements AutoCloseable {
 
     @Override
     public void close() {
-        if (session != null) try { session.close(); } catch (Exception ignored) {}
+        if (session != null) try { session.close(); } catch (Exception ignored) { /* ignored */ }
     }
 }

@@ -64,7 +64,7 @@ public class FeedIncreaseAlertModel {
                             if (dec != null && !dec.isEmpty()) {
                                 total += Float.parseFloat(dec);
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) { /* ignored */ }
                     }
                 }
             }

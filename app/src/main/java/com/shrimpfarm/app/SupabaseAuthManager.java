@@ -12,7 +12,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 
 import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import okhttp3.MediaType;
@@ -184,13 +186,17 @@ public class SupabaseAuthManager {
     }
 
     private String getSavedEmail() {
-        return decrypt(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_ENCRYPTED_EMAIL, ""));
+        String raw = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_ENCRYPTED_EMAIL, "");
+        String decrypted = decrypt(raw);
+        return decrypted.isEmpty() && !raw.isEmpty() ? raw : decrypted;
     }
 
     private String getSavedPassword() {
-        return decrypt(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_ENCRYPTED_PASSWORD, ""));
+        String raw = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_ENCRYPTED_PASSWORD, "");
+        String decrypted = decrypt(raw);
+        return decrypted.isEmpty() && !raw.isEmpty() ? raw : decrypted;
     }
 
     public String getRefreshToken() {
@@ -220,15 +226,17 @@ public class SupabaseAuthManager {
     }
 
     public String getWebDavPassword() {
-        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        String raw = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .getString("webdav_password", "");
+        String decrypted = decrypt(raw);
+        return decrypted.isEmpty() ? raw : decrypted;
     }
 
     public void cacheWebDavLocally(String account, String password) {
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString("webdav_account", account)
-                .putString("webdav_password", password)
+                .putString("webdav_password", encrypt(password))
                 .apply();
     }
 
@@ -342,7 +350,25 @@ public class SupabaseAuthManager {
         return updateMetadataField("nickname", nickname);
     }
 
-    private SecretKeySpec deriveKey() {
+    private static final int PBKDF2_ITERATIONS = 10000;
+    private static final int SALT_LEN = 16;
+    private static final int IV_LEN = 12;
+    private static final byte FORMAT_VERSION = 0x02;
+
+    private SecretKeySpec deriveKey(byte[] salt) {
+        try {
+            String email = getEmail();
+            PBEKeySpec spec = new PBEKeySpec(email.toCharArray(), salt, PBKDF2_ITERATIONS, 256);
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            byte[] key = factory.generateSecret(spec).getEncoded();
+            spec.clearPassword();
+            return new SecretKeySpec(key, "AES");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private SecretKeySpec deriveKeyLegacy() {
         try {
             String email = getEmail();
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -355,34 +381,59 @@ public class SupabaseAuthManager {
 
     private String encrypt(String plaintext) {
         try {
-            SecretKeySpec key = deriveKey();
-            if (key == null) return plaintext;
+            byte[] salt = new byte[SALT_LEN];
+            new SecureRandom().nextBytes(salt);
+            SecretKeySpec key = deriveKey(salt);
+            if (key == null) return "";
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            byte[] iv = new byte[12];
+            byte[] iv = new byte[IV_LEN];
             new SecureRandom().nextBytes(iv);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
             byte[] ciphertext = cipher.doFinal(plaintext.getBytes("UTF-8"));
-            byte[] combined = new byte[iv.length + ciphertext.length];
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
+            byte[] combined = new byte[1 + salt.length + iv.length + ciphertext.length];
+            combined[0] = FORMAT_VERSION;
+            System.arraycopy(salt, 0, combined, 1, salt.length);
+            System.arraycopy(iv, 0, combined, 1 + salt.length, iv.length);
+            System.arraycopy(ciphertext, 0, combined, 1 + salt.length + iv.length, ciphertext.length);
             return Base64.encodeToString(combined, Base64.NO_WRAP);
         } catch (Exception e) {
-            return plaintext;
+            android.util.Log.e("SupabaseAuth", "encrypt failed", e);
+            return "";
         }
     }
 
     private String decrypt(String ciphertext) {
         try {
-            SecretKeySpec key = deriveKey();
-            if (key == null) return ciphertext;
             byte[] combined = Base64.decode(ciphertext, Base64.NO_WRAP);
-            if (combined.length < 13) return ciphertext;
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, combined, 0, 12));
-            byte[] plaintext = cipher.doFinal(combined, 12, combined.length - 12);
-            return new String(plaintext, "UTF-8");
+            if (combined.length < IV_LEN + 1) return "";
+            if (combined[0] == FORMAT_VERSION) {
+                if (combined.length < 1 + SALT_LEN + IV_LEN + 1) return "";
+                byte[] salt = new byte[SALT_LEN];
+                System.arraycopy(combined, 1, salt, 0, SALT_LEN);
+                byte[] iv = new byte[IV_LEN];
+                System.arraycopy(combined, 1 + SALT_LEN, iv, 0, IV_LEN);
+                byte[] ct = new byte[combined.length - 1 - SALT_LEN - IV_LEN];
+                System.arraycopy(combined, 1 + SALT_LEN + IV_LEN, ct, 0, ct.length);
+                SecretKeySpec key = deriveKey(salt);
+                if (key == null) return "";
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+                byte[] plaintext = cipher.doFinal(ct);
+                return new String(plaintext, "UTF-8");
+            } else {
+                SecretKeySpec key = deriveKeyLegacy();
+                if (key == null) return "";
+                byte[] iv = new byte[IV_LEN];
+                System.arraycopy(combined, 0, iv, 0, IV_LEN);
+                byte[] ct = new byte[combined.length - IV_LEN];
+                System.arraycopy(combined, IV_LEN, ct, 0, ct.length);
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+                byte[] plaintext = cipher.doFinal(ct);
+                return new String(plaintext, "UTF-8");
+            }
         } catch (Exception e) {
-            return ciphertext;
+            return "";
         }
     }
 
@@ -424,11 +475,7 @@ public class SupabaseAuthManager {
                 String wp = decrypt(meta.optString("webdav_password", ""));
                 String nick = meta.optString("nickname", "");
                 if (!wa.isEmpty() && !wp.isEmpty()) {
-                    context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                            .edit()
-                            .putString("webdav_account", wa)
-                            .putString("webdav_password", wp)
-                            .apply();
+                    cacheWebDavLocally(wa, wp);
                 }
                 if (!nick.isEmpty()) {
                     context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -459,10 +506,9 @@ public class SupabaseAuthManager {
             String wa = meta.optString("webdav_account", "");
             String wp = decrypt(meta.optString("webdav_password", ""));
             if (!wa.isEmpty() && !wp.isEmpty()) {
-                prefs.edit().putString("webdav_account", wa).putString("webdav_password", wp).apply();
+                cacheWebDavLocally(wa, wp);
             }
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { /* ignored */ }
     }
 
     private String updateMetadataField(String key, String value) {
@@ -631,8 +677,7 @@ public class SupabaseAuthManager {
                         putUserMetadata(meta);
                     }
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) { /* ignored */ }
         }, "SupabaseAuth-logout");
         t.setDaemon(true);
         t.start();

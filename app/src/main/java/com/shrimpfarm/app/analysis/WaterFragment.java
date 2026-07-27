@@ -344,7 +344,7 @@ public class WaterFragment extends Fragment {
                                 float val = Float.parseFloat(decrypted);
                                 Float existing = point.values.get(ind.column);
                                 point.values.put(ind.column, existing == null ? val : existing + val);
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) { /* ignored */ }
                         }
                     }
                 } catch (Exception e) { Log.e("WaterFragment", "queryWaterData parse error", e); }
@@ -392,7 +392,7 @@ public class WaterFragment extends Fragment {
                             try {
                                 float val = Float.parseFloat(decrypted);
                                 point.values.put(ind.column, val);
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) { /* ignored */ }
                         }
                     }
                     result.add(point);
@@ -425,11 +425,11 @@ public class WaterFragment extends Fragment {
                             try {
                                 float val = Float.parseFloat(decrypted);
                                 point.values.put(ind.column, val);
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) { /* ignored */ }
                         }
                     }
                     points.add(point);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { /* ignored */ }
             }
         } catch (Exception e) { Log.e("WaterFragment", "queryWaterDataForDate error", e); }
         finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }

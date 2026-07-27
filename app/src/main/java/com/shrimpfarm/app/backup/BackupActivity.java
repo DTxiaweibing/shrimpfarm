@@ -465,7 +465,7 @@ public class BackupActivity extends AppCompatActivity {
                                 .putString("current_batch_name", first.getString("name"))
                                 .apply();
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) { /* ignored */ }
                 }
                 runOnUiThread(() -> {
                     pd.dismiss();

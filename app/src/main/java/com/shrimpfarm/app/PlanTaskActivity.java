@@ -534,12 +534,18 @@ public class PlanTaskActivity extends BaseActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        autoCollapseHandler.removeCallbacksAndMessages(null);
+    }
+
     abstract class SimpleTextWatcher implements TextWatcher {
         abstract void onValueChanged(int value);
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override public void afterTextChanged(Editable s) {
-            try { onValueChanged(Integer.parseInt(s.toString())); } catch (NumberFormatException e) {}
+            try { onValueChanged(Integer.parseInt(s.toString())); } catch (NumberFormatException e) { /* ignored */ }
         }
     }
 }

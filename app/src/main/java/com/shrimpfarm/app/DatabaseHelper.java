@@ -327,7 +327,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public static void closeInstance() {
         if (instance != null) {
-            try { instance.close(); } catch (Exception ignored) {}
+            try { instance.close(); } catch (Exception ignored) { /* ignored */ }
             instance = null;
         }
     }
@@ -466,10 +466,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_BD_KEY + "=? AND " + COLUMN_BATCH_ID + "=?",
                 new String[]{key, batchId}, null, null, null);
         String value = "";
-        if (cursor.moveToFirst()) {
-            value = EncryptUtils.decrypt(cursor.getString(0));
+        try {
+            if (cursor.moveToFirst()) {
+                value = EncryptUtils.decrypt(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return value;
     }
 
@@ -491,23 +494,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_MIX_ROW + "=? AND " + COLUMN_BATCH_ID + "=?",
                 new String[]{String.valueOf(row), batchId}, null, null, null);
         String name = "";
-        if (cursor.moveToFirst()) {
-            name = EncryptUtils.decrypt(cursor.getString(0));
+        try {
+            if (cursor.moveToFirst()) {
+                name = EncryptUtils.decrypt(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return name;
     }
 
     public String getMixPresetTags(String batchId, int row) {
-        String tags = "";
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_MIX_PRESETS, new String[]{COLUMN_MIX_TAGS},
                 COLUMN_MIX_ROW + "=? AND " + COLUMN_BATCH_ID + "=?",
                 new String[]{String.valueOf(row), batchId}, null, null, null);
-        if (cursor.moveToFirst()) {
-            tags = EncryptUtils.decrypt(cursor.getString(0));
+        String tags = "";
+        try {
+            if (cursor.moveToFirst()) {
+                tags = EncryptUtils.decrypt(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return tags != null ? tags : "";
     }
 
@@ -517,26 +526,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = db.query(TABLE_MIX_PRESETS, new String[]{COLUMN_MIX_NAME, COLUMN_MIX_TAGS},
                 COLUMN_BATCH_ID + "=?", new String[]{batchId},
                 null, null, COLUMN_MIX_ROW + " ASC");
-        while (cursor.moveToNext()) {
-            String fullName = EncryptUtils.decrypt(cursor.getString(0));
-            String tagsWithPrefix = EncryptUtils.decrypt(cursor.getString(1));
-            if (fullName != null && !fullName.isEmpty()) {
-                String product = removeUsagePrefix(fullName);
-                String tagContent = "";
-                if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
-                    String[] tagsArr = tagsWithPrefix.split(",");
-                    for (String t : tagsArr) {
-                        String pure = removeUsagePrefix(t);
-                        if (!pure.isEmpty()) {
-                            tagContent = pure;
-                            break;
+        try {
+            while (cursor.moveToNext()) {
+                String fullName = EncryptUtils.decrypt(cursor.getString(0));
+                String tagsWithPrefix = EncryptUtils.decrypt(cursor.getString(1));
+                if (fullName != null && !fullName.isEmpty()) {
+                    String product = removeUsagePrefix(fullName);
+                    String tagContent = "";
+                    if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
+                        String[] tagsArr = tagsWithPrefix.split(",");
+                        for (String t : tagsArr) {
+                            String pure = removeUsagePrefix(t);
+                            if (!pure.isEmpty()) {
+                                tagContent = pure;
+                                break;
+                            }
                         }
                     }
+                    map.put(product, tagContent);
                 }
-                map.put(product, tagContent);
             }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return map;
     }
 
@@ -558,23 +570,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_WATER_ROW + "=? AND " + COLUMN_BATCH_ID + "=?",
                 new String[]{String.valueOf(row), batchId}, null, null, null);
         String name = "";
-        if (cursor.moveToFirst()) {
-            name = EncryptUtils.decrypt(cursor.getString(0));
+        try {
+            if (cursor.moveToFirst()) {
+                name = EncryptUtils.decrypt(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return name;
     }
 
     public String getWaterPresetTags(String batchId, int row) {
-        String tags = "";
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_WATER_PRESETS, new String[]{COLUMN_WATER_TAGS},
                 COLUMN_WATER_ROW + "=? AND " + COLUMN_BATCH_ID + "=?",
                 new String[]{String.valueOf(row), batchId}, null, null, null);
-        if (cursor.moveToFirst()) {
-            tags = EncryptUtils.decrypt(cursor.getString(0));
+        String tags = "";
+        try {
+            if (cursor.moveToFirst()) {
+                tags = EncryptUtils.decrypt(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return tags != null ? tags : "";
     }
 
@@ -584,26 +602,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = db.query(TABLE_WATER_PRESETS, new String[]{COLUMN_WATER_NAME, COLUMN_WATER_TAGS},
                 COLUMN_BATCH_ID + "=?", new String[]{batchId},
                 null, null, COLUMN_WATER_ROW + " ASC");
-        while (cursor.moveToNext()) {
-            String fullName = EncryptUtils.decrypt(cursor.getString(0));
-            String tagsWithPrefix = EncryptUtils.decrypt(cursor.getString(1));
-            if (fullName != null && !fullName.isEmpty()) {
-                String product = removeUsagePrefix(fullName);
-                String tagContent = "";
-                if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
-                    String[] tagsArr = tagsWithPrefix.split(",");
-                    for (String t : tagsArr) {
-                        String pure = removeUsagePrefix(t);
-                        if (!pure.isEmpty()) {
-                            tagContent = pure;
-                            break;
+        try {
+            while (cursor.moveToNext()) {
+                String fullName = EncryptUtils.decrypt(cursor.getString(0));
+                String tagsWithPrefix = EncryptUtils.decrypt(cursor.getString(1));
+                if (fullName != null && !fullName.isEmpty()) {
+                    String product = removeUsagePrefix(fullName);
+                    String tagContent = "";
+                    if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
+                        String[] tagsArr = tagsWithPrefix.split(",");
+                        for (String t : tagsArr) {
+                            String pure = removeUsagePrefix(t);
+                            if (!pure.isEmpty()) {
+                                tagContent = pure;
+                                break;
+                            }
                         }
                     }
+                    map.put(product, tagContent);
                 }
-                map.put(product, tagContent);
             }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        cursor.close();
         return map;
     }
 
@@ -1158,7 +1179,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private float parseMidPrice(String price) {
         if (price == null) return 0;
-        try { return Float.parseFloat(price); } catch (NumberFormatException ignored) {}
+        try { return Float.parseFloat(price); } catch (NumberFormatException ignored) { /* ignored */ }
         return 0;
     }
 
@@ -1178,7 +1199,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 long diff = now.getTimeInMillis() - cal.getTimeInMillis();
                 int days = (int) (diff / (1000 * 60 * 60 * 24)) + 1;
                 return Math.max(days, 1);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
         return 0;
     }
@@ -1196,7 +1217,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     SimpleDateFormat sdf = new SimpleDateFormat(fmt, Locale.CHINA);
                     stockingDate = sdf.parse(dateStr);
                     if (stockingDate != null) break;
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { /* ignored */ }
             }
             if (stockingDate == null) return 0;
 
@@ -1216,11 +1237,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 for (int i = 0; i < 4; i++) {
                     String enc = c.getString(i);
                     if (enc != null && !enc.isEmpty()) {
-                        try { total += Double.parseDouble(EncryptUtils.decrypt(enc)); } catch (Exception ignored) {}
+                        try { total += Double.parseDouble(EncryptUtils.decrypt(enc)); } catch (Exception ignored) { /* ignored */ }
                     }
                 }
             }
-        } catch (Exception ignored) {} finally {
+        } catch (Exception ignored) { /* ignored */ } finally {
             if (c != null && !c.isClosed()) c.close();
         }
         return total;

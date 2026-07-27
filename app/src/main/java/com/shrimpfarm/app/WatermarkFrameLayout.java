@@ -125,7 +125,7 @@ public class WatermarkFrameLayout extends FrameLayout {
                 java.util.Calendar now = java.util.Calendar.getInstance();
                 long diff = now.getTimeInMillis() - stock.getTimeInMillis();
                 return (int) (diff / (1000 * 60 * 60 * 24)) >= 50;
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* ignored */ }
         }
         return false;
     }
