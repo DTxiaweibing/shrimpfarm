@@ -1,6 +1,7 @@
 package com.shrimpfarm.app;
 
 import android.app.ProgressDialog;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -14,10 +15,9 @@ public class ProfileActivity extends BaseActivity {
     private SupabaseAuthManager authManager;
     private LinearLayout layoutLoggedIn;
     private ScrollView layoutLogin;
-    private TextView tvNickname, tvEmail, tvRecorderInfo, tvError, tvToggleMode;
+    private TextView tvNickname, tvEmail, tvRecorderInfo, tvError, tvLogoutOnLogin;
     private EditText etEmail, etPassword, etNickname;
-    private Button btnLogin;
-    private boolean isRegisterMode = false;
+    private Button btnLogin, btnRegister;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,21 +31,26 @@ public class ProfileActivity extends BaseActivity {
         tvNickname = findViewById(R.id.tv_nickname);
         tvEmail = findViewById(R.id.tv_email);
         tvRecorderInfo = findViewById(R.id.tv_recorder_info);
-        tvToggleMode = findViewById(R.id.tv_toggle_mode);
         tvError = findViewById(R.id.tv_error);
+        tvLogoutOnLogin = findViewById(R.id.tv_logout_on_login);
         etEmail = findViewById(R.id.et_email);
         etPassword = findViewById(R.id.et_password);
         etNickname = findViewById(R.id.et_nickname);
         btnLogin = findViewById(R.id.btn_login);
+        btnRegister = findViewById(R.id.btn_register);
         Button btnLogout = findViewById(R.id.btn_logout);
         Button btnEditNickname = findViewById(R.id.btn_edit_nickname);
 
         TextView tvForgotPwd = findViewById(R.id.tv_forgot_pwd);
 
-        tvToggleMode.setOnClickListener(v -> toggleMode());
-        btnLogin.setOnClickListener(v -> doAuth());
+        btnLogin.setOnClickListener(v -> doLogin());
+        btnRegister.setOnClickListener(v -> doRegister());
         tvForgotPwd.setOnClickListener(v -> doForgotPassword());
         btnLogout.setOnClickListener(v -> {
+            authManager.logout();
+            updateUI();
+        });
+        tvLogoutOnLogin.setOnClickListener(v -> {
             authManager.logout();
             updateUI();
         });
@@ -86,19 +91,15 @@ public class ProfileActivity extends BaseActivity {
         } else {
             layoutLoggedIn.setVisibility(View.GONE);
             layoutLogin.setVisibility(View.VISIBLE);
-            etNickname.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
-            btnLogin.setText(isRegisterMode ? "注册" : "登录");
-            tvToggleMode.setText(isRegisterMode ? "已有账号？点此登录" : "没有账号？点此注册");
             tvError.setVisibility(View.GONE);
+            SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
+            boolean hasCachedSession = !"未登录".equals(sp.getString("login_user_name", "未登录"))
+                    || authManager.getToken() != null && !authManager.getToken().isEmpty();
+            tvLogoutOnLogin.setVisibility(hasCachedSession ? View.VISIBLE : View.GONE);
         }
     }
 
-    private void toggleMode() {
-        isRegisterMode = !isRegisterMode;
-        updateUI();
-    }
-
-    private void doAuth() {
+    private void doLogin() {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
@@ -106,17 +107,10 @@ public class ProfileActivity extends BaseActivity {
         if (password.isEmpty()) { showError("请输入密码"); return; }
         if (password.length() < 6) { showError("密码至少6位"); return; }
 
-        final ProgressDialog pd = ProgressDialog.show(this, "", isRegisterMode ? "注册中..." : "登录中...", true);
+        final ProgressDialog pd = ProgressDialog.show(this, "", "登录中...", true);
 
         Thread t = new Thread(() -> {
-            final SupabaseAuthManager.AuthResult result;
-            if (isRegisterMode) {
-                String nickname = etNickname.getText().toString().trim();
-                if (nickname.isEmpty()) { nickname = email.split("@")[0]; }
-                result = authManager.register(email, password, nickname);
-            } else {
-                result = authManager.login(email, password);
-            }
+            final SupabaseAuthManager.AuthResult result = authManager.login(email, password);
 
             runOnUiThread(() -> {
                 pd.dismiss();
@@ -127,7 +121,44 @@ public class ProfileActivity extends BaseActivity {
                     showError(result.message);
                 }
             });
-        }, "Profile-auth");
+        }, "Profile-login");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void doRegister() {
+        String email = etEmail.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
+        String nickname = etNickname.getText().toString().trim();
+
+        if (email.isEmpty()) { showError("请输入邮箱"); return; }
+        if (password.isEmpty()) { showError("请输入密码"); return; }
+        if (password.length() < 6) { showError("密码至少6位"); return; }
+        if (nickname.isEmpty()) { nickname = email.split("@")[0]; }
+        final String finalNickname = nickname;
+        final String finalEmail = email;
+        final String finalPassword = password;
+
+        final ProgressDialog pd = ProgressDialog.show(this, "", "注册中...", true);
+
+        Thread t = new Thread(() -> {
+            final SupabaseAuthManager.AuthResult result = authManager.register(finalEmail, finalPassword, finalNickname);
+
+            runOnUiThread(() -> {
+                pd.dismiss();
+                if (result.success) {
+                    tvError.setVisibility(View.GONE);
+                    etEmail.setText(finalEmail);
+                    etPassword.setText(finalPassword);
+                    etNickname.setText("");
+                    layoutLoggedIn.setVisibility(View.GONE);
+                    layoutLogin.setVisibility(View.VISIBLE);
+                    tvLogoutOnLogin.setVisibility(View.GONE);
+                } else {
+                    showError(result.message);
+                }
+            });
+        }, "Profile-register");
         t.setDaemon(true);
         t.start();
     }
