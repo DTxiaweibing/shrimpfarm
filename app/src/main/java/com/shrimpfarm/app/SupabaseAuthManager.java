@@ -721,6 +721,7 @@ public class SupabaseAuthManager {
                 .edit().clear().apply();
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                 .edit().clear().apply();
+        context.deleteDatabase("FeedingRecord.db");
         return null;
     }
 
