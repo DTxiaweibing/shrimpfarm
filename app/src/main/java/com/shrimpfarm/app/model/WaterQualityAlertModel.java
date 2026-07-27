@@ -34,7 +34,6 @@ public class WaterQualityAlertModel {
             double h2s = parseDecrypted(c, c.getColumnIndexOrThrow("hydrogen_sulfide"));
             double orp = parseDecrypted(c, c.getColumnIndexOrThrow("orp"));
             double doValue = parseDecrypted(c, c.getColumnIndexOrThrow("dissolved_oxygen"));
-            c.close();
 
             int day = 0;
             dc = db.rawQuery("SELECT value FROM basic_data WHERE batch_id=? AND key='stocking_date'", new String[]{batchId});
@@ -51,7 +50,6 @@ public class WaterQualityAlertModel {
                     } catch (Exception ignored) { /* ignored */ }
                 }
             }
-            if (dc != null) dc.close();
 
             if (enableCore && tempC > 0 && pH > 0) {
                 ShrimpAdviceHelper.AdviceResult result = ShrimpAdviceHelper.getAllAdvice(tempC, pH, salinity, tan, day);
@@ -89,8 +87,8 @@ public class WaterQualityAlertModel {
                 String advice = DOHelper.getAdvice(doValue);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_DO"));
             }
-        } catch (Exception e) {
-            if (!c.isClosed()) c.close();
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
             if (dc != null && !dc.isClosed()) dc.close();
         }
 

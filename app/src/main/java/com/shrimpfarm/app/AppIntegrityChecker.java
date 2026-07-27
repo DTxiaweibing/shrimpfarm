@@ -8,6 +8,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import static com.shrimpfarm.app.SupabaseConfig.ANON_KEY;
+import static com.shrimpfarm.app.SupabaseConfig.SUPABASE_URL;
+
 import org.json.JSONArray;
 
 import java.security.MessageDigest;
@@ -18,8 +21,6 @@ import okhttp3.Response;
 
 public class AppIntegrityChecker {
 
-    private static final String SUPABASE_URL = "https://apumkkayconibhkaawdn.supabase.co";
-    private static final String ANON_KEY = "sb_publishable_Tn8FsSUL4iDqUsNQGzos6Q_6zMKytC5";
     private static final String TAG = "Integrity";
 
     public static volatile boolean verified = true;

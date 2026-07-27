@@ -55,15 +55,6 @@ public class EncryptUtils {
         }
     }
 
-    public static String encryptSilent(String plainText) {
-        if (plainText == null || plainText.isEmpty()) return plainText;
-        try {
-            return encrypt(plainText);
-        } catch (Exception e) {
-            return plainText;
-        }
-    }
-
     public static String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return encryptedText;

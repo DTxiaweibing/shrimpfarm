@@ -18,8 +18,8 @@ import java.util.Locale;
 
 public class AlertGenerator {
 
-    private static final String PREF_SMART_MASTER = "smart_assistant_master";
-    private static final String PREF_SMART_PREFIX = "smart_agent_";
+    public static final String PREF_SMART_MASTER = "smart_assistant_master";
+    public static final String PREF_SMART_PREFIX = "smart_agent_";
 
     public static List<AlertItem> generate(DatabaseHelper dbHelper, SharedPreferences sp, String batchId) {
         List<AlertItem> alerts = new ArrayList<>();

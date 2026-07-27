@@ -8,6 +8,9 @@ import android.os.Looper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.shrimpfarm.app.SupabaseAuthManager;
+import com.shrimpfarm.app.SupabaseConfig;
+import static com.shrimpfarm.app.SupabaseConfig.ANON_KEY;
+import static com.shrimpfarm.app.SupabaseConfig.SUPABASE_URL;
 import com.shrimpfarm.app.qa.model.Answer;
 import com.shrimpfarm.app.qa.model.Question;
 import com.shrimpfarm.app.utils.HttpClientSingleton;
@@ -33,8 +36,6 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class QaApi {
-    private static final String SUPABASE_URL = "https://apumkkayconibhkaawdn.supabase.co";
-    private static final String ANON_KEY = "sb_publishable_Tn8FsSUL4iDqUsNQGzos6Q_6zMKytC5";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     private final OkHttpClient client;

@@ -4,6 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
 
+import static com.shrimpfarm.app.SupabaseConfig.ANON_KEY;
+import static com.shrimpfarm.app.SupabaseConfig.SUPABASE_URL;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -25,8 +28,6 @@ import okhttp3.Response;
 
 public class SupabaseAuthManager {
 
-    private static final String SUPABASE_URL = "https://apumkkayconibhkaawdn.supabase.co";
-    private static final String ANON_KEY = "sb_publishable_Tn8FsSUL4iDqUsNQGzos6Q_6zMKytC5";
     private static final String PREF_NAME = "supabase_auth";
     private static final String KEY_TOKEN = "access_token";
     private static final String KEY_REFRESH_TOKEN = "refresh_token";

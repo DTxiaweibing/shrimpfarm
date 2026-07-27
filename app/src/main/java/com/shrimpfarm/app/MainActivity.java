@@ -46,6 +46,8 @@ import com.shrimpfarm.app.utils.DialogHelper;
 import com.shrimpfarm.app.model.AlertItem;
 import com.shrimpfarm.app.model.ExcelBasedFeedConversion;
 import com.shrimpfarm.app.home.AlertGenerator;
+import static com.shrimpfarm.app.home.AlertGenerator.PREF_SMART_MASTER;
+import static com.shrimpfarm.app.home.AlertGenerator.PREF_SMART_PREFIX;
 import com.shrimpfarm.app.home.TaskScheduler;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
@@ -97,8 +99,6 @@ public class MainActivity extends BaseActivity {
     };
 
     private static final String PREF_FEED_DISPLAY_MODE = "feed_display_mode";
-    private static final String PREF_SMART_MASTER = "smart_assistant_master";
-    private static final String PREF_SMART_PREFIX = "smart_agent_";
     private static final String[][] SMART_AGENTS = {
         {"饲料增量检测", "feed_increase"},
         {"单棚吃料超时提醒", "feed_timeout"},
