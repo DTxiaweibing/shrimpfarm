@@ -1,6 +1,7 @@
 package com.shrimpfarm.app;
 
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Typeface;
@@ -23,11 +24,17 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.shrimpfarm.app.checkfeed.CheckFeedActivity;
 import com.shrimpfarm.app.mixcalc.MixCalcActivity;
+import com.shrimpfarm.app.utils.LocaleHelper;
 
 public abstract class BaseActivity extends AppCompatActivity {
 
     protected TextView navHome, navRecord, navCheck, navMix, navMy;
     private GestureDetector gestureDetector;
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(LocaleHelper.setLocale(newBase));
+    }
     private static final int SWIPE_THRESHOLD = 200;
     private static final int SWIPE_VELOCITY_THRESHOLD = 200;
     private Handler integrityHandler;

@@ -100,6 +100,11 @@
     <string name="menu_privacy_policy">隐私政策</string>
     <string name="menu_user_agreement">用户协议</string>
     <string name="menu_update_version">版本更新</string>
+    <string name="menu_language">语言选择</string>
+    <string name="lang_chinese">中文</string>
+    <string name="lang_english">English</string>
+    <string name="lang_auto">跟随系统</string>
+    <string name="language_title">选择语言</string>
     <string name="menu_settings">设置</string>
     <string name="menu_add">添加</string>
     <string name="water_quality_record">水质检测记录</string>

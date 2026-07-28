@@ -344,6 +344,8 @@ public class MainActivity extends BaseActivity {
             intent.putExtra(AssetWebViewActivity.EXTRA_TITLE, "用户协议");
             intent.putExtra(AssetWebViewActivity.EXTRA_FILE, "user-agreement.html");
             startActivity(intent);
+        } else if (id == R.id.menu_language) {
+            showLanguageDialog();
         } else if (id == R.id.menu_update_version) {
             if (startupManager != null && startupManager.hasUnseenUpdate()) {
                 showUpdateDialog();
@@ -408,6 +410,26 @@ public class MainActivity extends BaseActivity {
             s.setSpan(new AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), 0, s.length(), 0);
             item.setTitle(s);
         }
+    }
+
+    private void showLanguageDialog() {
+        String[] langs = {getString(R.string.lang_chinese), getString(R.string.lang_english), getString(R.string.lang_auto)};
+        final String[] langKeys = {"zh", "en", "auto"};
+        String current = com.shrimpfarm.app.utils.LocaleHelper.getSavedLang(this);
+        int checked = 0;
+        for (int i = 0; i < langKeys.length; i++) {
+            if (langKeys[i].equals(current)) { checked = i; break; }
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.language_title)
+                .setSingleChoiceItems(langs, checked, (dialog, which) -> {
+                    dialog.dismiss();
+                    String key = langKeys[which];
+                    com.shrimpfarm.app.utils.LocaleHelper.setLocale(this, key);
+                    recreate();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void showUpdateDialog() {
