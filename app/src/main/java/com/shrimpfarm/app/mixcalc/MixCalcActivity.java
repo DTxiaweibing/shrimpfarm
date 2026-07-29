@@ -822,7 +822,9 @@ public class MixCalcActivity extends BaseActivity {
                 String initialValue = data.getShedNumber();
                 if (initialValue == null || initialValue.isEmpty()) {
                     initialValue = textView.getText().toString();
-                    if (initialValue.startsWith("棚")) {
+                    String shedFmt = getString(R.string.shed_number_format);
+                    String shedPrefix = shedFmt.substring(0, shedFmt.indexOf('%'));
+                    if (!shedPrefix.isEmpty() && initialValue.startsWith(shedPrefix)) {
                         initialValue = "";
                     }
                 }
@@ -3392,11 +3394,14 @@ public class MixCalcActivity extends BaseActivity {
                         String[] tag = (String[]) v.getTag();
                         String cId = tag[0];
                         String act = tag[1];
-                        switch (act) {
-                            case "固列": columnFixed.put(cId, true); break;
-                            case "解固": columnFixed.put(cId, false); break;
-                            case "隐列": columnVisibility.put(cId, false); break;
-                            case "显列": columnVisibility.put(cId, true); break;
+                        if (getString(R.string.mix_btn_fix).equals(act)) {
+                            columnFixed.put(cId, true);
+                        } else if (getString(R.string.mix_btn_unfix).equals(act)) {
+                            columnFixed.put(cId, false);
+                        } else if (getString(R.string.mix_btn_hide).equals(act)) {
+                            columnVisibility.put(cId, false);
+                        } else if (getString(R.string.mix_btn_show).equals(act)) {
+                            columnVisibility.put(cId, true);
                         }
                         updateSettingsRowStyles(toggleViews.get(cId), cId);
                     });

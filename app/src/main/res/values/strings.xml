@@ -284,7 +284,7 @@
     <string name="mix_col_seq">序号</string>
     <string name="mix_col_shed">棚号</string>
     <string name="mix_col_count">棚数</string>
-    <string name="mix_col_avg_feed">平均吃料</string>
+    <string name="mix_col_avg_feed">平均</string>
     <string name="mix_col_fermented">发酵料</string>
     <string name="mix_col_powder">粉料</string>
     <string name="mix_col_feed03">0.3料</string>

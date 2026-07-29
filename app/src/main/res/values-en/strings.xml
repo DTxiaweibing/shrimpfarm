@@ -281,7 +281,7 @@
     <string name="agent_feed_time">Feed Time</string>
 
     <!-- MixCalcActivity -->
-    <string name="mix_col_seq">#</string>
+    <string name="mix_col_seq">NO.</string>
     <string name="mix_col_shed">Shed</string>
     <string name="mix_col_count">Count</string>
     <string name="mix_col_avg_feed">Avg</string>
