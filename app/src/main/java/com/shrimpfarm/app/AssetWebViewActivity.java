@@ -1,9 +1,11 @@
 package com.shrimpfarm.app;
 
+import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import com.shrimpfarm.app.BaseActivity;
+import com.shrimpfarm.app.utils.LocaleHelper;
 import androidx.appcompat.widget.Toolbar;
 
 public class AssetWebViewActivity extends BaseActivity {
@@ -36,7 +38,21 @@ public class AssetWebViewActivity extends BaseActivity {
         webView.setWebViewClient(new WebViewClient());
         webView.getSettings().setJavaScriptEnabled(false);
         if (file != null) {
-            webView.loadUrl("file:///android_asset/" + file);
+            webView.loadUrl("file:///android_asset/" + pickLangFile(file));
         }
+    }
+
+    private String pickLangFile(String file) {
+        String lang = LocaleHelper.getSavedLang(this);
+        if ("en".equals(lang) && file.endsWith(".html")) {
+            String enFile = file.replace(".html", "-en.html");
+            try {
+                AssetManager am = getAssets();
+                am.open(enFile);
+                return enFile;
+            } catch (Exception ignored) {
+            }
+        }
+        return file;
     }
 }

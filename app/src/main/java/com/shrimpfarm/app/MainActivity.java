@@ -50,6 +50,7 @@ import static com.shrimpfarm.app.home.AlertGenerator.PREF_SMART_MASTER;
 import static com.shrimpfarm.app.home.AlertGenerator.PREF_SMART_PREFIX;
 import com.shrimpfarm.app.home.TaskScheduler;
 import com.shrimpfarm.app.utils.EncryptUtils;
+import com.shrimpfarm.app.utils.LocaleHelper;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -501,7 +502,12 @@ public class MainActivity extends BaseActivity {
                 return super.onJsAlert(view, url, message, result);
             }
         });
-        webView.loadUrl("file:///android_asset/privacy-consent.html");
+        String consentFile = "privacy-consent.html";
+        String lang = LocaleHelper.getSavedLang(this);
+        if ("en".equals(lang)) {
+            consentFile = "privacy-consent-en.html";
+        }
+        webView.loadUrl("file:///android_asset/" + consentFile);
         setContentView(webView);
     }
 
