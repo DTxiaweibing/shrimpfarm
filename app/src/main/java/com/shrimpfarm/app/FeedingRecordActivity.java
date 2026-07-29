@@ -711,8 +711,7 @@ public class FeedingRecordActivity extends BaseActivity {
             et.setBackground(createCellBorder(0xFFFFFFFF));
             et.setPadding(0, 0, 0, 0);
             et.setOverScrollMode(View.OVER_SCROLL_NEVER);
-            et.setSingleLine(false);
-            et.setMaxLines(2);
+            et.setSingleLine(true);
             et.setFocusable(false);
             et.setFocusableInTouchMode(false);
             et.setClickable(true);

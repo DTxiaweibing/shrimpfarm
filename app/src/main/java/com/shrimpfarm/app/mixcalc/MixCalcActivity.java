@@ -448,8 +448,7 @@ public class MixCalcActivity extends BaseActivity {
 
             if ("shed_number".equals(columnId)) {
                 cellView.setInputType(InputType.TYPE_CLASS_TEXT);
-                cellView.setSingleLine(false);
-                cellView.setMaxLines(2);
+                cellView.setSingleLine(true);
             } else {
                 cellView.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
             }
@@ -476,8 +475,7 @@ public class MixCalcActivity extends BaseActivity {
             } else if ("shed_number".equals(columnId)) {
                 cellView.setText(getString(R.string.shed_number_format, rowIndex + 1));
                 cellView.setTextColor(Color.BLACK);
-                cellView.setSingleLine(false);
-                cellView.setMaxLines(2);
+                cellView.setSingleLine(true);
             } else {
                 cellView.setText("");
             }
@@ -814,8 +812,7 @@ public class MixCalcActivity extends BaseActivity {
                 editText.setPadding(0, 0, 0, 0);
                 editText.setTag(rowIndex + "_" + columnId);
                 editText.setInputType(InputType.TYPE_CLASS_TEXT);
-                editText.setSingleLine(false);
-                editText.setMaxLines(2);
+                editText.setSingleLine(true);
                 editText.setGravity(Gravity.CENTER);
 
                 FeedData data = dataList.get(rowIndex);
@@ -2018,11 +2015,8 @@ public class MixCalcActivity extends BaseActivity {
         headerView.setGravity(Gravity.CENTER);
 
         if ("average_feed".equals(columnId)) {
-            headerView.setText(getString(R.string.mix_col_avg_feed)); 
+            headerView.setText(getString(R.string.mix_col_avg_feed));
             headerView.setGravity(Gravity.CENTER);
-            headerView.setSingleLine(false);
-            headerView.setLines(2);
-            headerView.setMaxLines(2);
         } else if ("water".equals(columnId)) {
             headerView.setText(getString(R.string.water_percentage_header, globalWaterPercentage));
             headerView.setOnClickListener(new View.OnClickListener() {
@@ -2558,12 +2552,10 @@ public class MixCalcActivity extends BaseActivity {
 
             if ("shed_number".equals(columnId)) {
                 cellView.setInputType(InputType.TYPE_CLASS_TEXT);
-                cellView.setSingleLine(false);
-                cellView.setMaxLines(2);
+                cellView.setSingleLine(true);
                 cellView.setGravity(Gravity.CENTER);
             } else {
                 cellView.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-                cellView.setHint("");
             }
 
             cellView.setImeOptions(EditorInfo.IME_ACTION_NEXT);
@@ -2737,10 +2729,7 @@ public class MixCalcActivity extends BaseActivity {
                     cellView.setText(getString(R.string.shed_number_format, rowIndex + 1));
                 } else {
                     cellView.setText(shedName);
-                    cellView.setSingleLine(false);
-                    cellView.setMaxLines(2);
-                    cellView.setIncludeFontPadding(false);
-                    cellView.setLineSpacing(0, 1.0f);
+                    cellView.setSingleLine(true);
                     cellView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
                     cellView.setPadding(0, 0, 0, 0);
                 }
