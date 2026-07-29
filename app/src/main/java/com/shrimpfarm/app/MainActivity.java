@@ -404,23 +404,38 @@ public class MainActivity extends BaseActivity {
     }
 
     private void showLanguageDialog() {
-        String[] langs = {getString(R.string.lang_chinese), getString(R.string.lang_english), getString(R.string.lang_auto)};
-        final String[] langKeys = {"zh", "en", "auto"};
+        String[] langs = {getString(R.string.lang_auto), getString(R.string.lang_chinese), getString(R.string.lang_english)};
+        final String[] langKeys = {"auto", "zh", "en"};
         String current = com.shrimpfarm.app.utils.LocaleHelper.getSavedLang(this);
         int checked = 0;
         for (int i = 0; i < langKeys.length; i++) {
             if (langKeys[i].equals(current)) { checked = i; break; }
         }
-        new android.app.AlertDialog.Builder(this)
-                .setTitle(R.string.language_title)
-                .setSingleChoiceItems(langs, checked, (dialog, which) -> {
-                    dialog.dismiss();
-                    String key = langKeys[which];
-                    com.shrimpfarm.app.utils.LocaleHelper.setLocale(this, key);
-                    recreate();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        Dialog dialog = new Dialog(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_language, null);
+        dialog.setContentView(dialogView);
+        dialog.setCanceledOnTouchOutside(true);
+
+        TextView tvTitle = dialogView.findViewById(R.id.tv_title);
+        tvTitle.setText(R.string.language_title);
+
+        ListView lv = dialogView.findViewById(R.id.lv_languages);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.item_language, langs);
+        lv.setAdapter(adapter);
+        lv.setItemChecked(checked, true);
+        lv.setOnItemClickListener((parent, view, position, id) -> {
+            dialog.dismiss();
+            String key = langKeys[position];
+            com.shrimpfarm.app.utils.LocaleHelper.setLocale(this, key);
+            recreate();
+        });
+
+        Button btnCancel = dialogView.findViewById(R.id.btn_cancel);
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.show();
     }
 
     private void showUpdateDialog() {

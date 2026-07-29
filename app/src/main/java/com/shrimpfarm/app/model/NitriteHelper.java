@@ -1,5 +1,9 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
+
+import com.shrimpfarm.app.R;
+
 public class NitriteHelper {
     public static double getSafeLimit(int day, double salinity) {
         if (day <= 10) return 0.1;
@@ -11,6 +15,12 @@ public class NitriteHelper {
     public static String getAdvice(double nitrite, int day, double salinity) {
         double limit = getSafeLimit(day, salinity);
         if (nitrite > limit) return "亚盐超标:减料/增氧/改底";
+        return "";
+    }
+
+    public static String getAdvice(Context context, double nitrite, int day, double salinity) {
+        double limit = getSafeLimit(day, salinity);
+        if (nitrite > limit) return context.getString(R.string.alert_nitrite);
         return "";
     }
 }

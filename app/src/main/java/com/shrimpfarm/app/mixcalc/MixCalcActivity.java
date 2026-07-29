@@ -2045,13 +2045,9 @@ public class MixCalcActivity extends BaseActivity {
             headerView.setBackgroundResource(R.drawable.cell_border);
         }
 
-        if (isTabletMode) {
-            headerView.setTextSize(16);
-            headerView.setTypeface(headerView.getTypeface(), android.graphics.Typeface.BOLD);
-        } else {
-            headerView.setTextSize(12);
-            headerView.setTypeface(headerView.getTypeface(), android.graphics.Typeface.BOLD);
-        }
+        headerView.setTextSize(12);
+        headerView.setSingleLine(true);
+        headerView.setTextColor(0xFF000000);
 
         return headerView;
     }

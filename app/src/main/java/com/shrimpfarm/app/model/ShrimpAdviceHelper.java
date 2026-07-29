@@ -1,5 +1,9 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
+
+import com.shrimpfarm.app.R;
+
 public class ShrimpAdviceHelper {
 
     private static double getSalinityFactor(double salinity) {
@@ -49,6 +53,16 @@ public class ShrimpAdviceHelper {
         return "";
     }
 
+    public static String getTempAdvice(Context context, double tempC) {
+        if (tempC > 32) {
+            return context.getString(R.string.alert_temp_high);
+        }
+        if (tempC < 22) {
+            return context.getString(R.string.alert_temp_low);
+        }
+        return "";
+    }
+
     public static String getPhAdvice(double pH) {
         if (pH >= 9.0) {
             return "pH超标:遮光+芽孢光合+乳酸菌100斤/亩";
@@ -61,6 +75,22 @@ public class ShrimpAdviceHelper {
         }
         if (pH <= 8.0) {
             return "pH超标:泼洒生石灰5-10kg/亩";
+        }
+        return "";
+    }
+
+    public static String getPhAdvice(Context context, double pH) {
+        if (pH >= 9.0) {
+            return context.getString(R.string.alert_ph_high_severe);
+        }
+        if (pH >= 8.8) {
+            return context.getString(R.string.alert_ph_high_moderate);
+        }
+        if (pH >= 8.7) {
+            return context.getString(R.string.alert_ph_high_mild);
+        }
+        if (pH <= 8.0) {
+            return context.getString(R.string.alert_ph_low);
         }
         return "";
     }
@@ -78,11 +108,24 @@ public class ShrimpAdviceHelper {
         return "";
     }
 
-    public static AdviceResult getAllAdvice(double tempC, double pH, double salinity, double tan, int day) {
+    public static String getNh3Advice(Context context, double pH, double tempC, double tan, double salinity, int day) {
+        double safeNH3 = getFinalSafeNH3(salinity, day);
+        double currentNH3 = calcCurrentNH3(pH, tempC, tan, salinity);
+        if (currentNH3 > safeNH3) {
+            String advice = String.format(java.util.Locale.ROOT, context.getString(R.string.alert_nh3_format), currentNH3);
+            if (pH <= 8.0 && tan > 1.0) {
+                advice += context.getString(R.string.alert_nh3_algae);
+            }
+            return advice;
+        }
+        return "";
+    }
+
+    public static AdviceResult getAllAdvice(Context context, double tempC, double pH, double salinity, double tan, int day) {
         AdviceResult result = new AdviceResult();
-        result.tempAdvice = getTempAdvice(tempC);
-        result.phAdvice = getPhAdvice(pH);
-        result.nh3Advice = getNh3Advice(pH, tempC, tan, salinity, day);
+        result.tempAdvice = getTempAdvice(context, tempC);
+        result.phAdvice = getPhAdvice(context, pH);
+        result.nh3Advice = getNh3Advice(context, pH, tempC, tan, salinity, day);
         return result;
     }
 

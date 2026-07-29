@@ -262,6 +262,8 @@
     <string name="func_data_analysis">Analysis</string>
     <string name="func_yield_estimate">Est. Yield</string>
     <string name="func_community_help">Community</string>
+    <string name="tab_help">Tools</string>
+    <string name="tab_qa">Q&amp;A</string>
     <string name="func_expert_consult">Expert</string>
     <string name="func_market_info">Market</string>
 
@@ -655,4 +657,26 @@
     <string name="col_settings_unfix_all">Unfix All</string>
     <string name="col_settings_show_all">Show All</string>
     <string name="col_settings_confirm_all">Confirm</string>
+    <string name="alert_temp_high">Temp high: Increase aeration, shade, deepen water</string>
+    <string name="alert_temp_low">Temp low: Heat to above 22℃</string>
+    <string name="alert_ph_high_severe">pH high: Shade + Bacillus + Lactic acid 100 jin/mu</string>
+    <string name="alert_ph_high_moderate">pH high: Shade + Bacillus + Lactic acid 50 jin/mu</string>
+    <string name="alert_ph_high_mild">pH high: Shade, control algae</string>
+    <string name="alert_ph_low">pH low: Sprinkle quicklime 5-10 kg/mu</string>
+    <string name="alert_nh3_format">NH₃ %.4f mg/L exceeds: Photosynthetic bacteria + brown sugar, reduce feed, aerate</string>
+    <string name="alert_nh3_algae">, Chlorella + KH₂PO₄ for algae</string>
+    <string name="alert_nitrite">Nitrite high: Reduce feed/Aerate/Sediment treatment</string>
+    <string name="alert_vibrio_severe">Vibrio critical: Stop feed, PFS treatment, iodine disinfection</string>
+    <string name="alert_vibrio_high">Vibrio high: PFS + ClO₂ + Phage</string>
+    <string name="alert_vibrio_elevated">Vibrio elevated: %s sediment treatment</string>
+    <string name="alert_vibrio_pfs">PFS</string>
+    <string name="alert_vibrio_peroxy">Peroxy</string>
+    <string name="alert_chlorine_early">Chlorine high: Aerate/Sodium thiosulfate</string>
+    <string name="alert_chlorine">Chlorine high: Apply sodium thiosulfate</string>
+    <string name="alert_h2s_severe">H₂S high: Sediment treatment + aeration + FeSO₄</string>
+    <string name="alert_h2s">H₂S high: Intensify sediment treatment + aeration</string>
+    <string name="alert_orp_low">ORP low: Aerate + sediment treatment + reduce feed</string>
+    <string name="alert_orp_moderate">ORP low: Aerate + sediment treatment</string>
+    <string name="alert_do_low">DO low: Run all aerators + water exchange</string>
+    <string name="alert_do_moderate">DO low: Add more aerators</string>
 </resources>

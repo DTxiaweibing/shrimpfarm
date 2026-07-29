@@ -262,7 +262,17 @@ public class HelpActivity extends BaseActivity {
                 return;
             }
         }
-        webView.loadUrl("file:///android_asset/" + CACHE_NAME);
+        String file = CACHE_NAME;
+        String lang = com.shrimpfarm.app.utils.LocaleHelper.getSavedLang(this);
+        if ("en".equals(lang)) {
+            String enFile = CACHE_NAME.replace(".html", "-en.html");
+            try {
+                getAssets().open(enFile);
+                file = enFile;
+            } catch (Exception ignored) {
+            }
+        }
+        webView.loadUrl("file:///android_asset/" + file);
     }
 
     private String readFileContent(String filePath) {

@@ -1,5 +1,6 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -11,7 +12,7 @@ import java.util.List;
 
 public class WaterQualityAlertModel {
 
-    public static List<AlertItem> check(SQLiteDatabase db, String batchId,
+    public static List<AlertItem> check(Context context, SQLiteDatabase db, String batchId,
         boolean enableCore, boolean enableNitrite, boolean enableVibrio,
         boolean enableChlorine, boolean enableH2S, boolean enableORP, boolean enableDO) {
         List<AlertItem> alerts = new ArrayList<>();
@@ -52,39 +53,39 @@ public class WaterQualityAlertModel {
             }
 
             if (enableCore && tempC > 0 && pH > 0) {
-                ShrimpAdviceHelper.AdviceResult result = ShrimpAdviceHelper.getAllAdvice(tempC, pH, salinity, tan, day);
+                ShrimpAdviceHelper.AdviceResult result = ShrimpAdviceHelper.getAllAdvice(context, tempC, pH, salinity, tan, day);
                 if (!result.tempAdvice.isEmpty()) alerts.add(new AlertItem(result.tempAdvice, "WQ_TEMP"));
                 if (!result.phAdvice.isEmpty()) alerts.add(new AlertItem(result.phAdvice, "WQ_PH"));
                 if (!result.nh3Advice.isEmpty()) alerts.add(new AlertItem(result.nh3Advice, "WQ_NH3"));
             }
 
             if (enableNitrite && nitrite > 0 && day > 0) {
-                String advice = NitriteHelper.getAdvice(nitrite, day, salinity);
+                String advice = NitriteHelper.getAdvice(context, nitrite, day, salinity);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_NITRITE"));
             }
 
             if (enableVibrio && vibrio > 0 && day > 0) {
-                String advice = VibrioHelper.getAdvice(vibrio, day);
+                String advice = VibrioHelper.getAdvice(context, vibrio, day);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_VIBRIO"));
             }
 
             if (enableChlorine && day > 0) {
-                String advice = ChlorineHelper.getAdvice(chlorine, day);
+                String advice = ChlorineHelper.getAdvice(context, chlorine, day);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_CHLORINE"));
             }
 
             if (enableH2S && h2s > 0) {
-                String advice = H2SHelper.getAdvice(h2s);
+                String advice = H2SHelper.getAdvice(context, h2s);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_H2S"));
             }
 
             if (enableORP && orp > 0) {
-                String advice = ORPHelper.getAdvice(orp);
+                String advice = ORPHelper.getAdvice(context, orp);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_ORP"));
             }
 
             if (enableDO && doValue > 0) {
-                String advice = DOHelper.getAdvice(doValue);
+                String advice = DOHelper.getAdvice(context, doValue);
                 if (!advice.isEmpty()) alerts.add(new AlertItem(advice, "WQ_DO"));
             }
         } finally {

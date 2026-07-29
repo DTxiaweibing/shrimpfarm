@@ -1,5 +1,9 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
+
+import com.shrimpfarm.app.R;
+
 public class ChlorineHelper {
     public static double getSafeLimit(int day) {
         if (day <= 10) return 0.0;
@@ -11,6 +15,13 @@ public class ChlorineHelper {
         double limit = getSafeLimit(day);
         if (day <= 10 && chlorine > 0) return "余氯超标:曝气/硫代硫酸钠";
         if (chlorine > limit) return "余氯超标:泼大苏打";
+        return "";
+    }
+
+    public static String getAdvice(Context context, double chlorine, int day) {
+        double limit = getSafeLimit(day);
+        if (day <= 10 && chlorine > 0) return context.getString(R.string.alert_chlorine_early);
+        if (chlorine > limit) return context.getString(R.string.alert_chlorine);
         return "";
     }
 }

@@ -1,5 +1,9 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
+
+import com.shrimpfarm.app.R;
+
 public class VibrioHelper {
     public static String getAdvice(double vibrio, int day) {
         boolean isSmallSeed = day <= 60;
@@ -12,6 +16,21 @@ public class VibrioHelper {
         }
         if (vibrio >= 200) {
             return "弧菌偏高:" + bottom + "改底";
+        }
+        return "";
+    }
+
+    public static String getAdvice(Context context, double vibrio, int day) {
+        boolean isSmallSeed = day <= 60;
+        if (vibrio >= 1001) {
+            return context.getString(R.string.alert_vibrio_severe);
+        }
+        if (vibrio >= 500) {
+            return context.getString(R.string.alert_vibrio_high);
+        }
+        if (vibrio >= 200) {
+            String bottom = context.getString(isSmallSeed ? R.string.alert_vibrio_pfs : R.string.alert_vibrio_peroxy);
+            return context.getString(R.string.alert_vibrio_elevated, bottom);
         }
         return "";
     }

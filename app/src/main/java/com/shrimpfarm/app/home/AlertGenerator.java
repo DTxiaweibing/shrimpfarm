@@ -95,7 +95,7 @@ public class AlertGenerator {
         }
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "water_quality", true))
-            alerts.addAll(WaterQualityAlertModel.check(dbHelper.getReadableDatabase(), batchId,
+            alerts.addAll(WaterQualityAlertModel.check(context, dbHelper.getReadableDatabase(), batchId,
                     sp.getBoolean(PREF_SMART_PREFIX + "water_core", true),
                     sp.getBoolean(PREF_SMART_PREFIX + "nitrite", true),
                     sp.getBoolean(PREF_SMART_PREFIX + "vibrio", true),

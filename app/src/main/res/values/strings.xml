@@ -262,6 +262,8 @@
     <string name="func_data_analysis">数据分析</string>
     <string name="func_yield_estimate">产量预估</string>
     <string name="func_community_help">社区帮助</string>
+    <string name="tab_help">常用工具</string>
+    <string name="tab_qa">问答社区</string>
     <string name="func_expert_consult">专家咨询</string>
     <string name="func_market_info">行情资讯</string>
 
@@ -655,4 +657,26 @@
     <string name="col_settings_unfix_all">全解固</string>
     <string name="col_settings_show_all">列全显</string>
     <string name="col_settings_confirm_all">全确认</string>
+    <string name="alert_temp_high">温度超标:加大增氧、遮阳、加深水位</string>
+    <string name="alert_temp_low">温度超标:请加温至22℃以上</string>
+    <string name="alert_ph_high_severe">pH超标:遮光+芽孢光合+乳酸菌100斤/亩</string>
+    <string name="alert_ph_high_moderate">pH超标:遮光+芽孢光合+乳酸菌50斤/亩</string>
+    <string name="alert_ph_high_mild">pH超标:遮光控藻</string>
+    <string name="alert_ph_low">pH超标:泼洒生石灰5-10kg/亩</string>
+    <string name="alert_nh3_format">氨氮超标:NH₃ %.4f mg/L，光合菌+红糖，减料增氧</string>
+    <string name="alert_nh3_algae">，小球藻种+磷酸二氢钾培藻</string>
+    <string name="alert_nitrite">亚盐超标:减料/增氧/改底</string>
+    <string name="alert_vibrio_severe">弧菌严重超标:停料聚合硫酸铁改底碘制剂消杀看不到掉苗试喂50%饲料</string>
+    <string name="alert_vibrio_high">弧菌超标:聚铁二氧化氯噬菌体</string>
+    <string name="alert_vibrio_elevated">弧菌偏高:%s改底</string>
+    <string name="alert_vibrio_pfs">聚铁</string>
+    <string name="alert_vibrio_peroxy">过硫</string>
+    <string name="alert_chlorine_early">余氯超标:曝气/硫代硫酸钠</string>
+    <string name="alert_chlorine">余氯超标:泼大苏打</string>
+    <string name="alert_h2s_severe">硫化氢超标:改底增氧硫酸亚铁</string>
+    <string name="alert_h2s">硫化氢超标:加强改底增氧</string>
+    <string name="alert_orp_low">ORP超标:增氧改底减料</string>
+    <string name="alert_orp_moderate">ORP超标:增氧改底</string>
+    <string name="alert_do_low">溶氧超标:全开增氧机+换水</string>
+    <string name="alert_do_moderate">溶氧超标:增加增氧机</string>
 </resources>
