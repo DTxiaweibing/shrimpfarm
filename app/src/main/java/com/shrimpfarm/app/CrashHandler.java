@@ -43,10 +43,10 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
         File file = new File(dir, "crash_" + time + ".log");
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
-            pw.println("=== 小棚养虾 崩溃日志 ===");
-            pw.println("时间: " + new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault()).format(new Date()));
+            pw.println(context.getString(R.string.crash_log_header));
+            pw.println(context.getString(R.string.crash_log_time) + new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault()).format(new Date()));
             pw.println("Android API: " + android.os.Build.VERSION.SDK_INT);
-            pw.println("设备: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
+            pw.println(context.getString(R.string.crash_log_device) + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
             pw.println();
             throwable.printStackTrace(pw);
             pw.flush();

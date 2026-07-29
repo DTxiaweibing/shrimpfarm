@@ -9,6 +9,8 @@ import android.util.Log;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import com.shrimpfarm.app.R;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -117,14 +119,14 @@ public class UpdateManager {
                     String json = fetchUpdateJson(token);
 
                     if (json == null) {
-                        notifyError("获取更新信息失败");
+                        notifyError(context.getString(R.string.update_error_fetch));
                         return;
                     }
 
                     JsonObject root = JsonParser.parseString(json).getAsJsonObject();
                     JsonObject fileInfo = root.getAsJsonObject("file_info");
                     String latestVersion = fileInfo.get("version").getAsString();
-                    String updateLog = root.has("update_log") ? root.get("update_log").getAsString() : "新版本已发布";
+                    String updateLog = root.has("update_log") ? root.get("update_log").getAsString() : context.getString(R.string.update_default_log);
 
                     if (isNewerVersion(latestVersion, currentVersion)) {
                         if (!isVersionIgnored(latestVersion)) {

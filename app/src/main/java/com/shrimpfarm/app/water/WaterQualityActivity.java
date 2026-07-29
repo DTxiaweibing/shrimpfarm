@@ -146,8 +146,8 @@ public class WaterQualityActivity extends BaseActivity {
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-            new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.water_title_hint), getString(R.string.water_msg_no_batch),
+            new String[]{getString(R.string.base_btn_exit), getString(R.string.water_btn_create)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -159,8 +159,8 @@ public class WaterQualityActivity extends BaseActivity {
     }
 
     private void showBasicDataIncompleteDialog() {
-        showStyledConfirmDialog("提示", "请先在基础数据中设置「做水日(拉漂白粉)」",
-            new String[]{"取消", "去设置"},
+        showStyledConfirmDialog(getString(R.string.water_title_hint), getString(R.string.water_msg_no_water_prep),
+            new String[]{getString(R.string.water_btn_cancel), getString(R.string.water_btn_go_set)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -189,6 +189,6 @@ public class WaterQualityActivity extends BaseActivity {
         dbHelper.insertWaterQuality(currentBatchId, date, vibrio, salinity, ammonia, nitrite, ph,
                                     dissolvedOxygen, maxTemp, minTemp, chlorine, hydrogenSulfide, orp);
         loadLastRecord();
-        Toast.makeText(this, "数据已保存", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.water_toast_saved), Toast.LENGTH_SHORT).show();
     }
 }

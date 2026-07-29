@@ -6,7 +6,7 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
@@ -21,7 +21,12 @@ import com.shrimpfarm.app.model.PricePoint;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HqChartActivity extends AppCompatActivity {
+public class HqChartActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
 
     private LineChart chart;
     private DatabaseHelper dbHelper;
@@ -34,7 +39,7 @@ public class HqChartActivity extends AppCompatActivity {
 
         String itemName = getIntent().getStringExtra("item_name");
         if (itemName == null) {
-            Toast.makeText(this, "缺少品种参数", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.hq_chart_error_no_param), Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -70,7 +75,7 @@ public class HqChartActivity extends AppCompatActivity {
     private void loadData(String itemName) {
         List<PricePoint> points = dbHelper.getPriceHistory(itemName);
         if (points == null || points.isEmpty()) {
-            Toast.makeText(this, "暂无历史数据", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.hq_chart_no_data), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -91,7 +96,7 @@ public class HqChartActivity extends AppCompatActivity {
             }
         });
 
-        LineDataSet dataSet = new LineDataSet(entries, "价格(元/斤)");
+        LineDataSet dataSet = new LineDataSet(entries, getString(R.string.hq_chart_label_price));
         dataSet.setColor(Color.parseColor("#0A7E8C"));
         dataSet.setCircleColor(Color.parseColor("#0A7E8C"));
         dataSet.setLineWidth(2f);

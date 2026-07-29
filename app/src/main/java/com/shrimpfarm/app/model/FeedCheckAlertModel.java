@@ -1,9 +1,11 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.shrimpfarm.app.DatabaseHelper;
+import com.shrimpfarm.app.R;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -15,7 +17,7 @@ import java.util.Locale;
 
 public class FeedCheckAlertModel {
 
-    public static List<AlertItem> check(SQLiteDatabase db, String batchId) {
+    public static List<AlertItem> check(Context context, SQLiteDatabase db, String batchId) {
         List<AlertItem> alerts = new ArrayList<>();
 
         Cursor c = db.query(DatabaseHelper.TABLE_FEEDING_CHECK_ANALYSIS, null,
@@ -41,15 +43,15 @@ public class FeedCheckAlertModel {
         double r2 = ratios.get(1);
 
         if (r1 > 0.20 && r2 > 0.20) {
-            alerts.add(new AlertItem("查料连续超20%，请立即减料", "FEED_CHECK_OVER_20"));
+            alerts.add(new AlertItem(context.getString(R.string.alert_feed_check_over_20), "FEED_CHECK_OVER_20"));
         } else if (r1 > 0.10 && r2 > 0.10) {
-            alerts.add(new AlertItem("查料连续超10%，请减小加料幅度", "FEED_CHECK_OVER_10"));
+            alerts.add(new AlertItem(context.getString(R.string.alert_feed_check_over_10), "FEED_CHECK_OVER_10"));
         }
 
         if (r1 < -0.20 && r2 < -0.20) {
-            alerts.add(new AlertItem("查料连续少20%以上，喂料严重不足", "FEED_CHECK_UNDER_20"));
+            alerts.add(new AlertItem(context.getString(R.string.alert_feed_check_under_20), "FEED_CHECK_UNDER_20"));
         } else if (r1 < -0.10 && r2 < -0.10) {
-            alerts.add(new AlertItem("查料连续少10%以上，请加大加料幅度", "FEED_CHECK_UNDER_10"));
+            alerts.add(new AlertItem(context.getString(R.string.alert_feed_check_under_10), "FEED_CHECK_UNDER_10"));
         }
 
         return alerts;

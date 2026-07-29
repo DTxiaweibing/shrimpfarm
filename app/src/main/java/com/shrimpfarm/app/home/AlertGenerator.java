@@ -1,9 +1,11 @@
 package com.shrimpfarm.app.home;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 
 import com.shrimpfarm.app.DatabaseHelper;
+import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.model.AlertItem;
 import com.shrimpfarm.app.model.FeedCheckAlertModel;
 import com.shrimpfarm.app.model.FeedIncreaseAlertModel;
@@ -21,7 +23,7 @@ public class AlertGenerator {
     public static final String PREF_SMART_MASTER = "smart_assistant_master";
     public static final String PREF_SMART_PREFIX = "smart_agent_";
 
-    public static List<AlertItem> generate(DatabaseHelper dbHelper, SharedPreferences sp, String batchId) {
+    public static List<AlertItem> generate(Context context, DatabaseHelper dbHelper, SharedPreferences sp, String batchId) {
         List<AlertItem> alerts = new ArrayList<>();
 
         if (dbHelper == null || !sp.getBoolean(PREF_SMART_MASTER, true)) {
@@ -29,7 +31,7 @@ public class AlertGenerator {
         }
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "feed_increase", true))
-            alerts.addAll(FeedIncreaseAlertModel.check(dbHelper.getReadableDatabase(), batchId));
+            alerts.addAll(FeedIncreaseAlertModel.check(context, dbHelper.getReadableDatabase(), batchId));
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "feed_timeout", true)) {
             String today = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
@@ -58,19 +60,16 @@ public class AlertGenerator {
                             Arrays.copyOf(durations, validCount),
                             Arrays.copyOf(shedNums, validCount));
                     if (!result.shedNumbers.isEmpty()) {
-                        StringBuilder sb = new StringBuilder();
-                        for (int s : result.shedNumbers) {
-                            if (sb.length() > 0) sb.append("、");
-                            sb.append(s);
+                        for (int shed : result.shedNumbers) {
+                            alerts.add(new AlertItem(context.getString(R.string.alert_timeout_shed, shed), "SHED_TIMEOUT"));
                         }
-                        alerts.add(new AlertItem(sb + "号棚吃料超时，请检查", "SHED_TIMEOUT"));
                     }
                 }
             }
         }
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "feed_check", true))
-            alerts.addAll(FeedCheckAlertModel.check(dbHelper.getReadableDatabase(), batchId));
+            alerts.addAll(FeedCheckAlertModel.check(context, dbHelper.getReadableDatabase(), batchId));
 
         if (sp.getBoolean(PREF_SMART_PREFIX + "feed_time", true)) {
             Cursor ft = dbHelper.getReadableDatabase().query(
@@ -84,9 +83,9 @@ public class AlertGenerator {
                     if (stdSec > 0) {
                         double ratio = (avgSec - stdSec) / stdSec;
                         if (ratio > 0.20) {
-                            alerts.add(new AlertItem("整体吃料超时20%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！", "FEED_TIME"));
+                            alerts.add(new AlertItem(context.getString(R.string.alert_timeout_overall_severe), "FEED_TIME"));
                         } else if (ratio > 0.10) {
-                            alerts.add(new AlertItem("整体吃料超时10%以上，减缓加料幅度，或适度减料！", "FEED_TIME"));
+                            alerts.add(new AlertItem(context.getString(R.string.alert_timeout_overall_moderate), "FEED_TIME"));
                         }
                     }
                 }

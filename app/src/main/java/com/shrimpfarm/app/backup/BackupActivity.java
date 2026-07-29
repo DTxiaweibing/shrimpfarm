@@ -17,8 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
+import com.shrimpfarm.app.BaseActivity;
 import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.SupabaseAuthManager;
 import com.shrimpfarm.app.utils.DialogHelper;
@@ -31,7 +30,15 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class BackupActivity extends AppCompatActivity {
+public class BackupActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return R.id.nav_my;
+    }
+
+    public static final String ERR_INFO_LOST = "ERR_BACKUP_INFO_LOST";
+    public static final String ERR_DB_FILE_MISSING = "ERR_DB_FILE_MISSING";
 
     private LocalBackupManager localManager;
     private WebDavManager webDavManager;
@@ -69,9 +76,9 @@ public class BackupActivity extends AppCompatActivity {
         authManager = new SupabaseAuthManager(this);
 
         if (!authManager.isLoggedIn()) {
-            DialogHelper.showStyledConfirmDialog(this, "需要登录",
-                    "备份管理需要先登录账号。\n请前往「我的」页面登录后再试。",
-                    new String[]{"确定"},
+            DialogHelper.showStyledConfirmDialog(this, getString(R.string.backup_title_need_login),
+                    getString(R.string.backup_msg_need_login),
+                    new String[]{getString(R.string.btn_ok)},
                     new DialogInterface.OnClickListener[]{ (d, w) -> finish() },
                     false);
         }
@@ -96,9 +103,9 @@ public class BackupActivity extends AppCompatActivity {
         setupButtons();
         loadWebDavConfig();
         if (!StoragePermissionHelper.hasStoragePermission(this)) {
-            DialogHelper.showStyledConfirmDialog(this, "需要权限",
-                "本地备份还原需要读写权限，是否去给予权限？",
-                new String[]{"取消", "去授权"},
+            DialogHelper.showStyledConfirmDialog(this, getString(R.string.backup_title_need_permission),
+                getString(R.string.backup_msg_need_permission),
+                new String[]{getString(R.string.btn_cancel), getString(R.string.backup_btn_grant)},
                 new int[]{0xFF333333, 0xFF2D84C2},
                 new DialogInterface.OnClickListener[]{
                     (d, w) -> {},
@@ -122,11 +129,11 @@ public class BackupActivity extends AppCompatActivity {
             String username = etUsername.getText().toString().trim();
             String password = etPassword.getText().toString().trim();
             if (username.isEmpty()) {
-                Toast.makeText(this, "请输入用户名/邮箱", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.backup_toast_enter_email), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (password.isEmpty()) {
-                Toast.makeText(this, "请输入应用专用密码", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.backup_toast_enter_pwd), Toast.LENGTH_SHORT).show();
                 return;
             }
             testWebDavConnection(username, password);
@@ -135,9 +142,9 @@ public class BackupActivity extends AppCompatActivity {
         btnUpload.setOnClickListener(v -> doWebDavBackup());
 
         btnDisconnect.setOnClickListener(v -> {
-            DialogHelper.showStyledConfirmDialog(this, "确认退出",
-                    "退出后需要重新配置坚果云账号，确定退出？",
-                    new String[]{"取消", "退出"},
+            DialogHelper.showStyledConfirmDialog(this, getString(R.string.backup_title_confirm_disconnect),
+                    getString(R.string.backup_msg_confirm_disconnect),
+                    new String[]{getString(R.string.btn_cancel), getString(R.string.backup_btn_disconnect)},
                     new DialogInterface.OnClickListener[]{
                         null,
                         (d, w) -> {
@@ -159,7 +166,7 @@ public class BackupActivity extends AppCompatActivity {
 
         btnTabCloud.setOnClickListener(v -> {
             if (!webDavManager.isConfigured()) {
-                Toast.makeText(this, "请先配置并测试坚果云连接", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.backup_toast_configure_first), Toast.LENGTH_SHORT).show();
                 return;
             }
             showingLocal = false;
@@ -184,13 +191,13 @@ public class BackupActivity extends AppCompatActivity {
             btnTabLocal.setTextColor(0xFFFFFFFF);
             btnTabCloud.setBackgroundColor(0x00000000);
             btnTabCloud.setTextColor(0xFF888888);
-            tvListTitle.setText("本地备份文件（点击可还原）");
+            tvListTitle.setText(getString(R.string.backup_title_local_list));
         } else {
             btnTabCloud.setBackgroundColor(0xFF1677FF);
             btnTabCloud.setTextColor(0xFFFFFFFF);
             btnTabLocal.setBackgroundColor(0x00000000);
             btnTabLocal.setTextColor(0xFF888888);
-            tvListTitle.setText("坚果云备份文件（点击可还原）");
+            tvListTitle.setText(getString(R.string.backup_title_cloud_list));
         }
     }
 
@@ -212,7 +219,7 @@ public class BackupActivity extends AppCompatActivity {
                 }
                 if (showingLocal) refreshHistory();
             } else {
-                String msg = pendingRestoreEntry != null ? "需要存储权限才能还原本地备份" : "需要存储权限才能备份到本地";
+                String msg = pendingRestoreEntry != null ? getString(R.string.backup_toast_need_storage_restore) : getString(R.string.backup_toast_need_storage_backup);
                 pendingRestoreEntry = null;
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
             }
@@ -233,7 +240,7 @@ public class BackupActivity extends AppCompatActivity {
                 }
                 if (showingLocal) refreshHistory();
             } else {
-                String msg = pendingRestoreEntry != null ? "需要存储权限才能还原本地备份" : "需要存储权限才能备份到本地";
+                String msg = pendingRestoreEntry != null ? getString(R.string.backup_toast_need_storage_restore) : getString(R.string.backup_toast_need_storage_backup);
                 pendingRestoreEntry = null;
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
             }
@@ -269,7 +276,7 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     private void testWebDavConnection(String username, String password) {
-        final ProgressDialog pd = ProgressDialog.show(this, "", "正在测试连接...", true);
+        final ProgressDialog pd = ProgressDialog.show(this, "", getString(R.string.backup_progress_testing), true);
         Thread t = new Thread(() -> {
             try {
                 webDavManager.initConnection(username, password);
@@ -287,9 +294,9 @@ public class BackupActivity extends AppCompatActivity {
                 String cloudErr = authManager.saveWebDavToCloud(finalUsername, finalPassword);
                 runOnUiThread(() -> {
                     if (cloudErr == null) {
-                        Toast.makeText(BackupActivity.this, "绑定成功！" + msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(BackupActivity.this, getString(R.string.backup_toast_bind_success) + msg, Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(BackupActivity.this, "绑定成功，但同步到云端失败：" + cloudErr, Toast.LENGTH_LONG).show();
+                        Toast.makeText(BackupActivity.this, getString(R.string.backup_toast_bind_sync_fail) + cloudErr, Toast.LENGTH_LONG).show();
                     }
                 });
             } catch (Exception e) {
@@ -298,14 +305,14 @@ public class BackupActivity extends AppCompatActivity {
                     String errMsg = e.getMessage() != null ? e.getMessage() : "";
                     String userMsg;
                     if (errMsg.contains("401") || errMsg.contains("Unauthorized")) {
-                        userMsg = "认证失败：请前往坚果云 APP → 设置 → 第三方应用管理生成应用专用密码";
+                        userMsg = getString(R.string.backup_err_auth_failed);
                     } else if (errMsg.contains("timeout") || errMsg.contains("Timeout")) {
-                        userMsg = "连接超时，请检查网络后重试。";
+                        userMsg = getString(R.string.backup_err_timeout);
                     } else {
-                        userMsg = "连接失败：" + errMsg;
+                        userMsg = getString(R.string.backup_err_connect_prefix) + errMsg;
                     }
-                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, "连接失败",
-                            userMsg, new String[]{"确定"}, null);
+                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, getString(R.string.backup_title_connect_fail),
+                            userMsg, new String[]{getString(R.string.btn_ok)}, null);
                 });
             }
         }, "BackupActivity-testConnection");
@@ -315,8 +322,8 @@ public class BackupActivity extends AppCompatActivity {
 
     private void doLocalBackup() {
         final ProgressDialog pd = new ProgressDialog(this);
-        pd.setTitle("本地备份");
-        pd.setMessage("正在备份...");
+        pd.setTitle(getString(R.string.backup_title_local_backup));
+        pd.setMessage(getString(R.string.backup_progress_backing_up));
         pd.setCancelable(false);
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
@@ -326,21 +333,16 @@ public class BackupActivity extends AppCompatActivity {
                 String filePath = localManager.exportToLocal(true);
                 runOnUiThread(() -> {
                     pd.dismiss();
-                    Toast.makeText(BackupActivity.this, "本地备份成功！\n" + filePath, Toast.LENGTH_LONG).show();
+                    Toast.makeText(BackupActivity.this, getString(R.string.backup_toast_local_success, filePath), Toast.LENGTH_LONG).show();
                     if (showingLocal) refreshHistory();
                     updateUI();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     pd.dismiss();
-                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, "备份失败",
-                            "备份失败，请按以下步骤排查：\n\n" +
-                                    "1. 点击下方「重试」按钮\n" +
-                                    "2. 确认App已获得「文件/存储」权限（去手机设置→应用权限管理中开启）\n" +
-                                    "3. 确认手机存储空间充足\n\n" +
-                                    "如果重试仍失败，可能是数据库文件损坏或备份目录被删除，建议重启手机再试一次。\n\n" +
-                                    "错误详情：" + e.getMessage(),
-                            new String[]{"关闭", "重试"},
+                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, getString(R.string.backup_title_backup_fail),
+                            getString(R.string.backup_msg_backup_fail, e.getMessage()),
+                            new String[]{getString(R.string.backup_btn_close), getString(R.string.backup_btn_retry)},
                             new DialogInterface.OnClickListener[]{ null, (d, w) -> doLocalBackup() });
                 });
             }
@@ -351,8 +353,8 @@ public class BackupActivity extends AppCompatActivity {
 
     private void doWebDavBackup() {
         final ProgressDialog pd = new ProgressDialog(this);
-        pd.setTitle("坚果云备份");
-        pd.setMessage("正在上传...");
+        pd.setTitle(getString(R.string.backup_title_cloud_backup));
+        pd.setMessage(getString(R.string.backup_progress_uploading));
         pd.setCancelable(false);
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
@@ -362,15 +364,15 @@ public class BackupActivity extends AppCompatActivity {
                 String fileName = webDavManager.uploadBackup(true);
                 runOnUiThread(() -> {
                     pd.dismiss();
-                    Toast.makeText(BackupActivity.this, "坚果云备份成功！", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BackupActivity.this, getString(R.string.backup_toast_cloud_success), Toast.LENGTH_SHORT).show();
                     if (!showingLocal) refreshHistory();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     pd.dismiss();
-                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, "上传失败",
-                            e.getMessage() + "\n\n请检查网络和账号配置",
-                            new String[]{"关闭", "重试"},
+                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, getString(R.string.backup_title_upload_fail),
+                            e.getMessage() + "\n\n" + getString(R.string.backup_msg_check_network),
+                            new String[]{getString(R.string.backup_btn_close), getString(R.string.backup_btn_retry)},
                             new DialogInterface.OnClickListener[]{ null, (d, w) -> doWebDavBackup() });
                 });
             }
@@ -404,7 +406,7 @@ public class BackupActivity extends AppCompatActivity {
                     });
                 } catch (Exception e) {
                     runOnUiThread(() -> Toast.makeText(BackupActivity.this,
-                            "获取坚果云备份列表失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                            getString(R.string.backup_toast_list_fail) + e.getMessage(), Toast.LENGTH_SHORT).show());
                 }
             }, "BackupActivity-refreshCloudList");
             t.setDaemon(true);
@@ -425,17 +427,17 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     private void showRestoreOptions(BackupEntry entry) {
-        String source = entry.isLocal ? "本地" : "坚果云";
-        DialogHelper.showStyledConfirmDialog(this, "还原数据",
-                "确定要还原以下备份？\n当前数据将被覆盖！\n\n来源: " + source + "\n文件: " + entry.name,
-                new String[]{"取消", "还原"},
+        String source = entry.isLocal ? getString(R.string.backup_source_local) : getString(R.string.backup_source_cloud);
+        DialogHelper.showStyledConfirmDialog(this, getString(R.string.backup_title_restore),
+                getString(R.string.backup_msg_restore_confirm, source, entry.name),
+                new String[]{getString(R.string.btn_cancel), getString(R.string.backup_btn_restore)},
                 new DialogInterface.OnClickListener[]{ null, (d, w) -> startRestore(entry) });
     }
 
     private void startRestore(BackupEntry entry) {
         final ProgressDialog pd = new ProgressDialog(this);
-        pd.setTitle("数据还原");
-        pd.setMessage("正在准备...");
+        pd.setTitle(getString(R.string.backup_title_data_restore));
+        pd.setMessage(getString(R.string.backup_progress_preparing));
         pd.setCancelable(false);
         pd.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         pd.show();
@@ -444,7 +446,7 @@ public class BackupActivity extends AppCompatActivity {
             try {
                 String batchListJson = "";
                 if (entry.isLocal) {
-                    if (entry.localFileInfo == null) throw new Exception("备份信息丢失");
+                    if (entry.localFileInfo == null) throw new Exception(ERR_INFO_LOST);
                     batchListJson = localManager.restoreFromBackup(entry.localFileInfo);
                 } else {
                     File tempFile = new File(getCacheDir(), entry.name);
@@ -469,9 +471,9 @@ public class BackupActivity extends AppCompatActivity {
                 }
                 runOnUiThread(() -> {
                     pd.dismiss();
-                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, "还原成功",
-                            "数据已还原，批次信息也已同步。",
-                            new String[]{"确定"},
+                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, getString(R.string.backup_title_restore_success),
+                            getString(R.string.backup_msg_restore_success),
+                            new String[]{getString(R.string.btn_ok)},
                             new DialogInterface.OnClickListener[]{ (d, w) -> finish() },
                             false);
                 });
@@ -481,20 +483,22 @@ public class BackupActivity extends AppCompatActivity {
                     String msg = e.getMessage();
                     String userMsg;
                     if (msg == null) {
-                        userMsg = "未知错误，请重试。";
+                        userMsg = getString(R.string.backup_err_unknown);
+                    } else if (msg.contains(ERR_INFO_LOST)) {
+                        userMsg = getString(R.string.backup_err_info_lost);
                     } else if (msg.contains("401") || msg.contains("Unauthorized")) {
-                        userMsg = "认证失败：请前往坚果云 APP → 设置 → 第三方应用管理生成应用专用密码";
-                    } else if (msg.contains("404") || msg.contains("not found") || msg.contains("不存在")) {
-                        userMsg = "备份文件在坚果云上不存在，可能已被删除。";
+                        userMsg = getString(R.string.backup_err_auth_failed);
+                    } else if (msg.contains("404") || msg.contains("not found")) {
+                        userMsg = getString(R.string.backup_err_not_found);
                     } else if (msg.contains("timeout") || msg.contains("Timeout")) {
-                        userMsg = "连接超时，请检查网络后重试。";
-                    } else if (msg.contains("数据库文件不存在")) {
-                        userMsg = "本地数据库文件不存在，无法还原。";
+                        userMsg = getString(R.string.backup_err_timeout);
+                    } else if (msg.contains(ERR_DB_FILE_MISSING)) {
+                        userMsg = getString(R.string.backup_err_local_db_missing);
                     } else {
-                        userMsg = "还原失败：" + msg;
+                        userMsg = getString(R.string.backup_err_restore_prefix) + msg;
                     }
-                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, "还原失败",
-                            userMsg, new String[]{"确定"}, null);
+                    DialogHelper.showStyledConfirmDialog(BackupActivity.this, getString(R.string.backup_title_restore_fail),
+                            userMsg, new String[]{getString(R.string.btn_ok)}, null);
                 });
             }
         }, "BackupActivity-restoreBackup");
@@ -513,7 +517,7 @@ public class BackupActivity extends AppCompatActivity {
 
         int localCount = localManager.listLocalBackups().size();
         boolean loggedIn = authManager.isLoggedIn();
-        String loginInfo = loggedIn ? (authManager.getNickname() + " | ") : "未登录 | ";
+        String loginInfo = loggedIn ? (authManager.getNickname() + " | ") : getString(R.string.status_not_logged_in) + " | ";
         if (configured) {
             tvStatus.setText(getString(R.string.backup_status_configured, loginInfo, localCount, webDavManager.getSavedUsername()));
         } else {

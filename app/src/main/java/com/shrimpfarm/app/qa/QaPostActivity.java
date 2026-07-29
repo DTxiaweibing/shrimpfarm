@@ -15,7 +15,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 
 import com.bumptech.glide.Glide;
 import com.shrimpfarm.app.R;
@@ -25,7 +25,12 @@ import com.shrimpfarm.app.utils.SensitiveWordFilter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QaPostActivity extends AppCompatActivity {
+public class QaPostActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
     private EditText etTitle, etContent;
     private LinearLayout layoutPreview;
     private Button btnAddImage, btnPost;
@@ -70,7 +75,7 @@ public class QaPostActivity extends AppCompatActivity {
 
         btnAddImage.setOnClickListener(v -> {
             if (selectedUris.size() >= 5) {
-                Toast.makeText(this, "最多添加5张图片", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_max_images), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -89,19 +94,19 @@ public class QaPostActivity extends AppCompatActivity {
             String title = etTitle.getText().toString().trim();
             String content = etContent.getText().toString().trim();
             if (title.isEmpty()) {
-                Toast.makeText(this, "请输入问题标题", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_enter_title), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (content.isEmpty()) {
-                Toast.makeText(this, "请输入问题内容", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_enter_question_content), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (SensitiveWordFilter.contains(title) || SensitiveWordFilter.contains(content)) {
-                Toast.makeText(this, "内容包含敏感词，请修改后重试", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_sensitive), Toast.LENGTH_SHORT).show();
                 return;
             }
             btnPost.setEnabled(false);
-            btnPost.setText("发布中...");
+            btnPost.setText(getString(R.string.qa_posting));
             if (selectedUris.isEmpty()) {
                 doPost(title, content, new ArrayList<>());
             } else {
@@ -129,13 +134,13 @@ public class QaPostActivity extends AppCompatActivity {
     private void doPost(String title, String content, List<String> imageUrls) {
         api.postQuestion(title, content, imageUrls, new QaApi.QaCallback<com.shrimpfarm.app.qa.model.Question>() {
             @Override public void onSuccess(com.shrimpfarm.app.qa.model.Question q) {
-                Toast.makeText(QaPostActivity.this, "发布成功", Toast.LENGTH_SHORT).show();
+                Toast.makeText(QaPostActivity.this, R.string.qa_toast_post_success, Toast.LENGTH_SHORT).show();
                 setResult(RESULT_OK);
                 finish();
             }
             @Override public void onError(String error) {
                 btnPost.setEnabled(true);
-                btnPost.setText("发布");
+                btnPost.setText(getString(R.string.qa_post));
                 Toast.makeText(QaPostActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
@@ -162,7 +167,7 @@ public class QaPostActivity extends AppCompatActivity {
         iv.setOnLongClickListener(v -> {
             selectedUris.remove(uri);
             layoutPreview.removeView(container);
-            Toast.makeText(QaPostActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+            Toast.makeText(QaPostActivity.this, R.string.qa_toast_deleted, Toast.LENGTH_SHORT).show();
             return true;
         });
 
@@ -179,7 +184,7 @@ public class QaPostActivity extends AppCompatActivity {
         Glide.with(this).load(uri).into(iv);
         new AlertDialog.Builder(this)
                 .setView(iv)
-                .setPositiveButton("关闭", null)
+                .setPositiveButton(R.string.qa_btn_close, null)
                 .show();
     }
 }

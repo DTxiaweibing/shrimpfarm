@@ -108,7 +108,7 @@ public class ProfileActivity extends BaseActivity {
             layoutLogin.setVisibility(View.VISIBLE);
             tvError.setVisibility(View.GONE);
             SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
-            boolean hasCachedSession = !"未登录".equals(sp.getString("login_user_name", "未登录"))
+            boolean hasCachedSession = !getString(R.string.status_not_logged_in).equals(sp.getString("login_user_name", getString(R.string.status_not_logged_in)))
                     || authManager.getToken() != null && !authManager.getToken().isEmpty();
             tvLogoutOnLogin.setVisibility(hasCachedSession ? View.VISIBLE : View.GONE);
         }
@@ -118,11 +118,11 @@ public class ProfileActivity extends BaseActivity {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
-        if (email.isEmpty()) { showError("请输入邮箱"); return; }
-        if (password.isEmpty()) { showError("请输入密码"); return; }
-        if (password.length() < 6) { showError("密码至少6位"); return; }
+        if (email.isEmpty()) { showError(getString(R.string.error_email_empty)); return; }
+        if (password.isEmpty()) { showError(getString(R.string.error_password_empty)); return; }
+        if (password.length() < 6) { showError(getString(R.string.error_password_too_short)); return; }
 
-        final ProgressDialog pd = ProgressDialog.show(this, "", "登录中...", true);
+        final ProgressDialog pd = ProgressDialog.show(this, "", getString(R.string.progress_logging_in), true);
 
         Thread t = new Thread(() -> {
             final SupabaseAuthManager.AuthResult result = authManager.login(email, password);
@@ -146,15 +146,15 @@ public class ProfileActivity extends BaseActivity {
         String password = etPassword.getText().toString().trim();
         String nickname = etNickname.getText().toString().trim();
 
-        if (email.isEmpty()) { showError("请输入邮箱"); return; }
-        if (password.isEmpty()) { showError("请输入密码"); return; }
-        if (password.length() < 6) { showError("密码至少6位"); return; }
+        if (email.isEmpty()) { showError(getString(R.string.error_email_empty)); return; }
+        if (password.isEmpty()) { showError(getString(R.string.error_password_empty)); return; }
+        if (password.length() < 6) { showError(getString(R.string.error_password_too_short)); return; }
         if (nickname.isEmpty()) { nickname = email.split("@")[0]; }
         final String finalNickname = nickname;
         final String finalEmail = email;
         final String finalPassword = password;
 
-        final ProgressDialog pd = ProgressDialog.show(this, "", "注册中...", true);
+        final ProgressDialog pd = ProgressDialog.show(this, "", getString(R.string.progress_registering), true);
 
         Thread t = new Thread(() -> {
             final SupabaseAuthManager.AuthResult result = authManager.register(finalEmail, finalPassword, finalNickname);
@@ -185,17 +185,17 @@ public class ProfileActivity extends BaseActivity {
 
     private void doForgotPassword() {
         String email = etEmail.getText().toString().trim();
-        if (email.isEmpty()) { showError("请先输入邮箱"); return; }
+        if (email.isEmpty()) { showError(getString(R.string.error_email_first)); return; }
 
-        final ProgressDialog pd = ProgressDialog.show(this, "", "发送中...", true);
+        final ProgressDialog pd = ProgressDialog.show(this, "", getString(R.string.progress_sending), true);
         Thread t = new Thread(() -> {
             final String error = authManager.forgotPassword(email);
             runOnUiThread(() -> {
                 pd.dismiss();
                 if (error == null) {
-                    showStyledConfirmDialog("已发送",
-                            "密码重置链接已发送到 " + email + "，请登录邮箱查看并重置密码",
-                            new String[]{"确定"}, null, null);
+                    showStyledConfirmDialog(getString(R.string.dialog_title_sent),
+                            getString(R.string.msg_password_reset_sent, email),
+                            new String[]{getString(R.string.btn_ok)}, null, null);
                 } else {
                     showError(error);
                 }
@@ -207,7 +207,7 @@ public class ProfileActivity extends BaseActivity {
 
     private void showEditNicknameDialog() {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        builder.setTitle("修改昵称");
+        builder.setTitle(getString(R.string.dialog_title_modify_nickname));
 
         final EditText input = new EditText(this);
         input.setText(authManager.getNickname());
@@ -216,7 +216,7 @@ public class ProfileActivity extends BaseActivity {
         input.setPadding(pad, pad, pad, pad);
         builder.setView(input);
 
-        builder.setPositiveButton("保存", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.btn_save), (dialog, which) -> {
             String newNick = input.getText().toString().trim();
             if (newNick.isEmpty()) { return; }
             authManager.saveNickname(newNick);
@@ -224,22 +224,22 @@ public class ProfileActivity extends BaseActivity {
             Thread t = new Thread(() -> {
                 String error = authManager.updateNickname(newNick);
                 if (error != null) {
-                    runOnUiThread(() -> showError("云端同步失败（本地已保存）: " + error));
+                    runOnUiThread(() -> showError(getString(R.string.error_cloud_sync_failed) + error));
                 }
             }, "Profile-updateNickname");
             t.setDaemon(true);
             t.start();
         });
-        builder.setNegativeButton("取消", null);
+        builder.setNegativeButton(getString(R.string.btn_cancel), null);
         builder.show();
     }
 
     private void showDeleteAccountDialog() {
         new android.app.AlertDialog.Builder(this)
-                .setTitle("注销账号")
-                .setMessage("确认要永久注销此账号吗？所有数据将被删除且无法恢复。")
-                .setPositiveButton("确认注销", (dialog, which) -> {
-                    final ProgressDialog pd = ProgressDialog.show(this, "", "注销中...", true);
+                .setTitle(getString(R.string.dialog_title_delete_account))
+                .setMessage(getString(R.string.msg_confirm_delete_account))
+                .setPositiveButton(getString(R.string.btn_confirm_delete), (dialog, which) -> {
+                    final ProgressDialog pd = ProgressDialog.show(this, "", getString(R.string.progress_deleting), true);
                     Thread t = new Thread(() -> {
                         String err = authManager.deleteAccount();
                         runOnUiThread(() -> {
@@ -254,7 +254,7 @@ public class ProfileActivity extends BaseActivity {
                     t.setDaemon(true);
                     t.start();
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show();
     }
 }

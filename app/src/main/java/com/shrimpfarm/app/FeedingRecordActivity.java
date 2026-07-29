@@ -162,8 +162,8 @@ public class FeedingRecordActivity extends BaseActivity {
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-                new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.basic_msg_no_batch),
+                new String[]{getString(R.string.btn_quit), getString(R.string.basic_btn_goto_create)},
                 new int[]{0xFF666666, 0xFF4CAF50},
                 new DialogInterface.OnClickListener[]{
                         (dialog, which) -> finish(),
@@ -175,8 +175,8 @@ public class FeedingRecordActivity extends BaseActivity {
     }
 
     private void showBasicDataIncompleteDialog() {
-        showStyledConfirmDialog("提示", "请先在基础数据中设置「做水日(拉漂白粉)」",
-                new String[]{"取消", "去设置"},
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.feeding_msg_no_water_prep),
+                new String[]{getString(R.string.btn_cancel), getString(R.string.check_btn_go_settings)},
                 new int[]{0xFF666666, 0xFF4CAF50},
                 new DialogInterface.OnClickListener[]{
                         (dialog, which) -> finish(),
@@ -196,12 +196,12 @@ public class FeedingRecordActivity extends BaseActivity {
         headerRow.setLayoutParams(new HorizontalScrollView.LayoutParams(
                 HorizontalScrollView.LayoutParams.WRAP_CONTENT,
                 HorizontalScrollView.LayoutParams.MATCH_PARENT));
-        headerRow.addView(createHeaderCell("早餐", cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell("午餐", cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell("晚餐", cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell("夜宵", cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell("调水", cellWidth * 2, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell("备注", remarkWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_breakfast), cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_lunch), cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_dinner), cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_night_snack), cellWidth, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_water), cellWidth * 2, 0xFF2D84C2));
+        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_remark), remarkWidth, 0xFF2D84C2));
         headerScrollContainer.addView(headerRow);
 
         headerScrollContainer.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
@@ -358,16 +358,16 @@ public class FeedingRecordActivity extends BaseActivity {
         final List<DatabaseHelper.PresetItem> presets;
         if (columnId.startsWith("mix")) {
             presets = dbHelper.getMixPresetsSorted(currentBatchId);
-            title = "选择拌料动保";
+            title = getString(R.string.feeding_title_select_feed);
         } else {
             presets = dbHelper.getWaterPresetsSorted(currentBatchId);
-            title = "选择调水动保";
+            title = getString(R.string.feeding_title_select_water);
         }
 
         if (presets.isEmpty()) {
-            String msg = "请先在基础数据中设置" + (columnId.startsWith("mix") ? "拌料动保" : "调水动保");
-            showStyledConfirmDialog("提示", msg,
-                    new String[]{"取消", "去设置"}, null,
+            String msg = columnId.startsWith("mix") ? getString(R.string.feeding_msg_no_feed_presets) : getString(R.string.feeding_msg_no_water_presets);
+            showStyledConfirmDialog(getString(R.string.basic_title_prompt), msg,
+                    new String[]{getString(R.string.btn_cancel), getString(R.string.check_btn_go_settings)}, null,
                     new DialogInterface.OnClickListener[]{null, (d, w) -> {
                         Intent intent = new Intent(FeedingRecordActivity.this, BasicDataActivity.class);
                         intent.putExtra("open_tab", columnId.startsWith("mix") ? 1 : 2);
@@ -468,7 +468,7 @@ public class FeedingRecordActivity extends BaseActivity {
         try {
             int month = Integer.parseInt(fullDate.substring(5, 7));
             int day = Integer.parseInt(fullDate.substring(8, 10));
-            return month + "月" + day + "日";
+            return String.format(java.util.Locale.ROOT, getString(R.string.feeding_date_format), month, day);
         } catch (Exception e) {
             return fullDate;
         }

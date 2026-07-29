@@ -83,7 +83,7 @@ public class FeedDurationFragment extends Fragment {
                 Log.e("FeedDuration", "loadData failed", e);
             }
         } else {
-            chartFeedDuration.setNoDataText("请先选择批次");
+            chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_select_batch));
             resetSummary();
         }
 
@@ -135,7 +135,7 @@ public class FeedDurationFragment extends Fragment {
             tvChartTitle.setText(getString(R.string.chart_title_shed_feed_duration, shedNumber));
         } else {
             customShedNumber = null;
-            tvChartTitle.setText("平均吃料用时趋势（自定义）");
+            tvChartTitle.setText(getString(R.string.chart_title_feed_duration_custom));
         }
         loadDataByDateRange(startDate, endDate);
     }
@@ -150,7 +150,7 @@ public class FeedDurationFragment extends Fragment {
 
     public void loadDataByDateRange(String startDate, String endDate) {
         if (dbHelper == null || currentBatchId == null || currentBatchId.isEmpty()) {
-            if (chartFeedDuration != null) chartFeedDuration.setNoDataText("请先选择批次");
+            if (chartFeedDuration != null) chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_select_batch));
             resetSummary();
             return;
         }
@@ -180,7 +180,7 @@ public class FeedDurationFragment extends Fragment {
             }
         } catch (Exception e) {
             Log.e("FeedDuration", "loadDataByDateRange failed", e);
-            chartFeedDuration.setNoDataText("数据加载失败");
+            chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_load_failed));
             resetSummary();
         }
     }
@@ -188,7 +188,7 @@ public class FeedDurationFragment extends Fragment {
     private void updateChartWithDailyAverage(List<DatabaseHelper.DurationSummary> summaries) {
         if (summaries.isEmpty()) {
             chartFeedDuration.clear();
-            chartFeedDuration.setNoDataText("暂无查料数据");
+            chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_no_feed_check));
             resetSummary();
             return;
         }
@@ -211,7 +211,7 @@ public class FeedDurationFragment extends Fragment {
             if (minutes > slowest) { slowest = minutes; slowestDate = s.date; }
         }
 
-        BarDataSet dataSet = new BarDataSet(entries, "平均用时(分钟)");
+        BarDataSet dataSet = new BarDataSet(entries, getString(R.string.chart_label_avg_duration_min));
         dataSet.setColor(Color.parseColor("#FF9800"));
         dataSet.setValueTextSize(10f);
         dataSet.setValueTextColor(Color.BLACK);
@@ -244,7 +244,7 @@ public class FeedDurationFragment extends Fragment {
     private void updateChartAndSummary(List<DatabaseHelper.DurationByShedSummary> summaries) {
         if (summaries.isEmpty()) {
             chartFeedDuration.clear();
-            chartFeedDuration.setNoDataText("暂无查料数据");
+            chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_no_feed_check));
             resetSummary();
             return;
         }
@@ -262,7 +262,7 @@ public class FeedDurationFragment extends Fragment {
             if (minutes < fastest) { fastest = minutes; fastestDate = s.date; }
             if (minutes > slowest) { slowest = minutes; slowestDate = s.date; }
         }
-        BarDataSet dataSet = new BarDataSet(entries, "平均用时(分钟)");
+        BarDataSet dataSet = new BarDataSet(entries, getString(R.string.chart_label_avg_duration_min));
         dataSet.setColor(Color.parseColor("#FF9800"));
         BarData barData = new BarData(dataSet);
         barData.setBarWidth(0.6f);
@@ -295,7 +295,7 @@ public class FeedDurationFragment extends Fragment {
 
     private void updateChartForShedMode(List<DatabaseHelper.ShedDurationSummary> summaries) {
         if (summaries.isEmpty()) {
-            chartFeedDuration.clear(); chartFeedDuration.setNoDataText("暂无查料数据");
+            chartFeedDuration.clear(); chartFeedDuration.setNoDataText(getString(R.string.chart_no_data_no_feed_check));
             resetSummary(); return;
         }
         List<BarEntry> entries = new ArrayList<>();
@@ -310,7 +310,7 @@ public class FeedDurationFragment extends Fragment {
             if (minutes < fastest) { fastest = minutes; fastestShed = s.shedNumber; }
             if (minutes > slowest) { slowest = minutes; slowestShed = s.shedNumber; }
         }
-        BarDataSet dataSet = new BarDataSet(entries, "平均用时(分钟)");
+        BarDataSet dataSet = new BarDataSet(entries, getString(R.string.chart_label_avg_duration_min));
         dataSet.setColor(Color.parseColor("#FF9800"));
         chartFeedDuration.setData(new BarData(dataSet));
         chartFeedDuration.getXAxis().setValueFormatter(new ValueFormatter() {
@@ -334,9 +334,9 @@ public class FeedDurationFragment extends Fragment {
 
     private void updateTitleText() {
         if (isDateMode) {
-            tvChartTitle.setText("平均吃料用时趋势（点击此处切换为按棚号）");
+            tvChartTitle.setText(getString(R.string.chart_title_switch_to_shed));
         } else {
-            tvChartTitle.setText("各棚平均吃料用时趋势（点击此处切换为按日期）");
+            tvChartTitle.setText(getString(R.string.chart_title_switch_to_date));
         }
     }
 
@@ -344,7 +344,7 @@ public class FeedDurationFragment extends Fragment {
         int totalMinutes = (int) Math.round(minutes);
         int hours = totalMinutes / 60;
         int mins = totalMinutes % 60;
-        if (hours > 0) return hours + "小时" + mins + "分钟";
-        else return mins + "分钟";
+        if (hours > 0) return hours + getString(R.string.time_unit_hour) + mins + getString(R.string.time_unit_minute);
+        else return mins + getString(R.string.time_unit_minute);
     }
 }

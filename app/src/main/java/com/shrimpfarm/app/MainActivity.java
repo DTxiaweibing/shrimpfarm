@@ -74,7 +74,7 @@ public class MainActivity extends BaseActivity {
 
     private SharedPreferences prefs;
     private String currentBatchName = "";
-    private String currentRecorder = "未登录";
+    private String currentRecorder = "";
 
     // 轮播图管理器
     private BannerManager bannerManager;
@@ -92,27 +92,14 @@ public class MainActivity extends BaseActivity {
             R.drawable.szjc, R.drawable.sjcx, R.drawable.clyg, R.drawable.bzjy,
             R.drawable.zjzx, R.drawable.hqzx
     };
-    private final String[] funcNames = {
-            "基础数据", "养殖记录", "查料记录", "拌料计算",
-            "水质检测", "数据分析", "产量预估", "社区帮助",
-            "专家咨询", "行情资讯"
-    };
+    private String[] funcNames;
 
     private static final String PREF_FEED_DISPLAY_MODE = "feed_display_mode";
-    private static final String[][] SMART_AGENTS = {
-        {"饲料增量检测", "feed_increase"},
-        {"单棚吃料超时提醒", "feed_timeout"},
-        {"查料分析", "feed_check"},
-        {"水质总调度", "water_quality"},
-        {"水质核心检测", "water_core"},
-        {"亚硝酸盐检测", "nitrite"},
-        {"弧菌检测", "vibrio"},
-        {"余氯检测", "chlorine"},
-        {"硫化氢检测", "h2s"},
-        {"氧化还原电位", "orp"},
-        {"溶解氧检测", "do"},
-        {"产量预估", "estimate"},
-        {"查料用时提醒", "feed_time"}
+    private static final String[] SMART_AGENT_KEYS = {
+        "feed_increase", "feed_timeout", "feed_check",
+        "water_quality", "water_core", "nitrite",
+        "vibrio", "chlorine", "h2s", "orp", "do",
+        "estimate", "feed_time"
     };
     private static final int POSITION_ESTIMATE = 6;
 
@@ -150,7 +137,7 @@ public class MainActivity extends BaseActivity {
 
         alertPrefs = getSharedPreferences("alert_prefs", MODE_PRIVATE);
         currentBatchName = prefs.getString("current_batch_name", "");
-        currentRecorder = prefs.getString("login_user_name", "未登录");
+        currentRecorder = prefs.getString("login_user_name", "");
 
         initViews();
         addVersionFooter();
@@ -282,8 +269,9 @@ public class MainActivity extends BaseActivity {
             startActivity(new Intent(MainActivity.this, BatchManageActivity.class));
         } else if (id == R.id.menu_plan_task) {
             if (currentBatchName.isEmpty()) {
-                showStyledConfirmDialog("提示", "请先创建养殖批次",
-                    new String[]{"取消", "去设置"},
+                showStyledConfirmDialog(getString(R.string.main_title_tip),
+                    getString(R.string.main_msg_create_batch_first),
+                    new String[]{getString(R.string.btn_cancel), getString(R.string.main_go_setting)},
                     new int[]{0xFF666666, 0xFF4CAF50},
                     new DialogInterface.OnClickListener[]{
                         (dialog, which) -> {},
@@ -292,8 +280,9 @@ public class MainActivity extends BaseActivity {
             } else {
                 String batchId = prefs.getString("current_batch_id", "");
                 if (batchId.isEmpty()) {
-                    showStyledConfirmDialog("提示", "请先创建养殖批次",
-                        new String[]{"取消", "去设置"},
+                    showStyledConfirmDialog(getString(R.string.main_title_tip),
+                        getString(R.string.main_msg_create_batch_first),
+                        new String[]{getString(R.string.btn_cancel), getString(R.string.main_go_setting)},
                         new int[]{0xFF666666, 0xFF4CAF50},
                         new DialogInterface.OnClickListener[]{
                             (dialog, which) -> {},
@@ -314,12 +303,13 @@ public class MainActivity extends BaseActivity {
                         !aeratorCount.isEmpty() &&
                         !aerationPower.isEmpty() &&
                         !stockingDate.isEmpty() &&
-                        !stockingDate.equals("选择日期") &&
+                        !stockingDate.equals(getString(R.string.main_select_date)) &&
                         !feedBrand.isEmpty();
 
                     if (!isComplete) {
-                        showStyledConfirmDialog("提示", "请先完成基础数据中的所有必填项",
-                            new String[]{"取消", "去设置"},
+                        showStyledConfirmDialog(getString(R.string.main_title_tip),
+                            getString(R.string.main_msg_complete_basic_data),
+                            new String[]{getString(R.string.btn_cancel), getString(R.string.main_go_setting)},
                             new int[]{0xFF666666, 0xFF4CAF50},
                             new DialogInterface.OnClickListener[]{
                                 (dialog, which) -> {},
@@ -336,12 +326,12 @@ public class MainActivity extends BaseActivity {
             startActivity(new Intent(MainActivity.this, com.shrimpfarm.app.backup.BackupActivity.class));
         } else if (id == R.id.menu_privacy_policy) {
             Intent intent = new Intent(MainActivity.this, AssetWebViewActivity.class);
-            intent.putExtra(AssetWebViewActivity.EXTRA_TITLE, "隐私政策");
+            intent.putExtra(AssetWebViewActivity.EXTRA_TITLE, getString(R.string.menu_privacy_policy));
             intent.putExtra(AssetWebViewActivity.EXTRA_FILE, "privacy-policy.html");
             startActivity(intent);
         } else if (id == R.id.menu_user_agreement) {
             Intent intent = new Intent(MainActivity.this, AssetWebViewActivity.class);
-            intent.putExtra(AssetWebViewActivity.EXTRA_TITLE, "用户协议");
+            intent.putExtra(AssetWebViewActivity.EXTRA_TITLE, getString(R.string.menu_user_agreement));
             intent.putExtra(AssetWebViewActivity.EXTRA_FILE, "user-agreement.html");
             startActivity(intent);
         } else if (id == R.id.menu_language) {
@@ -437,9 +427,9 @@ public class MainActivity extends BaseActivity {
         final String version = startupManager.getUpdateVersion();
         final String log = startupManager.getUpdateLog();
         showStyledConfirmDialog(
-            "发现新版本 v" + version,
+            getString(R.string.main_find_new_version, version),
             log,
-            new String[]{"查看更新", "忽略此版本", "以后再说"},
+            new String[]{getString(R.string.main_btn_view_update), getString(R.string.main_btn_ignore_version), getString(R.string.main_btn_remind_later)},
             new int[]{0xFF4CAF50, 0xFF666666, 0xFF666666},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> {
@@ -458,6 +448,25 @@ public class MainActivity extends BaseActivity {
                 }
             }
         );
+    }
+
+    private String getAgentDisplayName(String key) {
+        switch (key) {
+            case "feed_increase": return getString(R.string.agent_feed_increase);
+            case "feed_timeout": return getString(R.string.agent_feed_timeout);
+            case "feed_check": return getString(R.string.agent_feed_check);
+            case "water_quality": return getString(R.string.agent_water_dispatch);
+            case "water_core": return getString(R.string.agent_water_core);
+            case "nitrite": return getString(R.string.agent_nitrite);
+            case "vibrio": return getString(R.string.agent_vibrio);
+            case "chlorine": return getString(R.string.agent_chlorine);
+            case "h2s": return getString(R.string.agent_h2s);
+            case "orp": return getString(R.string.agent_orp);
+            case "do": return getString(R.string.agent_do);
+            case "estimate": return getString(R.string.agent_estimate);
+            case "feed_time": return getString(R.string.agent_feed_time);
+            default: return key;
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -482,9 +491,9 @@ public class MainActivity extends BaseActivity {
                     return true;
                 } else if ("disagree".equals(message)) {
                     result.confirm();
-                    runOnUiThread(() -> showStyledConfirmDialog("提示",
-                        "您已选择不同意隐私政策，应用即将退出。",
-                        new String[]{"确定"}, null,
+                    runOnUiThread(() -> showStyledConfirmDialog(getString(R.string.main_title_tip),
+                        getString(R.string.main_msg_disagree_privacy),
+                        new String[]{getString(R.string.btn_ok)}, null,
                         new DialogInterface.OnClickListener[]{ (d, w) -> finishAndRemoveTask() },
                         false));
                     return true;
@@ -552,9 +561,9 @@ public class MainActivity extends BaseActivity {
     }
 
     private void populateAgentList(LinearLayout agentList, SharedPreferences sp, boolean masterOn) {
-        for (int i = 0; i < SMART_AGENTS.length; i++) {
-            String name = SMART_AGENTS[i][0];
-            String key = SMART_AGENTS[i][1];
+        for (int i = 0; i < SMART_AGENT_KEYS.length; i++) {
+            String key = SMART_AGENT_KEYS[i];
+            String name = getAgentDisplayName(key);
 
             View row = getLayoutInflater().inflate(R.layout.item_agent_switch, agentList, false);
             TextView tvName = row.findViewById(R.id.tv_agent_name);
@@ -581,6 +590,19 @@ public class MainActivity extends BaseActivity {
     private void setupFunctionGrid() {
         dbHelper = DatabaseHelper.getInstance(this);
         fcrModel = new ExcelBasedFeedConversion();
+
+        funcNames = new String[]{
+            getString(R.string.func_basic_data),
+            getString(R.string.func_feeding_record),
+            getString(R.string.func_check_feed),
+            getString(R.string.func_mix_calc),
+            getString(R.string.func_water_quality),
+            getString(R.string.func_data_analysis),
+            getString(R.string.func_yield_estimate),
+            getString(R.string.func_community_help),
+            getString(R.string.func_expert_consult),
+            getString(R.string.func_market_info)
+        };
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (int i = 0; i < funcIcons.length && i < funcNames.length; i++) {
@@ -623,7 +645,7 @@ public class MainActivity extends BaseActivity {
                         } else {
                             double total = calculateTotalFeed(prefs.getString("current_batch_id", ""));
                             tvData.setText(String.format(Locale.getDefault(), "%.1f", total));
-                            tvName.setText("投喂总量");
+                            tvName.setText(getString(R.string.main_feed_total));
                             ivIcon.setOnClickListener(null);
                         }
                     }
@@ -652,9 +674,9 @@ public class MainActivity extends BaseActivity {
     }
 
     private void updateBatchDisplay() {
-        String displayName = currentBatchName.isEmpty() ? "未选择批次" : currentBatchName;
+        String displayName = currentBatchName.isEmpty() ? getString(R.string.nav_batch_not_selected) : currentBatchName;
         if (tvBatchName != null) tvBatchName.setText(displayName);
-        if (tvRecorderName != null) tvRecorderName.setText(String.format(Locale.getDefault(), "记录人：%s", currentRecorder));
+        if (tvRecorderName != null) tvRecorderName.setText(String.format(Locale.getDefault(), getString(R.string.main_recorder_format), currentRecorder));
         if (toolbarBatchName != null) toolbarBatchName.setText(displayName);
         adjustNavigationViewWidth();
     }
@@ -673,9 +695,9 @@ public class MainActivity extends BaseActivity {
         }
 
         Thread t = new Thread(() -> {
-            List<AlertItem> alerts = AlertGenerator.generate(dbHelper, sp, batchId);
+            List<AlertItem> alerts = AlertGenerator.generate(MainActivity.this, dbHelper, sp, batchId);
             Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
-            List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(dbHelper, batchId);
+            List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(MainActivity.this, dbHelper, batchId);
 
             runOnUiThread(() -> {
                 int alertCount = 0;
@@ -734,9 +756,11 @@ public class MainActivity extends BaseActivity {
         bg.setColor(bgColor);
         bar.setBackground(bg);
 
-        if (!badgeText.equals("明天")) {
+        if (badgeText != null && badgeText.equals(getString(R.string.badge_tomorrow))) {
+            // due tomorrow — no complete button needed
+        } else {
             Button btnComplete = new Button(this);
-            btnComplete.setText("完成");
+            btnComplete.setText(getString(R.string.main_btn_complete));
             btnComplete.setTextSize(13);
             btnComplete.setTextColor(0xFFFFFFFF);
             btnComplete.setPadding((int)(10 * density), (int)(3 * density),
@@ -802,7 +826,7 @@ public class MainActivity extends BaseActivity {
         bar.addView(tvMsg);
 
         Button btnOk = new Button(this);
-        btnOk.setText("明白");
+        btnOk.setText(getString(R.string.main_btn_got_it));
         btnOk.setTextSize(13);
         btnOk.setTextColor(0xFFFFFFFF);
         btnOk.setPadding((int)(10 * density), (int)(3 * density),
@@ -865,7 +889,7 @@ public class MainActivity extends BaseActivity {
         if (!prefs.getBoolean("consent_accepted", false)) return;
         dbHelper = DatabaseHelper.getInstance(this);
         currentBatchName = prefs.getString("current_batch_name", "");
-        currentRecorder = prefs.getString("login_user_name", "未登录");
+        currentRecorder = prefs.getString("login_user_name", "");
         updateBatchDisplay();
         setupFunctionGrid();
         refreshEstimateData();
@@ -941,22 +965,22 @@ public class MainActivity extends BaseActivity {
 
     private void updateEstimateButtonData(TextView tvData, TextView tvName) {
         if (dbHelper == null || currentBatchName.isEmpty()) {
-            tvData.setText(""); tvName.setText("产量预估"); return;
+            tvData.setText(""); tvName.setText(getString(R.string.main_estimate_yield)); return;
         }
         String batchId = prefs.getString("current_batch_id", "");
         if (batchId.isEmpty()) {
-            tvData.setText(""); tvName.setText("产量预估"); return;
+            tvData.setText(""); tvName.setText(getString(R.string.main_estimate_yield)); return;
         }
 
         String mode = prefs.getString(PREF_FEED_DISPLAY_MODE, "total");
         if ("estimate".equals(mode)) {
             double estimate = calculateEstimate(batchId);
             tvData.setText(String.format(Locale.getDefault(), "%.1f", estimate));
-            tvName.setText("产量预估");
+            tvName.setText(getString(R.string.main_estimate_yield));
         } else {
             double total = calculateTotalFeed(batchId);
             tvData.setText(String.format(Locale.getDefault(), "%.1f", total));
-            tvName.setText("投喂总量");
+            tvName.setText(getString(R.string.main_feed_total));
         }
     }
 
@@ -1001,7 +1025,7 @@ public class MainActivity extends BaseActivity {
         String feedBrand = dbHelper.getBasicData(batchId, "feed_brand");
         String stockingDate = dbHelper.getBasicData(batchId, "stocking_date");
 
-        if (stockingDate.isEmpty() || "选择日期".equals(stockingDate)) {
+        if (stockingDate.isEmpty() || getString(R.string.main_select_date).equals(stockingDate)) {
             return totalFeed * 0.8;
         }
 

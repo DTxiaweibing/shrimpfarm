@@ -7,7 +7,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -22,7 +22,12 @@ import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.Date;
 
-public class HqActivity extends AppCompatActivity {
+public class HqActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
 
     private TextView tvDate;
     private RecyclerView recyclerMarket;
@@ -49,7 +54,7 @@ public class HqActivity extends AppCompatActivity {
 
             loadFromDbThenRefresh();
         } catch (Exception e) {
-            Toast.makeText(this, "初始化失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.hq_error_init, e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -63,20 +68,20 @@ public class HqActivity extends AppCompatActivity {
             } else {
                 PriceData lastData = dbHelper.getLatestMarketPrices();
                 if (lastData != null && lastData.date != null) {
-                    displayData(lastData.date + " (缓存)", lastData.categories);
+                    displayData(lastData.date + getString(R.string.hq_label_cached), lastData.categories);
                 } else {
-                    tvDate.setText("日期：等待更新...");
+                    tvDate.setText(getString(R.string.hq_label_date_awaiting));
                 }
             }
         } catch (Exception e) {
-            tvDate.setText("日期：等待更新...");
+            tvDate.setText(getString(R.string.hq_label_date_awaiting));
         }
 
         fetchDataInBackground();
     }
 
     private void fetchDataInBackground() {
-        HqCrawler.fetchLatest(new HqCrawler.OnDataCallback() {
+        HqCrawler.fetchLatest(this, new HqCrawler.OnDataCallback() {
             @Override
             public void onSuccess(PriceData data) {
                 if (data != null && data.date != null) {
@@ -87,14 +92,14 @@ public class HqActivity extends AppCompatActivity {
 
             @Override
             public void onError(String msg) {
-                // 后台刷新失败不弹窗
+                // background refresh silent
             }
         });
     }
 
     private void fetchData() {
-        tvDate.setText("日期：正在获取...");
-        HqCrawler.fetchLatest(new HqCrawler.OnDataCallback() {
+        tvDate.setText(getString(R.string.hq_label_date_fetching));
+        HqCrawler.fetchLatest(this, new HqCrawler.OnDataCallback() {
             @Override
             public void onSuccess(PriceData data) {
                 if (data != null && data.date != null) {

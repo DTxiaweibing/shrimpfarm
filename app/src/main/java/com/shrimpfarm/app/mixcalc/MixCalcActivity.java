@@ -120,11 +120,7 @@ public class MixCalcActivity extends BaseActivity {
         "water", "weighed_feed"
     };
 
-    private final String[] columnNames = {
-        "序号", "棚号", "棚数", "平均吃料", 
-        "发酵料", "粉料", "0.3料", "0.5料", "1.0料", 
-        "水", "称料"
-    };
+    private String[] columnNames;
 
     private final int[] columnWidths = {40, 60, 40, 40, 60, 60, 60, 60, 60, 60, 60};
 
@@ -208,6 +204,9 @@ public class MixCalcActivity extends BaseActivity {
             // 第1步：初始化视图（立即）
             initViews();
 
+            // 初始化列名
+            initColumnNames();
+
             // 初始化背景资源
             normalShedCountBg = ContextCompat.getDrawable(this, R.drawable.cell_border);
             warningShedCountBg = ContextCompat.getDrawable(this, R.drawable.cell_border_warning);
@@ -237,6 +236,14 @@ public class MixCalcActivity extends BaseActivity {
     @Override
     protected int getCurrentNavId() {
         return R.id.nav_mix;
+    }
+
+    private void initColumnNames() {
+        columnNames = new String[]{
+            getString(R.string.mix_col_seq), getString(R.string.mix_col_shed), getString(R.string.mix_col_count), getString(R.string.mix_col_avg_feed),
+            getString(R.string.mix_col_fermented), getString(R.string.mix_col_powder), getString(R.string.mix_col_feed03), getString(R.string.mix_col_feed05), getString(R.string.mix_col_feed10),
+            getString(R.string.mix_col_water), getString(R.string.mix_col_weigh)
+        };
     }
 
     // 快速加载设置
@@ -1032,10 +1039,10 @@ public class MixCalcActivity extends BaseActivity {
         try {
             StringBuilder messageBuilder = new StringBuilder();
 
-            messageBuilder.append("拌料数据汇总\n");
-            messageBuilder.append("时间: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date())).append("\n");
-            messageBuilder.append("水百分比: ").append(globalWaterPercentage).append("%\n\n");
-            messageBuilder.append("料槽数据:\n");
+            messageBuilder.append(getString(R.string.mix_summary_header));
+            messageBuilder.append(getString(R.string.time_prefix)).append(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date())).append("\n");
+            messageBuilder.append(getString(R.string.mix_summary_water_pct)).append(globalWaterPercentage).append("%\n\n");
+            messageBuilder.append(getString(R.string.mix_summary_trough_data));
             messageBuilder.append("──────────────────────────────────\n");
 
             String header = buildHeaderWithExtraSpacing();
@@ -1109,21 +1116,21 @@ public class MixCalcActivity extends BaseActivity {
             double totalIngredients = totalFermented + totalPowder + totalFeed03 + totalFeed05 + totalFeed10 + totalWater;
             double averageWeighed = totalShedCount > 0 ? totalIngredients / totalShedCount : 0;
 
-            messageBuilder.append("\n汇总统计:\n");
+            messageBuilder.append(getString(R.string.mix_summary_stats_header));
             messageBuilder.append("──────────────────────────────────\n");
 
             String summary = String.format(Locale.getDefault(), 
-                                           "总棚数: %s\n" +
-                                           "平均吃料: %s\n" +
-                                           "总发酵料: %s\n" +
-                                           "总粉料: %s\n" + 
-                                           "总03料: %s\n" +
-                                           "总05料: %s\n" +
-                                           "总10料: %s\n" +
-                                           "总水分: %s\n" +
-                                           "平均称料: %s\n" +
-                                           "总干料: %s\n" +
-                                           "水百分比: %d%%",
+                                           getString(R.string.mix_summary_total_sheds) +
+                                           getString(R.string.mix_summary_avg_feed) +
+                                           getString(R.string.mix_summary_total_ferment) +
+                                           getString(R.string.mix_summary_total_powder) + 
+                                           getString(R.string.mix_summary_total_03) +
+                                           getString(R.string.mix_summary_total_05) +
+                                           getString(R.string.mix_summary_total_10) +
+                                           getString(R.string.mix_summary_total_water) +
+                                           getString(R.string.mix_summary_avg_weigh) +
+                                           getString(R.string.mix_summary_total_dry) +
+                                           getString(R.string.mix_summary_water_pct_val),
                                            formatNumberWithPadding(totalShedCount, 8),
                                            formatNumberWithPadding(overallAverageFeed, 8),
                                            formatNumberWithPadding(totalFermented, 8),
@@ -1185,7 +1192,7 @@ public class MixCalcActivity extends BaseActivity {
 
     // 表头行方法
     private String buildHeaderWithExtraSpacing() {
-        String[] headers = {"料槽", "棚数", "平均", "发酵料", "粉料", "03料", "05料", "10料", "水分", "称料"};
+        String[] headers = {getString(R.string.mix_header_trough), getString(R.string.mix_header_sheds), getString(R.string.mix_header_avg), getString(R.string.mix_header_ferment), getString(R.string.mix_header_powder), getString(R.string.mix_header_03), getString(R.string.mix_header_05), getString(R.string.mix_header_10), getString(R.string.mix_header_water), getString(R.string.mix_header_weigh)};
 
         StringBuilder headerRow = new StringBuilder();
 
@@ -1228,7 +1235,7 @@ public class MixCalcActivity extends BaseActivity {
             finish();
         } catch (Exception e) {
             Log.e(TAG, "准备数据异常: " + e.getMessage());
-            Toast.makeText(this, "数据处理失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.mix_toast_data_error) + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -1248,7 +1255,7 @@ public class MixCalcActivity extends BaseActivity {
         statView.setBackgroundResource(R.drawable.cell_border);
 
         if (columnIndex == columnIds.length - 1) {
-            statView.setText("重置");
+            statView.setText(getString(R.string.mix_btn_reset));
             statView.setTextColor(0xFFFFFFFF);
             statView.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
             statView.setBackgroundResource(R.drawable.cell_border_carmine);
@@ -1259,7 +1266,7 @@ public class MixCalcActivity extends BaseActivity {
                     }
                 });
         } else if ("shed_number".equals(columnId)) {
-            statView.setText("去查料");
+            statView.setText(getString(R.string.mix_btn_go_check));
             statView.setTextColor(0xFFFFFFFF);
             statView.setBackgroundResource(R.drawable.cell_border_blue);
             statView.setTextSize(12);
@@ -1840,7 +1847,7 @@ public class MixCalcActivity extends BaseActivity {
 
         } catch (Exception e) {
             Log.e(TAG, "重建完整表格异常: " + e.getMessage(), e);
-            Toast.makeText(this, "表格重建失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.mix_toast_rebuild_fail), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -2009,7 +2016,7 @@ public class MixCalcActivity extends BaseActivity {
         headerView.setGravity(Gravity.CENTER);
 
         if ("average_feed".equals(columnId)) {
-            headerView.setText("平均"); 
+            headerView.setText(getString(R.string.mix_col_avg_feed)); 
             headerView.setGravity(Gravity.CENTER);
             headerView.setSingleLine(false);
             headerView.setLines(2);
@@ -2127,23 +2134,26 @@ public class MixCalcActivity extends BaseActivity {
         try {
             String[] options = new String[4];
 
+            String incWater = getString(R.string.mix_ferment_include_water);
+            String excWater = getString(R.string.mix_ferment_exclude_water);
+            String incAvg = getString(R.string.mix_ferment_include_avg);
+            String excAvg = getString(R.string.mix_ferment_exclude_avg);
             if (fermentedIncludedInWater) {
-                options[0] = "● 参与算水";
-                options[1] = "○ 不参与算水";
+                options[0] = "● " + incWater;
+                options[1] = "○ " + excWater;
             } else {
-                options[0] = "○ 参与算水";
-                options[1] = "● 不参与算水";
+                options[0] = "○ " + incWater;
+                options[1] = "● " + excWater;
             }
-
             if (fermentedIncludedInAverage) {
-                options[2] = "● 参与算料";
-                options[3] = "○ 不参与算料";
+                options[2] = "● " + incAvg;
+                options[3] = "○ " + excAvg;
             } else {
-                options[2] = "○ 参与算料";
-                options[3] = "● 不参与算料";
+                options[2] = "○ " + incAvg;
+                options[3] = "● " + excAvg;
             }
 
-            showStyledListDialog("发酵料计算设置", options, (dialog, which) -> {
+            showStyledListDialog(getString(R.string.mix_title_fermented_setting), options, (dialog, which) -> {
                 boolean needRefresh = false;
 
                 switch (which) {
@@ -2178,19 +2188,19 @@ public class MixCalcActivity extends BaseActivity {
                     saveFermentedIncludedInAverage();
                     updateFermentedHeaderBackground();
                     updateAllCalculations();
-                    String status = "当前设置：";
-                    status += fermentedIncludedInWater ? "参与算水" : "不参与算水";
+                    String status = getString(R.string.mix_setting_status);
+                    status += fermentedIncludedInWater ? getString(R.string.mix_ferment_include_water) : getString(R.string.mix_ferment_exclude_water);
                     status += "，";
-                    status += fermentedIncludedInAverage ? "参与算料" : "不参与算料";
+                    status += fermentedIncludedInAverage ? getString(R.string.mix_ferment_include_avg) : getString(R.string.mix_ferment_exclude_avg);
                     Toast.makeText(MixCalcActivity.this, status, Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(MixCalcActivity.this, "设置未改变", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MixCalcActivity.this, getString(R.string.mix_toast_no_change), Toast.LENGTH_SHORT).show();
                 }
             });
 
         } catch (Exception e) {
             Log.e(TAG, "显示发酵料计算设置对话框异常: " + e.getMessage());
-            Toast.makeText(this, "设置失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.mix_toast_setting_fail), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -2202,6 +2212,7 @@ public class MixCalcActivity extends BaseActivity {
 
     private void updateFermentedHeaderInContainer(LinearLayout container) {
         if (container == null) return;
+        String fermentedLabel = getString(R.string.mix_col_fermented);
 
         for (int i = 0; i < container.getChildCount(); i++) {
             View child = container.getChildAt(i);
@@ -2209,7 +2220,7 @@ public class MixCalcActivity extends BaseActivity {
                 TextView tv = (TextView) child;
                 String text = tv.getText().toString();
 
-                if (text.contains("发酵")) {
+                if (text.contains(fermentedLabel)) {
                     updateFermentedHeaderCellBackground(tv);
                 }
             }
@@ -2329,26 +2340,26 @@ public class MixCalcActivity extends BaseActivity {
             }
 
             final String downloadUrl = "https://github.com/DTxiaweibing/-2/releases/download/%E5%85%BB%E8%99%BE%E5%8A%A9%E6%89%8B1.63.8.61/1.63.8.61.apk";
-            String message = "查料功能需要配合'养虾助手'应用使用。\n\n该应用提供以下功能：\n• 实时查看料台\n• 养殖数据记录\n• 智能分析报告\n\n是否立即下载安装？";
+            String message = getString(R.string.mix_msg_install_app);
 
-            showStyledConfirmDialog70("需要安装养虾助手", message,
-                new String[]{"以后再说", "不再提示", "立即下载安装"},
+            showStyledConfirmDialog70(getString(R.string.mix_title_install_app), message,
+                new String[]{getString(R.string.mix_btn_later), getString(R.string.mix_btn_no_prompt), getString(R.string.mix_btn_download)},
                 new int[]{0xFF666666, 0xFF999999, 0xFF2196F3},
                 new DialogInterface.OnClickListener[]{
                     null,
                     (dialog, which) -> {
                         SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
                         sp.edit().putBoolean(KEY_NEVER_SHOW_DOWNLOAD_DIALOG, true).apply();
-                        Toast.makeText(MixCalcActivity.this, "不再提示下载", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MixCalcActivity.this, getString(R.string.mix_toast_dismiss_download), Toast.LENGTH_SHORT).show();
                     },
                     (dialog, which) -> {
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
                         try {
                             startActivity(browserIntent);
                         } catch (Exception e) {
-                            showStyledConfirmDialog70("无法打开下载链接",
-                                "请手动访问以下链接进行下载：\n\n" + downloadUrl,
-                                new String[]{"取消", "复制链接"},
+                            showStyledConfirmDialog70(getString(R.string.mix_title_open_link_fail),
+                                getString(R.string.mix_msg_open_link_fail, downloadUrl),
+                                new String[]{getString(R.string.btn_cancel), getString(R.string.mix_btn_copy_link)},
                                 new int[]{0xFF666666, 0xFF2196F3},
                                 new DialogInterface.OnClickListener[]{
                                     null,
@@ -2356,7 +2367,7 @@ public class MixCalcActivity extends BaseActivity {
                                         android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                                         android.content.ClipData clip = android.content.ClipData.newPlainText("下载链接", downloadUrl);
                                         clipboard.setPrimaryClip(clip);
-                                        Toast.makeText(MixCalcActivity.this, "链接已复制到剪贴板", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(MixCalcActivity.this, getString(R.string.mix_toast_link_copied), Toast.LENGTH_SHORT).show();
                                     }
                                 });
                         }
@@ -2365,7 +2376,7 @@ public class MixCalcActivity extends BaseActivity {
 
         } catch (Exception e) {
             Log.e(TAG, "显示下载对话框异常: " + e.getMessage());
-            Toast.makeText(this, "无法显示下载提示", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.mix_toast_download_fail), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -2388,7 +2399,7 @@ public class MixCalcActivity extends BaseActivity {
             rebuildCompleteTable();
             saveAllData();
 
-            Toast.makeText(this, "所有数据已重置", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.mix_toast_reset_done), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Log.e(TAG, "重置数据异常: " + e.getMessage());
         }
@@ -3034,23 +3045,23 @@ public class MixCalcActivity extends BaseActivity {
             List<String> menuItems = new ArrayList<String>();
 
             if (isFixed) {
-                menuItems.add("取消固定此列");
+                menuItems.add(getString(R.string.mix_menu_unfix_col));
             } else {
-                menuItems.add("固定此列");
+                menuItems.add(getString(R.string.mix_menu_fix_col));
             }
 
             if (isVisible) {
-                menuItems.add("隐藏此列");
+                menuItems.add(getString(R.string.mix_menu_hide_col));
             } else {
-                menuItems.add("显示此列");
+                menuItems.add(getString(R.string.mix_menu_show_col));
             }
 
-            menuItems.add("显示所有列");
-            menuItems.add("取消所有固定");
+            menuItems.add(getString(R.string.mix_menu_show_all));
+            menuItems.add(getString(R.string.mix_menu_unfix_all));
 
             final String[] items = menuItems.toArray(new String[0]);
 
-            showStyledListDialog("列操作 - " + columnNames[columnIndex], items, (dialog, which) -> {
+            showStyledListDialog(getString(R.string.mix_menu_col_op) + " - " + columnNames[columnIndex], items, (dialog, which) -> {
                 handleColumnOperation(columnIndex, columnId, items[which]);
             });
 
@@ -3061,30 +3072,25 @@ public class MixCalcActivity extends BaseActivity {
 
     private void handleColumnOperation(int columnIndex, String columnId, String operation) {
         try {
-            switch (operation) {
-                case "固定此列":
-                case "取消固定此列":
-                    boolean newFixedState = !columnFixed.get(columnId);
-                    columnFixed.put(columnId, newFixedState);
-                    saveColumnFixedState();
-                    Toast.makeText(this, columnNames[columnIndex] + "列已" + (newFixedState ? "固定" : "取消固定"), Toast.LENGTH_SHORT).show();
-                    break;
-
-                case "隐藏此列":
-                case "显示此列":
-                    boolean newVisibility = !columnVisibility.get(columnId);
-                    columnVisibility.put(columnId, newVisibility);
-                    saveColumnVisibility();
-                    Toast.makeText(this, columnNames[columnIndex] + "列已" + (newVisibility ? "显示" : "隐藏"), Toast.LENGTH_SHORT).show();
-                    break;
-
-                case "显示所有列":
-                    showAllColumns();
-                    return;
-
-                case "取消所有固定":
-                    unfixAllColumns();
-                    return;
+            String colName = columnNames[columnIndex];
+            if (operation.equals(getString(R.string.mix_menu_fix_col)) || operation.equals(getString(R.string.mix_menu_unfix_col))) {
+                boolean newFixedState = !columnFixed.get(columnId);
+                columnFixed.put(columnId, newFixedState);
+                saveColumnFixedState();
+                String msg = colName + (newFixedState ? getString(R.string.mix_col_fixed) : getString(R.string.mix_col_unfixed));
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            } else if (operation.equals(getString(R.string.mix_menu_hide_col)) || operation.equals(getString(R.string.mix_menu_show_col))) {
+                boolean newVisibility = !columnVisibility.get(columnId);
+                columnVisibility.put(columnId, newVisibility);
+                saveColumnVisibility();
+                String msg = colName + (newVisibility ? getString(R.string.mix_col_shown) : getString(R.string.mix_col_hidden));
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            } else if (operation.equals(getString(R.string.mix_menu_show_all))) {
+                showAllColumns();
+                return;
+            } else if (operation.equals(getString(R.string.mix_menu_unfix_all))) {
+                unfixAllColumns();
+                return;
             }
 
             new Handler().postDelayed(new Runnable() {
@@ -3114,7 +3120,7 @@ public class MixCalcActivity extends BaseActivity {
             if (hasChanged) {
                 saveColumnVisibility();
                 rebuildCompleteTable();
-                Toast.makeText(this, "已显示所有列", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.mix_toast_shown_all), Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Log.e(TAG, "显示所有列异常: " + e.getMessage());
@@ -3136,7 +3142,7 @@ public class MixCalcActivity extends BaseActivity {
             if (hasChanged) {
                 saveColumnFixedState();
                 rebuildCompleteTable();
-                Toast.makeText(this, "已取消所有固定列", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.mix_toast_unfixed_all), Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Log.e(TAG, "取消所有固定列异常: " + e.getMessage());
@@ -3210,17 +3216,18 @@ public class MixCalcActivity extends BaseActivity {
     private void showWaterPercentageDialog() {
         try {
             final String[] percentages = {"10", "15", "20", "25", "30", "35", "40"};
-            final String[] displayTexts = {
-                "水10%", "水15%", "水20%", "水25%", "水30%", "水35%", "水40%"
-            };
+            final String[] displayTexts = new String[percentages.length];
+            for (int j = 0; j < percentages.length; j++) {
+                displayTexts[j] = getString(R.string.water_percentage_header, Integer.parseInt(percentages[j]));
+            }
 
-            showStyledListDialog("选择水百分比", displayTexts, (dialog, which) -> {
+            showStyledListDialog(getString(R.string.mix_title_water_pct), displayTexts, (dialog, which) -> {
                 try {
                     globalWaterPercentage = Integer.parseInt(percentages[which]);
                     updateWaterHeader();
                     saveGlobalWaterPercentage();
                     updateAllCalculations();
-                    Toast.makeText(MixCalcActivity.this, "水百分比已设置为" + globalWaterPercentage + "%", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MixCalcActivity.this, getString(R.string.mix_water_pct_format, globalWaterPercentage), Toast.LENGTH_SHORT).show();
                 } catch (Exception e) {
                     Log.e(TAG, "选择水百分比异常: " + e.getMessage());
                 }
@@ -3246,7 +3253,8 @@ public class MixCalcActivity extends BaseActivity {
                 View child = container.getChildAt(i);
                 if (child instanceof TextView) {
                     TextView tv = (TextView) child;
-                    if (tv.getText().toString().startsWith("水")) {
+                    String waterPrefix = getString(R.string.mix_col_water);
+                    if (tv.getText().toString().startsWith(waterPrefix)) {
                         tv.setText(getString(R.string.water_percentage_header, globalWaterPercentage));
                     }
                 }
@@ -3267,16 +3275,12 @@ public class MixCalcActivity extends BaseActivity {
     private void showResetConfirmationDialog() {
         try {
             int filledRows = getFilledRowCount();
-            String message;
+            String message = filledRows > 0
+                ? getString(R.string.mix_reset_msg_has_data, filledRows)
+                : getString(R.string.mix_reset_msg_no_data);
 
-            if (filledRows > 0) {
-                message = "确定要重置所有数据吗？\n\n当前已有 " + filledRows + " 行数据，重置后将全部清空。";
-            } else {
-                message = "确定要重置所有数据吗？\n\n当前没有数据需要重置。";
-            }
-
-            showStyledConfirmDialog70("确认重置", message,
-                new String[]{"取消", "确定重置"},
+            showStyledConfirmDialog70(getString(R.string.mix_title_confirm_reset), message,
+                new String[]{getString(R.string.btn_cancel), getString(R.string.mix_btn_confirm_reset)},
                 new int[]{0xFF666666, 0xFFD32F2F},
                 new DialogInterface.OnClickListener[]{null, (dialog, which) -> resetAllData()});
 
@@ -3302,13 +3306,13 @@ public class MixCalcActivity extends BaseActivity {
                !aeratorCount.isEmpty() &&
                !aerationPower.isEmpty() &&
                !stockingDate.isEmpty() &&
-               !stockingDate.equals("选择日期") &&
+               !stockingDate.equals(getString(R.string.main_select_date)) &&
                !feedBrand.isEmpty();
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-            new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.main_title_tip), getString(R.string.mix_msg_no_batch),
+            new String[]{getString(R.string.mix_btn_exit), getString(R.string.mix_btn_create)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -3320,8 +3324,8 @@ public class MixCalcActivity extends BaseActivity {
     }
 
     private void showBasicDataIncompleteDialog() {
-        showStyledConfirmDialog("提示", "请先完成基础数据中的所有必填项",
-            new String[]{"取消", "去设置"},
+        showStyledConfirmDialog(getString(R.string.main_title_tip), getString(R.string.main_msg_complete_basic_data),
+            new String[]{getString(R.string.btn_cancel), getString(R.string.main_go_setting)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -3342,7 +3346,13 @@ public class MixCalcActivity extends BaseActivity {
             rowsContainer.removeAllViews();
 
             String[] settingsIds = {"shed_number", "shed_count", "average_feed", "fermented", "powder", "feed03", "feed05", "feed10", "water"};
-            String[] settingsNames = {"棚号", "棚数", "平均", "发酵料", "粉料", "0.3料", "0.5料", "1.0料", "水"};
+            String[] settingsNames = {
+                getString(R.string.mix_col_shed), getString(R.string.mix_col_count),
+                getString(R.string.mix_col_avg_feed), getString(R.string.mix_col_fermented),
+                getString(R.string.mix_col_powder), getString(R.string.mix_col_feed03),
+                getString(R.string.mix_col_feed05), getString(R.string.mix_col_feed10),
+                getString(R.string.mix_col_water)
+            };
 
             Map<String, List<TextView>> toggleViews = new HashMap<>();
             float density = getResources().getDisplayMetrics().density;
@@ -3367,7 +3377,7 @@ public class MixCalcActivity extends BaseActivity {
                 row.addView(nameTv);
 
                 List<TextView> toggles = new ArrayList<>(4);
-                String[] actions = {"固列", "解固", "隐列", "显列"};
+                String[] actions = {getString(R.string.mix_btn_fix), getString(R.string.mix_btn_unfix), getString(R.string.mix_btn_hide), getString(R.string.mix_btn_show)};
 
                 for (String action : actions) {
                     TextView btn = new TextView(this);
@@ -3436,7 +3446,7 @@ public class MixCalcActivity extends BaseActivity {
                 saveColumnFixedState();
                 rebuildCompleteTable();
                 popup.dismiss();
-                Toast.makeText(this, "列设置已保存", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.mix_toast_column_saved), Toast.LENGTH_SHORT).show();
             });
 
             View anchor = findViewById(R.id.btn_column_settings);

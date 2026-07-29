@@ -8,6 +8,8 @@ import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 
+import com.shrimpfarm.app.R;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -48,7 +50,7 @@ public class LocalBackupManager {
         File dbFile = context.getDatabasePath(DB_NAME);
         if (dbFile == null || !dbFile.exists()) {
             dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
-            if (!dbFile.exists()) throw new Exception("数据库文件不存在");
+            if (!dbFile.exists()) throw new Exception(BackupActivity.ERR_DB_FILE_MISSING);
         }
 
         try {
@@ -75,7 +77,7 @@ public class LocalBackupManager {
         }
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
-        String fileName = "DataBackup_" + sdf.format(new Date()) + "_" + sizeStr + (isManual ? "（手动备份）.db" : ".db");
+        String fileName = "DataBackup_" + sdf.format(new Date()) + "_" + sizeStr + (isManual ? context.getString(R.string.backup_suffix_manual) + ".db" : ".db");
 
         // 写入前先清理超出上限的旧备份
         if (Build.VERSION.SDK_INT >= 29) {
@@ -100,11 +102,11 @@ public class LocalBackupManager {
         values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + BACKUP_DIR);
 
         Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-        if (uri == null) throw new Exception("无法创建文件，请确保已授予存储权限");
+        if (uri == null) throw new Exception(context.getString(R.string.backup_error_create_file));
 
         try (InputStream in = new FileInputStream(dbFile);
              OutputStream out = context.getContentResolver().openOutputStream(uri)) {
-            if (out == null) throw new Exception("无法写入文件");
+            if (out == null) throw new Exception(context.getString(R.string.backup_error_write_file));
             byte[] buf = new byte[8192];
             int len;
             while ((len = in.read(buf)) > 0) {
@@ -260,7 +262,7 @@ public class LocalBackupManager {
         if (!dbFile.exists()) {
             dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
         }
-        if (!dbFile.exists()) throw new Exception("数据库文件不存在");
+        if (!dbFile.exists()) throw new Exception(BackupActivity.ERR_DB_FILE_MISSING);
 
         com.shrimpfarm.app.DatabaseHelper.closeInstance();
 
@@ -271,19 +273,19 @@ public class LocalBackupManager {
         File shmFile = new File(dbDir, dbName + "-shm");
 
         if (bakFile.exists()) bakFile.delete();
-        if (!dbFile.renameTo(bakFile)) throw new Exception("无法备份当前数据库");
+        if (!dbFile.renameTo(bakFile)) throw new Exception(context.getString(R.string.backup_error_backup_current));
 
         try {
             if (backupInfo.fileRef != null) {
                 File srcFile = backupInfo.fileRef;
-                if (!srcFile.exists()) throw new Exception("备份文件不存在");
+                if (!srcFile.exists()) throw new Exception(context.getString(R.string.backup_error_file_not_found));
                 copyFile(srcFile, dbFile);
             } else if (Build.VERSION.SDK_INT >= 29) {
                 Uri uri = Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                         String.valueOf(backupInfo.mediaStoreId));
                 try (InputStream in = context.getContentResolver().openInputStream(uri);
                      FileOutputStream out = new FileOutputStream(dbFile)) {
-                    if (in == null) throw new Exception("无法读取备份文件");
+                    if (in == null) throw new Exception(context.getString(R.string.backup_error_read_file));
                     byte[] buf = new byte[8192];
                     int len;
                     while ((len = in.read(buf)) > 0) {
@@ -292,7 +294,7 @@ public class LocalBackupManager {
                     out.flush();
                 }
             } else {
-                throw new Exception("不支持在此设备版本上还原");
+                throw new Exception(context.getString(R.string.backup_error_device_not_supported));
             }
 
             if (walFile.exists()) walFile.delete();
@@ -301,7 +303,7 @@ public class LocalBackupManager {
         } catch (Exception e) {
             if (dbFile.exists()) dbFile.delete();
             bakFile.renameTo(dbFile);
-            throw new Exception("还原失败，已恢复原数据库: " + e.getMessage());
+            throw new Exception(context.getString(R.string.backup_error_restore_failed) + e.getMessage());
         }
 
         String batchListJson = "";

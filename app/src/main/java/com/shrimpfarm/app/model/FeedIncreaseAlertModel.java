@@ -1,9 +1,11 @@
 package com.shrimpfarm.app.model;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.shrimpfarm.app.DatabaseHelper;
+import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import java.text.SimpleDateFormat;
@@ -14,7 +16,7 @@ import java.util.Locale;
 
 public class FeedIncreaseAlertModel {
 
-    public static List<AlertItem> check(SQLiteDatabase db, String batchId) {
+    public static List<AlertItem> check(Context context, SQLiteDatabase db, String batchId) {
         List<AlertItem> alerts = new ArrayList<>();
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
@@ -31,12 +33,12 @@ public class FeedIncreaseAlertModel {
         float tomorrowTotal = getDailyTotal(db, batchId, tomorrowStr);
 
         if (yesterdayTotal > 0 && todayTotal > yesterdayTotal * 1.1f) {
-            String msg = "今天料量(" + fmt(todayTotal) + "斤)比昨天(" + fmt(yesterdayTotal) + "斤)增加超10%";
+            String msg = context.getString(R.string.alert_feed_increase_format, fmt(todayTotal), fmt(yesterdayTotal));
             alerts.add(new AlertItem(msg, "FEED_INCREASE_DAY"));
         }
 
         if (todayTotal > 0 && tomorrowTotal > todayTotal * 1.1f) {
-            String msg = "明天料量(" + fmt(tomorrowTotal) + "斤)比今天(" + fmt(todayTotal) + "斤)增加超10%";
+            String msg = context.getString(R.string.alert_feed_increase_next_format, fmt(tomorrowTotal), fmt(todayTotal));
             alerts.add(new AlertItem(msg, "FEED_INCREASE_TOMORROW"));
         }
 

@@ -121,7 +121,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         layout.setPadding(0, 0, 0, 0);
 
         TextView tv = new TextView(this);
-        tv.setText("检测到非正版应用，请从官方渠道下载。");
+        tv.setText(getString(R.string.base_dialog_non_genuine));
         tv.setTextSize(18);
         tv.setTextColor(0xFF333333);
         tv.setGravity(android.view.Gravity.CENTER);
@@ -135,7 +135,7 @@ public abstract class BaseActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 1));
 
         Button btn = new Button(this);
-        btn.setText("退出");
+        btn.setText(getString(R.string.base_btn_exit));
         btn.setTextSize(16);
         btn.setBackgroundResource(android.R.color.transparent);
         btn.setTextColor(0xFFE53935);

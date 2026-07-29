@@ -57,7 +57,7 @@ public class BatchManageActivity extends BaseActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle("养殖场批次管理");
+            getSupportActionBar().setTitle(R.string.batch_title);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
         toolbar.setNavigationOnClickListener(new View.OnClickListener() {
@@ -137,7 +137,7 @@ public class BatchManageActivity extends BaseActivity {
                     currentBatchId = selected.id;
                     currentBatchName = selected.name;
                     adapter.notifyDataSetChanged();
-                    Toast.makeText(BatchManageActivity.this, "已切换到：" + selected.name, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BatchManageActivity.this, getString(R.string.batch_toast_switched, selected.name), Toast.LENGTH_SHORT).show();
                     finish();
                 }
             });
@@ -155,15 +155,15 @@ public class BatchManageActivity extends BaseActivity {
 
     private void showAddBatchDialog() {
         final EditText[] inputHolder = new EditText[1];
-        inputHolder[0] = DialogHelper.showStyledInputDialog(this, "新建批次",
-                "请输入批次名称", null,
-                new String[]{"取消", "确定"},
+        inputHolder[0] = DialogHelper.showStyledInputDialog(this, getString(R.string.batch_title_new),
+                getString(R.string.batch_hint_name), null,
+                new String[]{getString(R.string.basic_cancel), getString(R.string.batch_confirm)},
                 new DialogInterface.OnClickListener[]{ null, (d, w) -> {
                     String newBatchName = inputHolder[0].getText().toString().trim();
                     if (!newBatchName.isEmpty()) {
                         for (BatchItem item : batchList) {
                             if (item.name.equals(newBatchName)) {
-                                Toast.makeText(BatchManageActivity.this, "批次已存在", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(BatchManageActivity.this, getString(R.string.batch_toast_exists), Toast.LENGTH_SHORT).show();
                                 return;
                             }
                         }
@@ -188,9 +188,9 @@ public class BatchManageActivity extends BaseActivity {
     }
 
     private void confirmDeleteBatch(final BatchItem batchItem, final int position) {
-        DialogHelper.showStyledConfirmDialog(this, "删除批次",
-                "确定要删除批次 \"" + batchItem.name + "\" 吗？\n\n警告：删除后所有关联数据将无法恢复！",
-                new String[]{"取消", "删除"},
+        DialogHelper.showStyledConfirmDialog(this, getString(R.string.batch_title_delete),
+                getString(R.string.batch_msg_delete, batchItem.name),
+                new String[]{getString(R.string.basic_cancel), getString(R.string.batch_btn_delete)},
                 new DialogInterface.OnClickListener[]{
                     null,
                     (d, w) -> {
@@ -204,14 +204,14 @@ public class BatchManageActivity extends BaseActivity {
                             currentBatchName = "";
                         }
                         adapter.notifyDataSetChanged();
-                        Toast.makeText(BatchManageActivity.this, "批次及关联数据已删除", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(BatchManageActivity.this, getString(R.string.batch_toast_deleted), Toast.LENGTH_SHORT).show();
                         deleteCloudBackup(batchItem.name);
                     }
                 });
     }
 
     private void deleteCloudBackup(String batchName) {
-        Toast.makeText(this, "云端备份已同步删除", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.batch_toast_cloud_deleted), Toast.LENGTH_SHORT).show();
     }
 
     private static class BatchItem {

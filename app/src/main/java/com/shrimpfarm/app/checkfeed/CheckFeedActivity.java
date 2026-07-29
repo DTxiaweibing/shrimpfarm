@@ -321,7 +321,7 @@ public class CheckFeedActivity extends BaseActivity {
                             clearTable();
                             clearExcludedRows();
                             loadShedCountFromBasicData();
-                            Toast.makeText(CheckFeedActivity.this, "表格已重置，棚数已重新加载", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(CheckFeedActivity.this, getString(R.string.check_toast_table_reset), Toast.LENGTH_SHORT).show();
                             return true;
                         }
                         return false;
@@ -340,7 +340,7 @@ public class CheckFeedActivity extends BaseActivity {
         if (completedTime != null && isValidTimeFormat(completedTime)) {
             // 校验输入的时间是否晚于当前系统时间
             if (isTimeAfterNow(completedTime)) {
-                Toast.makeText(this, "时间不能晚于当前时间，已自动修正", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.check_toast_time_future), Toast.LENGTH_SHORT).show();
                 String currentTime = getCurrentTimeOnly();
                 editText.setText(currentTime);
                 editText.setSelection(currentTime.length());
@@ -353,14 +353,14 @@ public class CheckFeedActivity extends BaseActivity {
             markAllDurationsByRank();
         } else if (isValidTimeFormat(text)) {
             if (isTimeAfterNow(text)) {
-                Toast.makeText(this, "时间不能晚于当前时间，已自动修正", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.check_toast_time_future), Toast.LENGTH_SHORT).show();
                 String currentTime = getCurrentTimeOnly();
                 editText.setText(currentTime);
                 editText.setSelection(currentTime.length());
             }
             editText.setError(null);
         } else {
-            editText.setError("时间格式错误！");
+            editText.setError(getString(R.string.check_error_time_format));
         }
     }
 
@@ -583,9 +583,9 @@ public class CheckFeedActivity extends BaseActivity {
                 String checkTime = tvCheckTime.getText().toString();
                 String durationStr = tvDuration.getText().toString();
                 long durationSeconds = 0;
-                if (!durationStr.isEmpty() && !durationStr.equals("本行不参与") &&
-                    !durationStr.equals("时间格式错误") && !durationStr.equals("计算错误") &&
-                    !durationStr.equals("时间解析错误") && !durationStr.equals("无有效行")) {
+                if (!durationStr.isEmpty() && !durationStr.equals(getString(R.string.check_status_excluded)) &&
+                    !durationStr.equals(getString(R.string.check_status_time_format_error)) && !durationStr.equals(getString(R.string.check_status_calc_error)) &&
+                    !durationStr.equals(getString(R.string.check_status_time_parse_error)) && !durationStr.equals(getString(R.string.check_status_no_valid_row))) {
                     durationSeconds = parseDurationToSeconds(durationStr);
                 }
 
@@ -727,8 +727,8 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void showClearConfirmationDialog() {
-        showStyledConfirmDialog("确认清除", "确定要清除所有时间和对钩数据吗？",
-                new String[]{"取消", "确定"}, null,
+        showStyledConfirmDialog(getString(R.string.check_title_clear), getString(R.string.check_msg_clear),
+                new String[]{getString(R.string.btn_cancel), getString(R.string.btn_ok)}, null,
                 new DialogInterface.OnClickListener[]{ null, (d, w) -> clearAllInputs() });
     }
 
@@ -778,7 +778,7 @@ public class CheckFeedActivity extends BaseActivity {
         editor.apply();
         recalculateAllFeedingDurations();
         markAllDurationsByRank();
-        Toast.makeText(this, "所有数据已清除", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.check_toast_cleared), Toast.LENGTH_SHORT).show();
     }
 
     private void clearTableSecondColumn() {
@@ -913,7 +913,7 @@ public class CheckFeedActivity extends BaseActivity {
         tvDuration.setLayoutParams(params);
         tvDuration.setBackgroundColor(COLOR_MERGED_CELL);
         tvDuration.setTextColor(COLOR_WHITE_TEXT);
-        tvDuration.setText("本行不参与计算");
+        tvDuration.setText(getString(R.string.check_status_excluded_calc));
         recalculateAllFeedingDurations();
         markAllDurationsByRank();
     }
@@ -1107,9 +1107,9 @@ public class CheckFeedActivity extends BaseActivity {
                         ((android.graphics.drawable.ColorDrawable) tvRowNumber.getBackground()).getColor() == COLOR_EXCLUDED_ROW;
                     if (!isExcluded) {
                         String durationText = tvDuration.getText().toString().trim();
-                        if (!durationText.isEmpty() && !durationText.equals("本行不参与") &&
-                            !durationText.equals("时间格式错误") && !durationText.equals("计算错误") &&
-                            !durationText.equals("时间解析错误") && !durationText.equals("无有效行")) {
+                        if (!durationText.isEmpty() && !durationText.equals(getString(R.string.check_status_excluded)) &&
+                            !durationText.equals(getString(R.string.check_status_time_format_error)) && !durationText.equals(getString(R.string.check_status_calc_error)) &&
+                            !durationText.equals(getString(R.string.check_status_time_parse_error)) && !durationText.equals(getString(R.string.check_status_no_valid_row))) {
                             try {
                                 long millis = parseDurationToMillis(durationText);
                                 if (millis > 0) {
@@ -1183,7 +1183,7 @@ public class CheckFeedActivity extends BaseActivity {
                 return;
             }
             if (!isValidTimeFormat(startTimeDisplay) || !isValidTimeFormat(endTimeDisplay) || !isValidTimeFormat(checkTimeDisplay)) {
-                durationView.setText("时间格式错误");
+                durationView.setText(getString(R.string.check_status_time_format_error));
                 durationView.setBackgroundResource(R.drawable.cell_border);
                 durationView.setTextColor(COLOR_NORMAL_CELL);
                 return;
@@ -1201,13 +1201,13 @@ public class CheckFeedActivity extends BaseActivity {
             int validRowCount = validRowInfo[0];
             int validRowIndex = validRowInfo[1];
             if (validRowCount == 0) {
-                durationView.setText("无有效行");
+                durationView.setText(getString(R.string.check_status_no_valid_row));
                 durationView.setBackgroundResource(R.drawable.cell_border);
                 durationView.setTextColor(COLOR_NORMAL_CELL);
                 return;
             }
             if (validRowIndex == -1) {
-                durationView.setText("本行不参与");
+                durationView.setText(getString(R.string.check_status_excluded));
                 durationView.setBackgroundResource(R.drawable.cell_border);
                 durationView.setTextColor(COLOR_NORMAL_CELL);
                 return;
@@ -1227,11 +1227,11 @@ public class CheckFeedActivity extends BaseActivity {
             String durationStr = formatDuration(feedingDurationMillis);
             durationView.setText(durationStr);
         } catch (ParseException e) {
-            durationView.setText("时间解析错误");
+            durationView.setText(getString(R.string.check_status_time_parse_error));
             durationView.setBackgroundResource(R.drawable.cell_border);
             durationView.setTextColor(COLOR_NORMAL_CELL);
         } catch (Exception e) {
-            durationView.setText("计算错误");
+            durationView.setText(getString(R.string.check_status_calc_error));
             durationView.setBackgroundResource(R.drawable.cell_border);
             durationView.setTextColor(COLOR_NORMAL_CELL);
         }
@@ -1305,8 +1305,8 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void showShedCountRequiredDialog() {
-        showStyledConfirmDialog("提示", "请先设定棚数",
-                new String[]{"确定"}, null,
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.check_msg_set_shed_count),
+                new String[]{getString(R.string.btn_ok)}, null,
                 new DialogInterface.OnClickListener[]{ (d, w) -> {
                     etShedCount.requestFocus();
                     etShedCount.postDelayed(() -> showKeyboard(etShedCount), 300);
@@ -1387,8 +1387,8 @@ public class CheckFeedActivity extends BaseActivity {
             !stockingDate.equals("选择日期");
 
         if (!isComplete) {
-            showStyledConfirmDialog("提示", "请先完成基础数据中的所有必填项",
-                new String[]{"取消", "去设置"},
+            showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.check_msg_basic_incomplete),
+                new String[]{getString(R.string.btn_cancel), getString(R.string.check_btn_go_settings)},
                 new int[]{0xFF666666, 0xFF4CAF50},
                 new DialogInterface.OnClickListener[]{
                     (dialog, which) -> finish(),
@@ -1478,9 +1478,9 @@ public class CheckFeedActivity extends BaseActivity {
                     ((android.graphics.drawable.ColorDrawable) tvRowNumber.getBackground()).getColor() == COLOR_EXCLUDED_ROW;
                 if (isExcluded) continue;
                 String durationText = tvDuration.getText().toString().trim();
-                if (durationText.isEmpty() || durationText.equals("本行不参与") ||
-                    durationText.equals("时间格式错误") || durationText.equals("计算错误") ||
-                    durationText.equals("时间解析错误") || durationText.equals("无有效行")) continue;
+                if (durationText.isEmpty() || durationText.equals(getString(R.string.check_status_excluded)) ||
+                    durationText.equals(getString(R.string.check_status_time_format_error)) || durationText.equals(getString(R.string.check_status_calc_error)) ||
+                    durationText.equals(getString(R.string.check_status_time_parse_error)) || durationText.equals(getString(R.string.check_status_no_valid_row))) continue;
                 long durationMillis = parseDurationToMillis(durationText);
                 if (durationMillis <= 0) continue;
                 durations.add(durationMillis);
@@ -1518,8 +1518,8 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void showTimeoutWarning(String shedNumbers) {
-        showStyledConfirmDialog("吃料异常提醒", "注意检查" + shedNumbers + "号棚是否空肠空胃，或其他情况！",
-            new String[]{"知道了"}, null, null);
+        showStyledConfirmDialog(getString(R.string.check_title_feed_alert), getString(R.string.check_msg_feed_alert, shedNumbers),
+            new String[]{getString(R.string.check_btn_got_it)}, null, null);
     }
 
     private long calculateTodayAvgDuration() {
@@ -1551,8 +1551,8 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-            new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.basic_msg_no_batch),
+            new String[]{getString(R.string.btn_quit), getString(R.string.basic_btn_goto_create)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),

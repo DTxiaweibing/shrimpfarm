@@ -29,7 +29,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -64,7 +64,12 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class ExpertActivity extends AppCompatActivity {
+public class ExpertActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
 
     private static final String CLOUD_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
     private static final String CLOUD_MODEL = "glm-4-flash";
@@ -217,8 +222,8 @@ public class ExpertActivity extends AppCompatActivity {
         chatList.setAdapter(adapter);
 
         int kbVer = com.shrimpfarm.app.model.KnowledgeBaseUpdater.getLocalVersion(this);
-        String welcomeText = "您好！我是你的小棚养虾智慧助手，有什么问题你问我吧！";
-        messages.add(new ChatMessage(TYPE_BOT, welcomeText, "知识库版本: " + kbVer));
+        String welcomeText = getString(R.string.expert_welcome);
+        messages.add(new ChatMessage(TYPE_BOT, welcomeText, getString(R.string.expert_kb_version) + kbVer));
         adapter.notifyItemInserted(messages.size() - 1);
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -226,7 +231,7 @@ public class ExpertActivity extends AppCompatActivity {
         btnSend.setOnClickListener(v -> sendMessage());
         btnUnleash.setOnClickListener(v -> {
             unleashed = !unleashed;
-            btnUnleash.setText(unleashed ? "放" : "严");
+            btnUnleash.setText(unleashed ? getString(R.string.expert_btn_unleash) : getString(R.string.expert_btn_strict));
             btnUnleash.setTextColor(unleashed ? 0xfff59e0b : 0xff10b981);
         });
         inputMessage.setOnEditorActionListener((v, actionId, event) -> { sendMessage(); return true; });
@@ -322,9 +327,9 @@ public class ExpertActivity extends AppCompatActivity {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "请说出您的问题");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.expert_voice_prompt));
         if (intent.resolveActivity(getPackageManager()) == null) {
-            Toast.makeText(this, "设备不支持语音识别", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.expert_toast_no_voice), Toast.LENGTH_SHORT).show();
             return;
         }
         if (vibrator != null && vibrator.hasVibrator()) {
@@ -339,7 +344,7 @@ public class ExpertActivity extends AppCompatActivity {
         if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startVoiceInput();
         } else {
-            Toast.makeText(this, "需要录音权限", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.expert_toast_perm_audio), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -403,7 +408,7 @@ public class ExpertActivity extends AppCompatActivity {
         if (text.isEmpty()) return;
         inputMessage.setText("");
         addUserMessage(text);
-        startAnimation(unleashed ? "直接回答" : "正在提炼问题");
+        startAnimation(unleashed ? getString(R.string.expert_anim_direct) : getString(R.string.expert_anim_refine));
         if (!initialized) { Log.w(TAG, "Not initialized"); stopAnimation(); btnSend.setEnabled(true); return; }
         if (cloudApiKey == null) { Log.w(TAG, "No API key"); stopAnimation(); btnSend.setEnabled(true); return; }
         btnSend.setEnabled(false);
@@ -415,7 +420,7 @@ public class ExpertActivity extends AppCompatActivity {
     private void processQuery(String query, boolean wasVoice) {
         try {
             if (unleashed) {
-                mainHandler.post(() -> transitionAnimation("正在联系专家"));
+                mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_contacting)));
                 startStreamingResponse(query, wasVoice);
                 return;
             }
@@ -438,7 +443,7 @@ public class ExpertActivity extends AppCompatActivity {
                 String promptWithContext = context.isEmpty()
                         ? result.promptForApi
                         : context + "\n" + result.promptForApi;
-                mainHandler.post(() -> transitionAnimation("正在联系专家"));
+                mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_contacting)));
                 startStreamingResponse(promptWithContext, wasVoice);
             }
         } catch (Throwable t) {
@@ -468,7 +473,7 @@ public class ExpertActivity extends AppCompatActivity {
     }
 
     private void startStreamingResponse(String userPrompt, boolean wasVoice) {
-        mainHandler.post(() -> transitionAnimation("专家思考中"));
+        mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_thinking)));
 
         final boolean speak = wasVoice;
         callCloudAPIStreaming(getSystemPrompt(), userPrompt, new StreamCallback() {
@@ -511,9 +516,9 @@ public class ExpertActivity extends AppCompatActivity {
                     stopAnimation();
                     String display;
                     if (error.startsWith("API返回")) {
-                        display = "专家没看懂问题，请换个问法试试";
+                        display = getString(R.string.expert_error_retry);
                     } else {
-                        display = "（请求失败：" + error + "）";
+                        display = getString(R.string.expert_error_request_fail, error);
                     }
                     if (botMsgIdx >= 0) {
                         messages.get(botMsgIdx).text = display;

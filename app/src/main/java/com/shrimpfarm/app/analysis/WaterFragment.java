@@ -94,7 +94,7 @@ public class WaterFragment extends Fragment {
         if (currentBatchId != null && !currentBatchId.isEmpty()) {
             loadWaterData();
         } else {
-            chartWater.setNoDataText("请先选择批次");
+            chartWater.setNoDataText(getString(R.string.chart_no_data_select_batch));
         }
 
         return view;
@@ -102,14 +102,14 @@ public class WaterFragment extends Fragment {
 
     private void initIndicators() {
         indicatorMap.put("ph", new Indicator("pH", DatabaseHelper.COLUMN_PH, Color.BLUE, true));
-        indicatorMap.put("ammonia", new Indicator("氨氮", DatabaseHelper.COLUMN_AMMONIA, Color.RED, false));
-        indicatorMap.put("nitrite", new Indicator("亚硝酸盐", DatabaseHelper.COLUMN_NITRITE, Color.parseColor("#FF9800"), false));
-        indicatorMap.put("do", new Indicator("溶解氧", DatabaseHelper.COLUMN_DISSOLVED_OXYGEN, Color.parseColor("#009688"), false));
-        indicatorMap.put("temp", new Indicator("水温(高)", DatabaseHelper.COLUMN_MAX_TEMP, Color.parseColor("#9C27B0"), false));
-        indicatorMap.put("salinity", new Indicator("盐度", DatabaseHelper.COLUMN_SALINITY, Color.parseColor("#795548"), false));
-        indicatorMap.put("chlorine", new Indicator("余氯", DatabaseHelper.COLUMN_CHLORINE, Color.parseColor("#00BCD4"), false));
-        indicatorMap.put("vibrio", new Indicator("弧菌数", DatabaseHelper.COLUMN_VIBRIO, Color.parseColor("#E91E63"), false));
-        indicatorMap.put("orp", new Indicator("氧化还原", DatabaseHelper.COLUMN_ORP, Color.parseColor("#607D8B"), false));
+        indicatorMap.put("ammonia", new Indicator(getString(R.string.indicator_ammonia), DatabaseHelper.COLUMN_AMMONIA, Color.RED, false));
+        indicatorMap.put("nitrite", new Indicator(getString(R.string.indicator_nitrite), DatabaseHelper.COLUMN_NITRITE, Color.parseColor("#FF9800"), false));
+        indicatorMap.put("do", new Indicator(getString(R.string.indicator_do), DatabaseHelper.COLUMN_DISSOLVED_OXYGEN, Color.parseColor("#009688"), false));
+        indicatorMap.put("temp", new Indicator(getString(R.string.indicator_temp_high), DatabaseHelper.COLUMN_MAX_TEMP, Color.parseColor("#9C27B0"), false));
+        indicatorMap.put("salinity", new Indicator(getString(R.string.indicator_salinity), DatabaseHelper.COLUMN_SALINITY, Color.parseColor("#795548"), false));
+        indicatorMap.put("chlorine", new Indicator(getString(R.string.indicator_chlorine), DatabaseHelper.COLUMN_CHLORINE, Color.parseColor("#00BCD4"), false));
+        indicatorMap.put("vibrio", new Indicator(getString(R.string.indicator_vibrio), DatabaseHelper.COLUMN_VIBRIO, Color.parseColor("#E91E63"), false));
+        indicatorMap.put("orp", new Indicator(getString(R.string.indicator_orp), DatabaseHelper.COLUMN_ORP, Color.parseColor("#607D8B"), false));
     }
 
     private void initViews(View view) {
@@ -248,7 +248,7 @@ public class WaterFragment extends Fragment {
         List<Indicator> selectedIndicators = getSelectedIndicators();
         if (selectedIndicators.isEmpty()) {
             chartWater.clear();
-            chartWater.setNoDataText("请至少选择一个指标");
+            chartWater.setNoDataText(getString(R.string.chart_no_data_select_indicator));
             statsContainer.removeAllViews();
             return;
         }
@@ -256,7 +256,7 @@ public class WaterFragment extends Fragment {
         List<WaterDataPoint> allPoints = queryWaterData(startDate, endDate);
         if (allPoints.isEmpty()) {
             chartWater.clear();
-            chartWater.setNoDataText("暂无水质数据");
+            chartWater.setNoDataText(getString(R.string.chart_no_data_no_water));
             statsContainer.removeAllViews();
             return;
         }

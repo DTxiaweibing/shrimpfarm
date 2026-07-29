@@ -3,10 +3,15 @@ package com.shrimpfarm.app;
 import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.appcompat.widget.Toolbar;
 
-public class AssetWebViewActivity extends AppCompatActivity {
+public class AssetWebViewActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
 
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_FILE = "file";

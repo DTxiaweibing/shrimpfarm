@@ -1,9 +1,11 @@
 package com.shrimpfarm.app.home;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 
 import com.shrimpfarm.app.DatabaseHelper;
+import com.shrimpfarm.app.R;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -27,7 +29,7 @@ public class TaskScheduler {
         }
     }
 
-    public static List<TaskItem> computeTasks(DatabaseHelper dbHelper, String batchId) {
+    public static List<TaskItem> computeTasks(Context context, DatabaseHelper dbHelper, String batchId) {
         List<TaskItem> overdue = new ArrayList<>();
         List<TaskItem> today = new ArrayList<>();
         List<TaskItem> tomorrow = new ArrayList<>();
@@ -64,7 +66,7 @@ public class TaskScheduler {
                         if (pc != null && !pc.isClosed()) pc.close();
                     }
                 }
-            if (mainName == null || mainName.isEmpty()) mainName = "任务";
+            if (mainName == null || mainName.isEmpty()) mainName = context.getString(R.string.task_default_name);
 
             boolean showOverdue = false, showToday = false, showTomorrow = false;
 
@@ -102,9 +104,9 @@ public class TaskScheduler {
                 taskLabel = mainName + " - " + subName;
             }
 
-            if (showOverdue) overdue.add(new TaskItem(taskId, batchId, taskLabel, "已超期", 0xFFFF0000));
-            if (showToday) today.add(new TaskItem(taskId, batchId, taskLabel, "今天", 0xFF0000FF));
-            if (showTomorrow) tomorrow.add(new TaskItem(taskId, batchId, taskLabel, "明天", 0xFF0C8918));
+            if (showOverdue) overdue.add(new TaskItem(taskId, batchId, taskLabel, context.getString(R.string.badge_overdue), 0xFFFF0000));
+            if (showToday) today.add(new TaskItem(taskId, batchId, taskLabel, context.getString(R.string.badge_today), 0xFF0000FF));
+            if (showTomorrow) tomorrow.add(new TaskItem(taskId, batchId, taskLabel, context.getString(R.string.badge_tomorrow), 0xFF0C8918));
         }
         } finally {
             if (c != null && !c.isClosed()) c.close();

@@ -2,6 +2,7 @@ package com.shrimpfarm.app.analysis;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -100,13 +101,13 @@ public class DataAnalysisActivity extends BaseActivity {
     }
 
     private void setupViewPager() {
-        pagerAdapter = new AnalysisPagerAdapter(getSupportFragmentManager());
+        pagerAdapter = new AnalysisPagerAdapter(this, getSupportFragmentManager());
         viewPager.setAdapter(pagerAdapter);
         tabLayout.setupWithViewPager(viewPager);
     }
 
     private void setupSpinner() {
-        String[] dateRanges = {"最近7天", "最近14天", "最近30天", "最近90天"};
+        String[] dateRanges = {getString(R.string.analysis_range_7d), getString(R.string.analysis_range_14d), getString(R.string.analysis_range_30d), getString(R.string.analysis_range_90d)};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
                                                           android.R.layout.simple_spinner_item, dateRanges);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -173,7 +174,7 @@ public class DataAnalysisActivity extends BaseActivity {
         rowStart.setOrientation(LinearLayout.HORIZONTAL);
         rowStart.setGravity(android.view.Gravity.CENTER_VERTICAL);
         TextView tvStartLabel = new TextView(this);
-        tvStartLabel.setText("开始日期：");
+        tvStartLabel.setText(getString(R.string.analysis_label_start_date));
         tvStartLabel.setTextSize(16);
         final TextView tvStartDate = new TextView(this);
         tvStartDate.setText(dateFormat.format(defaultStart.getTime()));
@@ -196,7 +197,7 @@ public class DataAnalysisActivity extends BaseActivity {
         rowEnd.setOrientation(LinearLayout.HORIZONTAL);
         rowEnd.setGravity(android.view.Gravity.CENTER_VERTICAL);
         TextView tvEndLabel = new TextView(this);
-        tvEndLabel.setText("结束日期：");
+        tvEndLabel.setText(getString(R.string.analysis_label_end_date));
         tvEndLabel.setTextSize(16);
         final TextView tvEndDate = new TextView(this);
         tvEndDate.setText(dateFormat.format(defaultEnd.getTime()));
@@ -265,7 +266,7 @@ public class DataAnalysisActivity extends BaseActivity {
         rowShed.setOrientation(LinearLayout.HORIZONTAL);
         rowShed.setGravity(android.view.Gravity.CENTER_VERTICAL);
         TextView tvShedLabel = new TextView(this);
-        tvShedLabel.setText("棚号：");
+        tvShedLabel.setText(getString(R.string.analysis_label_shed));
         tvShedLabel.setTextSize(16);
         final Spinner spinnerCustomShed = new Spinner(this);
         List<String> shedList = new ArrayList<>();
@@ -273,7 +274,7 @@ public class DataAnalysisActivity extends BaseActivity {
             shedList.addAll(dbHelper.getShedNumbers(currentBatchId));
         }
         if (shedList.isEmpty()) {
-            Toast.makeText(this, "暂无棚号数据", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.analysis_toast_no_shed), Toast.LENGTH_SHORT).show();
         }
         ArrayAdapter<String> shedAdapter = new ArrayAdapter<>(this,
             android.R.layout.simple_spinner_item, shedList);
@@ -286,31 +287,29 @@ public class DataAnalysisActivity extends BaseActivity {
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("自定义日期范围");
+        builder.setTitle(getString(R.string.analysis_title_custom_date));
         builder.setView(layout);
-        builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(getString(R.string.analysis_confirm), new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    // 验证日期有效性
                     if (endCal.before(startCal)) {
-                        Toast.makeText(DataAnalysisActivity.this, "结束日期不能早于开始日期", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DataAnalysisActivity.this, getString(R.string.analysis_toast_end_before_start), Toast.LENGTH_SHORT).show();
                         return;
                     }
 
                     String startDate = dateFormat.format(startCal.getTime());
                     String endDate = dateFormat.format(endCal.getTime());
                     String selectedCustomShed = showShedSelector ?
-                        shedList.get(spinnerCustomShed.getSelectedItemPosition()) : "全部";
+                        shedList.get(spinnerCustomShed.getSelectedItemPosition()) : getString(R.string.analysis_all_sheds);
 
-                    // 更新三个Fragment
                     pagerAdapter.setCustomDateRange(startDate, endDate, selectedCustomShed);
                     setCustomStyle();
                     isCustomMode = true;
 
-                    Toast.makeText(DataAnalysisActivity.this, "已应用自定义日期", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(DataAnalysisActivity.this, getString(R.string.analysis_toast_date_applied), Toast.LENGTH_SHORT).show();
                 }
             });
-        builder.setNegativeButton("取消", null);
+        builder.setNegativeButton(getString(R.string.basic_cancel), null);
         builder.show();
     }
 
@@ -318,13 +317,13 @@ public class DataAnalysisActivity extends BaseActivity {
         if (currentBatchName != null && !currentBatchName.isEmpty()) {
             tvBatchName.setText(currentBatchName);
         } else {
-            tvBatchName.setText("未选择批次");
+            tvBatchName.setText(getString(R.string.analysis_no_batch));
         }
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-            new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.analysis_title_no_batch), getString(R.string.analysis_msg_no_batch),
+            new String[]{getString(R.string.analysis_btn_exit), getString(R.string.analysis_btn_create)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -338,10 +337,12 @@ public class DataAnalysisActivity extends BaseActivity {
     // ViewPager适配器
     private static class AnalysisPagerAdapter extends FragmentPagerAdapter {
 
+        private Context context;
         private FragmentManager fragmentManager;
 
-        public AnalysisPagerAdapter(@NonNull FragmentManager fm) {
+        public AnalysisPagerAdapter(Context context, @NonNull FragmentManager fm) {
             super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+            this.context = context;
             this.fragmentManager = fm;
         }
 
@@ -364,9 +365,9 @@ public class DataAnalysisActivity extends BaseActivity {
         @Override
         public CharSequence getPageTitle(int position) {
             switch (position) {
-                case 0: return "吃料量";
-                case 1: return "吃料用时";
-                case 2: return "水质";
+                case 0: return context.getString(R.string.analysis_tab_feed_amount);
+                case 1: return context.getString(R.string.analysis_tab_feed_duration);
+                case 2: return context.getString(R.string.analysis_tab_water);
                 default: return "";
             }
         }
@@ -425,7 +426,7 @@ public class DataAnalysisActivity extends BaseActivity {
         }
 
         public void setCustomDateRange(String startDate, String endDate) {
-            setCustomDateRange(startDate, endDate, "全部");
+            setCustomDateRange(startDate, endDate, context.getString(R.string.analysis_all_sheds));
         }
 
         public void setCustomDateRange(String startDate, String endDate, String shedNumber) {

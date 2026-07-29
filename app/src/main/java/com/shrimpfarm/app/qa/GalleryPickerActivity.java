@@ -20,7 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -37,7 +37,12 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class GalleryPickerActivity extends AppCompatActivity {
+public class GalleryPickerActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
 
     public static final String EXTRA_MAX_COUNT = "max_count";
     private static final int PERMISSION_REQUEST_CODE = 1001;
@@ -114,7 +119,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 loadImages();
             } else {
-                Toast.makeText(this, "需要存储权限才能读取图片", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.gallery_toast_perm_required), Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
@@ -149,7 +154,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
                     }
                 } catch (Exception e) {
                     mainHandler.post(() -> {
-                        Toast.makeText(this, "读取图片失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.gallery_toast_load_fail, e.getMessage()), Toast.LENGTH_SHORT).show();
                         finish();
                     });
                     return;
@@ -175,7 +180,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
                     }
                 } catch (Exception e) {
                     mainHandler.post(() -> {
-                        Toast.makeText(this, "读取图片失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.gallery_toast_load_fail, e.getMessage()), Toast.LENGTH_SHORT).show();
                         finish();
                     });
                     return;
@@ -185,7 +190,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
             mainHandler.post(() -> {
                 adapter.setImages(entries);
                 if (entries.isEmpty()) {
-                    Toast.makeText(this, "未找到图片", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.gallery_toast_no_images), Toast.LENGTH_SHORT).show();
                 }
             });
         });
@@ -212,7 +217,9 @@ public class GalleryPickerActivity extends AppCompatActivity {
 
     private void updateSelectionUI() {
         int count = selectedUris.size();
-        tvSelectedCount.setText(count > 0 ? "已选 " + count + "/" + maxCount : "选择图片");
+        tvSelectedCount.setText(count > 0
+                ? String.format(getString(R.string.gallery_selected_count), count, maxCount)
+                : getString(R.string.gallery_select_images));
         btnDone.setEnabled(count > 0);
         btnDone.setAlpha(count > 0 ? 1.0f : 0.5f);
     }
@@ -264,7 +271,7 @@ public class GalleryPickerActivity extends AppCompatActivity {
                 } else {
                     if (selectedUris.size() >= maxCount) {
                         Toast.makeText(GalleryPickerActivity.this,
-                                "最多选择" + maxCount + "张", Toast.LENGTH_SHORT).show();
+                                getString(R.string.gallery_toast_max_reached, maxCount), Toast.LENGTH_SHORT).show();
                         return;
                     }
                     selectedUris.add(entry.uri);

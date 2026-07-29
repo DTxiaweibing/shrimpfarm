@@ -104,8 +104,8 @@ public class FeedAmountFragment extends Fragment {
         if (currentBatchId != null && !currentBatchId.isEmpty()) {
             loadData(selectedDays);
         } else {
-            chartFeedAmount.setNoDataText("请先选择批次");
-            chartFeedAmountLine.setNoDataText("请先选择批次");
+            chartFeedAmount.setNoDataText(getString(R.string.chart_no_data_select_batch));
+            chartFeedAmountLine.setNoDataText(getString(R.string.chart_no_data_select_batch));
             resetSummary();
         }
 
@@ -171,10 +171,10 @@ public class FeedAmountFragment extends Fragment {
     public void loadDataByDateRange(String startDate, String endDate) {
         if (dbHelper == null || currentBatchId == null || currentBatchId.isEmpty()) {
             if (chartFeedAmount != null) {
-                chartFeedAmount.setNoDataText("请先选择批次");
+                chartFeedAmount.setNoDataText(getString(R.string.chart_no_data_select_batch));
             }
             if (chartFeedAmountLine != null) {
-                chartFeedAmountLine.setNoDataText("请先选择批次");
+                chartFeedAmountLine.setNoDataText(getString(R.string.chart_no_data_select_batch));
             }
             resetSummary();
             return;
@@ -194,10 +194,10 @@ public class FeedAmountFragment extends Fragment {
         } catch (Exception e) {
             Log.e("FeedAmount", "loadDataByDateRange failed", e);
             if (chartFeedAmount != null) {
-                chartFeedAmount.setNoDataText("数据加载失败");
+                chartFeedAmount.setNoDataText(getString(R.string.chart_no_data_load_failed));
             }
             if (chartFeedAmountLine != null) {
-                chartFeedAmountLine.setNoDataText("数据加载失败");
+                chartFeedAmountLine.setNoDataText(getString(R.string.chart_no_data_load_failed));
             }
             resetSummary();
         }
@@ -206,7 +206,7 @@ public class FeedAmountFragment extends Fragment {
     private void updateBarChart() {
         if (currentSummaries.isEmpty()) {
             chartFeedAmount.clear();
-            chartFeedAmount.setNoDataText("暂无投喂数据");
+            chartFeedAmount.setNoDataText(getString(R.string.chart_no_data_no_feed_amount));
             return;
         }
 
@@ -224,7 +224,7 @@ public class FeedAmountFragment extends Fragment {
             }
         }
 
-        BarDataSet dataSet = new BarDataSet(entries, "投喂量(kg)");
+        BarDataSet dataSet = new BarDataSet(entries, getString(R.string.chart_label_feed_amount_kg));
         dataSet.setColor(Color.parseColor("#4CAF50"));
         dataSet.setValueTextSize(10f);
         dataSet.setValueTextColor(Color.BLACK);
@@ -250,7 +250,7 @@ public class FeedAmountFragment extends Fragment {
     private void updateLineChart() {
         if (currentSummaries.isEmpty()) {
             chartFeedAmountLine.clear();
-            chartFeedAmountLine.setNoDataText("暂无投喂数据");
+            chartFeedAmountLine.setNoDataText(getString(R.string.chart_no_data_no_feed_amount));
             return;
         }
 
@@ -268,7 +268,7 @@ public class FeedAmountFragment extends Fragment {
             }
         }
 
-        LineDataSet dataSet = new LineDataSet(entries, "投喂量(kg)");
+        LineDataSet dataSet = new LineDataSet(entries, getString(R.string.chart_label_feed_amount_kg));
         dataSet.setColor(Color.parseColor("#4CAF50"));
         dataSet.setCircleColor(Color.parseColor("#4CAF50"));
         dataSet.setLineWidth(2.5f);

@@ -47,7 +47,7 @@ public class PriceCategoryAdapter extends RecyclerView.Adapter<PriceCategoryAdap
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         PriceCategory cat = categories.get(position);
-        holder.tvCategory.setText(cat.title != null ? cat.title : "未分类");
+        holder.tvCategory.setText(cat.title != null ? cat.title : holder.itemView.getContext().getString(R.string.hq_uncategorized));
         holder.adapter.setData(cat.items);
         holder.adapter.setOnItemClickListener(item -> {
             if (listener != null) listener.onItemClick(item);

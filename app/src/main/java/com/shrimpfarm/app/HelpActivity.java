@@ -12,7 +12,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -32,7 +32,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HelpActivity extends AppCompatActivity {
+public class HelpActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
     private static final String ONLINE_URL = "https://dtxiaweibing.github.io/TIMU/promo/help.html";
     private static final String CACHE_NAME = "help.html";
 
@@ -89,7 +94,7 @@ public class HelpActivity extends AppCompatActivity {
         loadPage();
 
         questions = new ArrayList<>();
-        adapter = new QaListAdapter(questions, question -> {
+        adapter = new QaListAdapter(this, questions, question -> {
             needRefresh = true;
             Intent intent = new Intent(HelpActivity.this, QaDetailActivity.class);
             intent.putExtra("question_id", question.id);
@@ -99,24 +104,24 @@ public class HelpActivity extends AppCompatActivity {
         adapter.setAdminMode("1032699170@qq.com".equals(api.getCurrentUserEmail()));
         adapter.setOnItemDeleteListener((question, position) -> {
             if (!api.isLoggedIn()) {
-                Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_login_first), Toast.LENGTH_SHORT).show();
                 return;
             }
             new AlertDialog.Builder(this)
-                    .setTitle("确认删除")
-                    .setMessage("确定要删除此问题吗？")
-                    .setPositiveButton("删除", (d, w) -> {
+                    .setTitle(R.string.qa_title_confirm_delete)
+                    .setMessage(R.string.qa_msg_delete_question)
+                    .setPositiveButton(R.string.qa_btn_delete, (d, w) -> {
                         api.deleteQuestion(question.id, new QaApi.QaCallback<Void>() {
                             @Override public void onSuccess(Void result) {
                                 adapter.removeItem(position);
-                                Toast.makeText(HelpActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(HelpActivity.this, R.string.qa_toast_deleted, Toast.LENGTH_SHORT).show();
                             }
                             @Override public void onError(String error) {
                                 Toast.makeText(HelpActivity.this, error, Toast.LENGTH_SHORT).show();
                             }
                         });
                     })
-                    .setNegativeButton("取消", null)
+                    .setNegativeButton(R.string.qa_cancel, null)
                     .show();
         });
         qaRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -174,7 +179,7 @@ public class HelpActivity extends AppCompatActivity {
 
         fabPost.setOnClickListener(v -> {
             if (!api.isLoggedIn()) {
-                Toast.makeText(this, "请先登录后再发布问题", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_login_to_post), Toast.LENGTH_SHORT).show();
                 return;
             }
             postQuestionLauncher.launch(new Intent(this, QaPostActivity.class));

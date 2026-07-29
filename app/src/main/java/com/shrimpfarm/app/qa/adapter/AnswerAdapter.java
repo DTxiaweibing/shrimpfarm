@@ -1,5 +1,6 @@
 package com.shrimpfarm.app.qa.adapter;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
@@ -22,6 +23,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder> {
+    private Context context;
     private List<Answer> answers;
     private boolean isQuestionAuthor;
     private boolean isAdmin;
@@ -42,7 +44,8 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
         void onVote(Answer answer, int voteType);
     }
 
-    public AnswerAdapter(List<Answer> answers, boolean isQuestionAuthor, AcceptListener listener) {
+    public AnswerAdapter(Context context, List<Answer> answers, boolean isQuestionAuthor, AcceptListener listener) {
+        this.context = context;
         this.answers = answers;
         this.isQuestionAuthor = isQuestionAuthor;
         this.acceptListener = listener;
@@ -87,9 +90,9 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
     @Override public void onBindViewHolder(ViewHolder h, int position) {
         Answer a = answers.get(position);
         String nick = a.displayName != null && !a.displayName.isEmpty() ? a.displayName
-                : "用户" + (a.userId != null && a.userId.length() > 6 ? a.userId.substring(0, 6) : "");
+                : context.getString(R.string.qa_user_prefix) + (a.userId != null && a.userId.length() > 6 ? a.userId.substring(0, 6) : "");
         h.tvNickname.setText(nick);
-        h.tvTime.setText(formatTime(a.createdAt));
+        h.tvTime.setText(formatTime(context, a.createdAt));
         h.tvContent.setText(a.content);
         if (a.isAccepted) {
             h.tvAccepted.setVisibility(View.VISIBLE);
@@ -183,7 +186,7 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
         }
     }
 
-    private static String formatTime(String isoTime) {
+    private static String formatTime(Context ctx, String isoTime) {
         if (isoTime == null) return "";
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT);
@@ -192,13 +195,13 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
             if (date == null) return "";
             long diff = System.currentTimeMillis() - date.getTime();
             long seconds = diff / 1000;
-            if (seconds < 60) return "刚刚";
+            if (seconds < 60) return ctx.getString(R.string.qa_time_just_now);
             long minutes = seconds / 60;
-            if (minutes < 60) return minutes + "分钟前";
+            if (minutes < 60) return String.format(ctx.getString(R.string.qa_time_minutes_ago), minutes);
             long hours = minutes / 60;
-            if (hours < 24) return hours + "小时前";
+            if (hours < 24) return String.format(ctx.getString(R.string.qa_time_hours_ago), hours);
             long days = hours / 24;
-            if (days < 7) return days + "天前";
+            if (days < 7) return String.format(ctx.getString(R.string.qa_time_days_ago), days);
             SimpleDateFormat out = new SimpleDateFormat("MM-dd HH:mm", Locale.ROOT);
             return out.format(date);
         } catch (Exception e) {

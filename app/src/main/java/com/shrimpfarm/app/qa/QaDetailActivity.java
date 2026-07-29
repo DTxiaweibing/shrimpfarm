@@ -15,7 +15,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
+import com.shrimpfarm.app.BaseActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,7 +34,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
-public class QaDetailActivity extends AppCompatActivity {
+public class QaDetailActivity extends BaseActivity {
+
+    @Override
+    protected int getCurrentNavId() {
+        return 0;
+    }
     private QaApi api;
     private Question question;
     private AnswerAdapter answerAdapter;
@@ -68,7 +73,7 @@ public class QaDetailActivity extends AppCompatActivity {
 
         questionId = getIntent().getLongExtra("question_id", 0);
         if (questionId == 0) {
-            Toast.makeText(this, "参数错误", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.qa_toast_param_error), Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -91,12 +96,12 @@ public class QaDetailActivity extends AppCompatActivity {
         answers = new ArrayList<>();
         RecyclerView rv = findViewById(R.id.answer_recycler_view);
         rv.setLayoutManager(new LinearLayoutManager(this));
-        answerAdapter = new AnswerAdapter(answers, false, answer -> {
+        answerAdapter = new AnswerAdapter(this, answers, false, answer -> {
             api.acceptAnswer(questionId, answer.id, new QaApi.QaCallback<Void>() {
                 @Override public void onSuccess(Void result) {
                     answer.isAccepted = true;
                     answerAdapter.notifyDataSetChanged();
-                    Toast.makeText(QaDetailActivity.this, "已采纳", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(QaDetailActivity.this, getString(R.string.qa_toast_accepted), Toast.LENGTH_SHORT).show();
                 }
                 @Override public void onError(String error) {
                     Toast.makeText(QaDetailActivity.this, error, Toast.LENGTH_SHORT).show();
@@ -115,16 +120,16 @@ public class QaDetailActivity extends AppCompatActivity {
 
         btnSend.setOnClickListener(v -> {
             if (!api.isLoggedIn()) {
-                Toast.makeText(this, "请先登录后再回答", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_login_to_answer), Toast.LENGTH_SHORT).show();
                 return;
             }
             String content = etAnswer.getText().toString().trim();
             if (content.isEmpty()) {
-                Toast.makeText(this, "请输入回答内容", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_enter_content), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (SensitiveWordFilter.contains(content)) {
-                Toast.makeText(this, "内容包含敏感词，请修改后重试", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.qa_toast_sensitive), Toast.LENGTH_SHORT).show();
                 return;
             }
             btnSend.setEnabled(false);
@@ -161,16 +166,16 @@ public class QaDetailActivity extends AppCompatActivity {
 
     private void confirmDeleteQuestion() {
         if (!api.isLoggedIn()) {
-            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.qa_toast_login_first), Toast.LENGTH_SHORT).show();
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("确认删除")
-                .setMessage("确定要删除此问题吗？")
-                .setPositiveButton("删除", (d, w) -> {
+                .setTitle(R.string.qa_title_confirm_delete)
+                .setMessage(R.string.qa_msg_delete_question)
+                .setPositiveButton(R.string.qa_btn_delete, (d, w) -> {
                     api.deleteQuestion(questionId, new QaApi.QaCallback<Void>() {
                         @Override public void onSuccess(Void result) {
-                            Toast.makeText(QaDetailActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(QaDetailActivity.this, R.string.qa_toast_deleted, Toast.LENGTH_SHORT).show();
                             finish();
                         }
                         @Override public void onError(String error) {
@@ -178,30 +183,30 @@ public class QaDetailActivity extends AppCompatActivity {
                         }
                     });
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(R.string.qa_cancel, null)
                 .show();
     }
 
     private void confirmDeleteAnswer(Answer answer, int position) {
         if (!api.isLoggedIn()) {
-            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.qa_toast_login_first), Toast.LENGTH_SHORT).show();
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("确认删除")
-                .setMessage("确定要删除此回答吗？")
-                .setPositiveButton("删除", (d, w) -> {
+                .setTitle(R.string.qa_title_confirm_delete)
+                .setMessage(R.string.qa_msg_delete_answer)
+                .setPositiveButton(R.string.qa_btn_delete, (d, w) -> {
                     api.deleteAnswer(answer.id, new QaApi.QaCallback<Void>() {
                         @Override public void onSuccess(Void result) {
                             answerAdapter.removeItem(position);
-                            Toast.makeText(QaDetailActivity.this, "已删除", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(QaDetailActivity.this, R.string.qa_toast_deleted, Toast.LENGTH_SHORT).show();
                         }
                         @Override public void onError(String error) {
                             Toast.makeText(QaDetailActivity.this, error, Toast.LENGTH_SHORT).show();
                         }
                     });
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(R.string.qa_cancel, null)
                 .show();
     }
 
@@ -225,7 +230,7 @@ public class QaDetailActivity extends AppCompatActivity {
 
     private void handleVote(Answer answer, int voteType) {
         if (!api.isLoggedIn()) {
-            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.qa_toast_login_first), Toast.LENGTH_SHORT).show();
             return;
         }
         int oldVote = answer.userVote;
@@ -288,7 +293,7 @@ public class QaDetailActivity extends AppCompatActivity {
     private void displayQuestion(Question q) {
         if (isFinishing() || isDestroyed()) return;
         String nick = q.displayName != null && !q.displayName.isEmpty() ? q.displayName
-                : "用户" + (q.userId != null && q.userId.length() > 6 ? q.userId.substring(0, 6) : "");
+                : getString(R.string.qa_user_prefix) + (q.userId != null && q.userId.length() > 6 ? q.userId.substring(0, 6) : "");
         tvNickname.setText(nick);
         tvTime.setText(formatTime(q.createdAt));
         tvTitle.setText(q.title);
@@ -339,18 +344,18 @@ public class QaDetailActivity extends AppCompatActivity {
                 iv.setImageDrawable(resource);
                 new android.app.AlertDialog.Builder(QaDetailActivity.this)
                         .setView(iv)
-                        .setPositiveButton("关闭", null)
+                        .setPositiveButton(R.string.qa_btn_close, null)
                         .show();
             }
             @Override public void onLoadCleared(android.graphics.drawable.Drawable placeholder) {}
             @Override public void onLoadFailed(android.graphics.drawable.Drawable errorDrawable) {
                 dialog.dismiss();
-                Toast.makeText(QaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                Toast.makeText(QaDetailActivity.this, R.string.qa_toast_image_fail, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    static String formatTime(String isoTime) {
+    private String formatTime(String isoTime) {
         if (isoTime == null) return "";
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT);
@@ -359,13 +364,13 @@ public class QaDetailActivity extends AppCompatActivity {
             if (date == null) return "";
             long diff = System.currentTimeMillis() - date.getTime();
             long seconds = diff / 1000;
-            if (seconds < 60) return "刚刚";
+            if (seconds < 60) return getString(R.string.qa_time_just_now);
             long minutes = seconds / 60;
-            if (minutes < 60) return minutes + "分钟前";
+            if (minutes < 60) return String.format(getString(R.string.qa_time_minutes_ago), minutes);
             long hours = minutes / 60;
-            if (hours < 24) return hours + "小时前";
+            if (hours < 24) return String.format(getString(R.string.qa_time_hours_ago), hours);
             long days = hours / 24;
-            if (days < 7) return days + "天前";
+            if (days < 7) return String.format(getString(R.string.qa_time_days_ago), days);
             SimpleDateFormat out = new SimpleDateFormat("MM-dd HH:mm", Locale.ROOT);
             return out.format(date);
         } catch (Exception e) {

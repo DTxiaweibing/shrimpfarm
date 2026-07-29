@@ -53,7 +53,7 @@ public class PlanTaskActivity extends BaseActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("计划任务");
+            getSupportActionBar().setTitle(R.string.task_title);
         }
         toolbar.setNavigationOnClickListener(v -> finish());
 
@@ -64,7 +64,7 @@ public class PlanTaskActivity extends BaseActivity {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         currentBatchId = prefs.getString("current_batch_id", "");
         if (currentBatchId.isEmpty()) {
-            Toast.makeText(this, "请先选择批次", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.task_toast_select_batch), Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -147,9 +147,9 @@ public class PlanTaskActivity extends BaseActivity {
 
     private void showAddTaskDialog() {
         final EditText[] inputHolder = new EditText[1];
-        inputHolder[0] = DialogHelper.showStyledInputDialog(this, "新建任务",
-                "任务名称", null,
-                new String[]{"取消", "确定"},
+        inputHolder[0] = DialogHelper.showStyledInputDialog(this, getString(R.string.task_title_new_task),
+                getString(R.string.task_hint_task_name), null,
+                new String[]{getString(R.string.basic_cancel), getString(R.string.task_confirm)},
                 new DialogInterface.OnClickListener[]{ null, (d, w) -> {
                     String name = inputHolder[0].getText().toString().trim();
                     if (!name.isEmpty()) {
@@ -159,7 +159,7 @@ public class PlanTaskActivity extends BaseActivity {
                         newTask.title = name;
                         taskList.add(newTask);
                         adapter.notifyItemInserted(taskList.size() - 1);
-                        Toast.makeText(this, "任务已创建，展开后添加子计划", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.task_toast_created), Toast.LENGTH_SHORT).show();
                     }
                 } });
     }
@@ -182,7 +182,7 @@ public class PlanTaskActivity extends BaseActivity {
         swMidnight.setChecked(prefs.getBoolean("plan_task_midnight_switch", false));
 
         LinearLayout buttonLayout = view.findViewById(R.id.layout_buttons);
-        String[] btnTexts = {"取消", "确定"};
+        String[] btnTexts = {getString(R.string.basic_cancel), getString(R.string.task_confirm)};
         android.content.DialogInterface.OnClickListener[] listeners = {
             (d, w) -> {},
             (d, w) -> {
@@ -192,7 +192,7 @@ public class PlanTaskActivity extends BaseActivity {
                     .putBoolean("plan_task_night_switch", swNight.isChecked())
                     .putBoolean("plan_task_midnight_switch", swMidnight.isChecked())
                     .apply();
-                Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.task_toast_saved), Toast.LENGTH_SHORT).show();
             }
         };
         for (int i = 0; i < btnTexts.length; i++) {
@@ -297,15 +297,15 @@ public class PlanTaskActivity extends BaseActivity {
                     vh.tvStatus.setText(getString(R.string.task_pending_count, pendingCount));
                     vh.tvStatus.setTextColor(0xFF666666);
                 } else {
-                    vh.tvStatus.setText("无子计划");
+                    vh.tvStatus.setText(getString(R.string.task_no_sub_plan));
                     vh.tvStatus.setTextColor(0xFF999999);
                 }
                 vh.btnDelete.setOnClickListener(v -> {
                     int adapterPos = holder.getAdapterPosition();
                     if (adapterPos == RecyclerView.NO_POSITION) return;
-                    DialogHelper.showStyledConfirmDialog(PlanTaskActivity.this, "删除任务",
-                        "确定要删除此任务及其所有子计划吗？",
-                        new String[]{"取消", "删除"},
+                    DialogHelper.showStyledConfirmDialog(PlanTaskActivity.this, getString(R.string.task_title_delete_task),
+                        getString(R.string.task_msg_delete_task),
+                        new String[]{getString(R.string.basic_cancel), getString(R.string.task_btn_delete)},
                         new DialogInterface.OnClickListener[]{ null, (d, w) -> {
                             dbHelper.deleteTask(task.id);
                             taskList.remove(adapterPos);
@@ -438,7 +438,7 @@ public class PlanTaskActivity extends BaseActivity {
             holder.etEnd.setText(String.valueOf(sub.endValue));
             holder.etInterval.setText(String.valueOf((int)sub.intervalValue));
             holder.etInterval.setFilters(new InputFilter[]{new InputFilter.LengthFilter(sub.unitType == 0 ? 1 : 3)});
-            holder.tvUnit.setText(sub.unitType == 0 ? "天" : "斤");
+            holder.tvUnit.setText(sub.unitType == 0 ? PlanTaskActivity.this.getString(R.string.task_unit_day) : PlanTaskActivity.this.getString(R.string.task_unit_jin));
             holder.etTimes.setText(String.valueOf(sub.frequency));
 
             holder.itemView.setOnTouchListener((v, event) -> {
@@ -450,9 +450,9 @@ public class PlanTaskActivity extends BaseActivity {
             holder.ivDelete.setOnClickListener(v -> {
                 int adapterPos = holder.getAdapterPosition();
                 if (adapterPos == RecyclerView.NO_POSITION) return;
-                DialogHelper.showStyledConfirmDialog(PlanTaskActivity.this, "删除子计划",
-                    "确定要删除此子计划吗？",
-                    new String[]{"取消", "删除"},
+                DialogHelper.showStyledConfirmDialog(PlanTaskActivity.this, getString(R.string.task_title_delete_sub),
+                    getString(R.string.task_msg_delete_sub),
+                    new String[]{getString(R.string.basic_cancel), getString(R.string.task_btn_delete)},
                     new DialogInterface.OnClickListener[]{ null, (d, w) -> {
                         dbHelper.deleteTask(sub.id);
                         list.remove(adapterPos);
@@ -462,9 +462,9 @@ public class PlanTaskActivity extends BaseActivity {
 
             holder.tvUnit.setOnClickListener(v -> {
                 onInteraction();
-                final String[] units = {"天", "斤"};
+                final String[] units = {PlanTaskActivity.this.getString(R.string.task_unit_day), PlanTaskActivity.this.getString(R.string.task_unit_jin)};
                 AlertDialog.Builder b = new AlertDialog.Builder(PlanTaskActivity.this);
-                b.setTitle("选择单位");
+                b.setTitle(PlanTaskActivity.this.getString(R.string.task_title_select_unit));
                 b.setItems(units, (d, which) -> {
                     sub.unitType = which;
                     holder.tvUnit.setText(units[which]);

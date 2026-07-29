@@ -1,5 +1,6 @@
 package com.shrimpfarm.app.qa.adapter;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
@@ -21,6 +22,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class QaListAdapter extends RecyclerView.Adapter<QaListAdapter.ViewHolder> {
+    private Context context;
     private List<Question> questions;
     private OnItemClickListener listener;
     private OnItemDeleteListener deleteListener;
@@ -35,7 +37,8 @@ public class QaListAdapter extends RecyclerView.Adapter<QaListAdapter.ViewHolder
         void onDelete(Question question, int position);
     }
 
-    public QaListAdapter(List<Question> questions, OnItemClickListener listener) {
+    public QaListAdapter(Context context, List<Question> questions, OnItemClickListener listener) {
+        this.context = context;
         this.questions = questions;
         this.listener = listener;
     }
@@ -77,16 +80,16 @@ public class QaListAdapter extends RecyclerView.Adapter<QaListAdapter.ViewHolder
     @Override public void onBindViewHolder(ViewHolder h, int position) {
         Question q = questions.get(position);
         String nick = q.displayName != null && !q.displayName.isEmpty() ? q.displayName
-                : "用户" + (q.userId != null && q.userId.length() > 6 ? q.userId.substring(0, 6) : "");
+                : context.getString(R.string.qa_user_prefix) + (q.userId != null && q.userId.length() > 6 ? q.userId.substring(0, 6) : "");
         h.tvNickname.setText(nick);
         h.tvTitle.setText(q.title);
         h.tvContent.setText(q.content);
-        h.tvAnswerCount.setText(q.answerCount + "回答");
+        h.tvAnswerCount.setText(String.format(context.getString(R.string.qa_answer_count), q.answerCount));
         String timeToUse = q.latestAnswerAt != null ? q.latestAnswerAt : q.createdAt;
-        h.tvTime.setText(formatTime(timeToUse));
+        h.tvTime.setText(formatTime(context, timeToUse));
         if (q.isResolved) {
             h.tvResolved.setVisibility(View.VISIBLE);
-            h.tvResolved.setText("已解决");
+            h.tvResolved.setText(R.string.qa_resolved);
         } else {
             h.tvResolved.setVisibility(View.GONE);
         }
@@ -146,7 +149,7 @@ public class QaListAdapter extends RecyclerView.Adapter<QaListAdapter.ViewHolder
         }
     }
 
-    private static String formatTime(String isoTime) {
+    private static String formatTime(Context ctx, String isoTime) {
         if (isoTime == null) return "";
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT);
@@ -155,13 +158,13 @@ public class QaListAdapter extends RecyclerView.Adapter<QaListAdapter.ViewHolder
             if (date == null) return "";
             long diff = System.currentTimeMillis() - date.getTime();
             long seconds = diff / 1000;
-            if (seconds < 60) return "刚刚";
+            if (seconds < 60) return ctx.getString(R.string.qa_time_just_now);
             long minutes = seconds / 60;
-            if (minutes < 60) return minutes + "分钟前";
+            if (minutes < 60) return String.format(ctx.getString(R.string.qa_time_minutes_ago), minutes);
             long hours = minutes / 60;
-            if (hours < 24) return hours + "小时前";
+            if (hours < 24) return String.format(ctx.getString(R.string.qa_time_hours_ago), hours);
             long days = hours / 24;
-            if (days < 7) return days + "天前";
+            if (days < 7) return String.format(ctx.getString(R.string.qa_time_days_ago), days);
             SimpleDateFormat out = new SimpleDateFormat("MM-dd", Locale.ROOT);
             return out.format(date);
         } catch (Exception e) {

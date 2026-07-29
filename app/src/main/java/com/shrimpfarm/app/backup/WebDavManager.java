@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.shrimpfarm.app.DatabaseHelper;
+import com.shrimpfarm.app.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -101,7 +102,7 @@ public class WebDavManager {
             count++;
             idx += 12;
         }
-        return "连接成功，根目录共 " + count + " 个文件/文件夹";
+        return context.getString(R.string.webdav_connection_success, count);
     }
 
     public void ensureBackupDir() throws Exception {
@@ -121,7 +122,7 @@ public class WebDavManager {
         File dbFile = context.getDatabasePath(DB_NAME);
         if (dbFile == null || !dbFile.exists()) {
             dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
-            if (!dbFile.exists()) throw new Exception("数据库文件不存在");
+            if (!dbFile.exists()) throw new Exception(BackupActivity.ERR_DB_FILE_MISSING);
         }
 
         try {
@@ -152,7 +153,7 @@ public class WebDavManager {
         }
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault());
-        String fileName = "DataBackup_" + sdf.format(new Date()) + "_" + sizeStr + (isManual ? "（手动备份）.db" : ".db");
+        String fileName = "DataBackup_" + sdf.format(new Date()) + "_" + sizeStr + (isManual ? context.getString(R.string.backup_suffix_manual) + ".db" : ".db");
         String remotePath = WEBDAV_URL + BACKUP_DIR + fileName;
 
         execPut(remotePath, dbFile);

@@ -11,6 +11,7 @@ import com.shrimpfarm.app.SupabaseAuthManager;
 import com.shrimpfarm.app.SupabaseConfig;
 import static com.shrimpfarm.app.SupabaseConfig.ANON_KEY;
 import static com.shrimpfarm.app.SupabaseConfig.SUPABASE_URL;
+import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.qa.model.Answer;
 import com.shrimpfarm.app.qa.model.Question;
 import com.shrimpfarm.app.utils.HttpClientSingleton;
@@ -225,7 +226,7 @@ public class QaApi {
         Request request = authRequest().url(url).get().build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "[]";
@@ -237,7 +238,7 @@ public class QaApi {
                     if (handleAuthError(response.code(), false)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("请求失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_request_failed) + response.code()));
                     }
                 }
             }
@@ -251,7 +252,7 @@ public class QaApi {
         Request request = authRequest().url(url).get().build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "[]";
@@ -259,7 +260,7 @@ public class QaApi {
                     Type type = new TypeToken<List<Question>>(){}.getType();
                     List<Question> qlist = gson.fromJson(body, type);
                     if (qlist.isEmpty()) {
-                        postMain(() -> callback.onError("问题不存在"));
+                        postMain(() -> callback.onError(context.getString(R.string.error_question_not_found)));
                         return;
                     }
                     Question q = qlist.get(0);
@@ -290,7 +291,7 @@ public class QaApi {
                     if (handleAuthError(response.code(), false)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("请求失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_request_failed) + response.code()));
                     }
                 }
             }
@@ -330,7 +331,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
@@ -340,13 +341,13 @@ public class QaApi {
                     if (!list.isEmpty()) {
                         postMain(() -> callback.onSuccess(list.get(0)));
                     } else {
-                        postMain(() -> callback.onError("发布失败"));
+                        postMain(() -> callback.onError(context.getString(R.string.error_post_failed)));
                     }
                 } else {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("发布失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_post_failed) + response.code()));
                     }
                 }
             }
@@ -360,7 +361,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) {
                 if (response.isSuccessful()) {
@@ -369,7 +370,7 @@ public class QaApi {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("删除失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_delete_failed) + response.code()));
                     }
                 }
             }
@@ -383,7 +384,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) {
                 if (response.isSuccessful()) {
@@ -391,7 +392,7 @@ public class QaApi {
                 } else {
                     if (handleAuthError(response.code(), true)) {
                     } else {
-                        postMain(() -> callback.onError("删除失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_delete_failed) + response.code()));
                     }
                 }
             }
@@ -415,7 +416,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
@@ -427,13 +428,13 @@ public class QaApi {
                         answer.displayName = getCurrentNickname();
                         postMain(() -> callback.onSuccess(answer));
                     } else {
-                        postMain(() -> callback.onError("发布失败"));
+                        postMain(() -> callback.onError(context.getString(R.string.error_post_failed)));
                     }
                 } else {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("发布失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_post_failed) + response.code()));
                     }
                 }
             }
@@ -448,7 +449,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) {
                 if (response.isSuccessful()) {
@@ -457,7 +458,7 @@ public class QaApi {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("操作失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_operation_failed) + response.code()));
                     }
                 }
             }
@@ -472,7 +473,7 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, Response response) {
                 if (response.isSuccessful()) {
@@ -481,7 +482,7 @@ public class QaApi {
                     if (handleAuthError(response.code(), true)) {
                         // 静默处理，不打扰用户
                     } else {
-                        postMain(() -> callback.onError("操作失败: " + response.code()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_operation_failed) + response.code()));
                     }
                 }
             }
@@ -502,7 +503,7 @@ public class QaApi {
         Request request = authRequest().url(url).get().build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "[]";
@@ -551,13 +552,13 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) {
                 if (response.isSuccessful()) {
                     postMain(() -> callback.onSuccess(null));
                 } else {
-                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                    postMain(() -> callback.onError(context.getString(R.string.error_operation_failed) + response.code()));
                 }
             }
         });
@@ -571,13 +572,13 @@ public class QaApi {
                 .build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(okhttp3.Call call, IOException e) {
-                postMain(() -> callback.onError("网络错误: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_network) + e.getMessage()));
             }
             @Override public void onResponse(okhttp3.Call call, okhttp3.Response response) {
                 if (response.isSuccessful()) {
                     postMain(() -> callback.onSuccess(null));
                 } else {
-                    postMain(() -> callback.onError("操作失败: " + response.code()));
+                    postMain(() -> callback.onError(context.getString(R.string.error_operation_failed) + response.code()));
                 }
             }
         });
@@ -590,7 +591,7 @@ public class QaApi {
             try {
                 File compressed = compressImage(context, imageUri);
                 if (compressed == null) {
-                    postMain(() -> callback.onError("图片压缩失败"));
+                    postMain(() -> callback.onError(context.getString(R.string.error_image_compress)));
                     return;
                 }
                 String fileName = UUID.randomUUID().toString() + ".jpg";
@@ -604,7 +605,7 @@ public class QaApi {
                         .build();
                 client.newCall(request).enqueue(new okhttp3.Callback() {
                     @Override public void onFailure(okhttp3.Call call, IOException e) {
-                        postMain(() -> callback.onError("上传失败: " + e.getMessage()));
+                        postMain(() -> callback.onError(context.getString(R.string.error_upload_failed) + e.getMessage()));
                     }
                     @Override public void onResponse(okhttp3.Call call, Response response) {
                         if (response.isSuccessful()) {
@@ -613,13 +614,13 @@ public class QaApi {
                         } else {
                             if (handleAuthError(response.code(), true)) {
                             } else {
-                                postMain(() -> callback.onError("上传失败: " + response.code()));
+                                postMain(() -> callback.onError(context.getString(R.string.error_upload_failed) + response.code()));
                             }
                         }
                     }
                 });
             } catch (Exception e) {
-                postMain(() -> callback.onError("图片处理失败: " + e.getMessage()));
+                postMain(() -> callback.onError(context.getString(R.string.error_image_process) + e.getMessage()));
             }
         }, "QaApi-uploadImage");
         t.setDaemon(true);

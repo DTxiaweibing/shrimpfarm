@@ -21,10 +21,6 @@
         android:checkable="false"
         android:title="@string/menu_user_agreement" />
     <item
-        android:id="@+id/menu_user_agreement"
-        android:checkable="false"
-        android:title="@string/menu_user_agreement" />
-    <item
         android:id="@+id/menu_language"
         android:checkable="false"
         android:title="@string/menu_language" />

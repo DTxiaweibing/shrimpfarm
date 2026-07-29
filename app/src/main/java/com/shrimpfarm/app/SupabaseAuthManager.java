@@ -281,7 +281,7 @@ public class SupabaseAuthManager {
                 JSONObject json = new JSONObject(respBody);
 
                 if (!response.isSuccessful()) {
-                    String msg = json.optString("error_description", json.optString("msg", "登录失败"));
+                    String msg = json.optString("error_description", json.optString("msg", context.getString(R.string.auth_login_failed)));
                     return new AuthResult(false, msg, null, null);
                 }
 
@@ -340,10 +340,10 @@ public class SupabaseAuthManager {
                 Thread t = new Thread(() -> restoreFromCloud(), "SupabaseAuth-restoreCloud");
                 t.setDaemon(true);
                 t.start();
-                return new AuthResult(true, "登录成功", currentNickname, userEmail);
+                return new AuthResult(true, context.getString(R.string.auth_login_success), currentNickname, userEmail);
             }
         } catch (Exception e) {
-            return new AuthResult(false, "网络错误: " + e.getMessage(), null, null);
+            return new AuthResult(false, context.getString(R.string.error_network) + e.getMessage(), null, null);
         }
     }
 
@@ -446,7 +446,7 @@ public class SupabaseAuthManager {
             fields.put("webdav_password", encrypt(password));
             return updateMetadataFields(fields);
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
@@ -462,14 +462,14 @@ public class SupabaseAuthManager {
             meta.remove("webdav_password");
             return putUserMetadata(meta);
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
     public String loadWebDavFromCloud() {
         try {
             JSONObject cur = getCurrentUser();
-            if (cur == null) return "获取用户信息失败";
+            if (cur == null) return context.getString(R.string.auth_get_user_failed);
             JSONObject meta = cur.optJSONObject("user_metadata");
             if (meta != null) {
                 String wa = meta.optString("webdav_account", "");
@@ -488,7 +488,7 @@ public class SupabaseAuthManager {
             }
             return null;
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
@@ -518,14 +518,14 @@ public class SupabaseAuthManager {
             fields.put(key, value);
             return updateMetadataFields(fields);
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
     private String updateMetadataFields(JSONObject fields) {
         try {
             JSONObject cur = getCurrentUser();
-            if (cur == null) return "无法获取当前用户信息，请检查网络";
+            if (cur == null) return context.getString(R.string.auth_cannot_get_user);
             JSONObject meta = cur.optJSONObject("user_metadata");
             if (meta == null) meta = new JSONObject();
             JSONArray keys = fields.names();
@@ -537,7 +537,7 @@ public class SupabaseAuthManager {
             }
             return putUserMetadata(meta);
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
@@ -582,12 +582,12 @@ public class SupabaseAuthManager {
                 String respBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     JSONObject json = new JSONObject(respBody);
-                    return json.optString("msg", json.optString("error_description", "保存失败"));
+                    return json.optString("msg", json.optString("error_description", context.getString(R.string.auth_save_failed)));
                 }
                 return null;
             }
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
@@ -613,7 +613,7 @@ public class SupabaseAuthManager {
                 JSONObject json = new JSONObject(respBody);
 
                 if (!response.isSuccessful()) {
-                    String msg = json.optString("msg", json.optString("error_description", "注册失败"));
+                    String msg = json.optString("msg", json.optString("error_description", context.getString(R.string.auth_register_failed)));
                     return new AuthResult(false, msg, null, null);
                 }
 
@@ -630,13 +630,13 @@ public class SupabaseAuthManager {
                             .apply();
                     saveCredentials(email, password);
                     syncRecorderToPrefs();
-                    return new AuthResult(true, "注册成功", nickname, email);
+                    return new AuthResult(true, context.getString(R.string.auth_register_success), nickname, email);
                 } else {
-                    return new AuthResult(true, "注册成功，请登录", null, email);
+                    return new AuthResult(true, context.getString(R.string.auth_register_success_login), null, email);
                 }
             }
         } catch (Exception e) {
-            return new AuthResult(false, "网络错误: " + e.getMessage(), null, null);
+            return new AuthResult(false, context.getString(R.string.error_network) + e.getMessage(), null, null);
         }
     }
 
@@ -658,10 +658,10 @@ public class SupabaseAuthManager {
                 }
                 String respBody = response.body() != null ? response.body().string() : "";
                 JSONObject json = new JSONObject(respBody);
-                return json.optString("msg", json.optString("error_description", "发送失败"));
+                return json.optString("msg", json.optString("error_description", context.getString(R.string.auth_send_failed)));
             }
         } catch (Exception e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
     }
 
@@ -689,13 +689,13 @@ public class SupabaseAuthManager {
                 .apply();
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                 .edit()
-                .putString("login_user_name", "未登录")
+                .putString("login_user_name", context.getString(R.string.status_not_logged_in))
                 .apply();
     }
 
     public String deleteAccount() {
         String token = getToken();
-        if (token.isEmpty()) return "未登录，无法注销";
+        if (token.isEmpty()) return context.getString(R.string.auth_not_logged_in_cannot_delete);
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -711,10 +711,10 @@ public class SupabaseAuthManager {
         try (Response resp = client.newCall(req).execute()) {
             if (!resp.isSuccessful() && resp.code() != 404) {
                 String body = resp.body() != null ? resp.body().string() : "";
-                return "删除失败 (" + resp.code() + "): " + body;
+                return context.getString(R.string.auth_delete_failed) + " (" + resp.code() + "): " + body;
             }
         } catch (java.io.IOException e) {
-            return "网络错误: " + e.getMessage();
+            return context.getString(R.string.error_network) + e.getMessage();
         }
 
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)

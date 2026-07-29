@@ -49,6 +49,7 @@ public class BasicDataActivity extends BaseActivity {
 
     private DatabaseHelper dbHelper;
     private String currentBatchId;
+    private static final String DATE_PLACEHOLDER = "选择日期";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,8 +80,8 @@ public class BasicDataActivity extends BaseActivity {
     }
 
     private void showNoBatchDialog() {
-        showStyledConfirmDialog("提示", "请先在批次管理中创建至少一个批次",
-            new String[]{"退出", "去创建"},
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.basic_msg_no_batch),
+            new String[]{getString(R.string.btn_quit), getString(R.string.basic_btn_goto_create)},
             new int[]{0xFF666666, 0xFF4CAF50},
             new DialogInterface.OnClickListener[]{
                 (dialog, which) -> finish(),
@@ -129,13 +130,13 @@ public class BasicDataActivity extends BaseActivity {
 
     private boolean isWaterPrepDateSet() {
         String date = tvWaterPrepDate.getText().toString().trim();
-        return !date.isEmpty() && !date.equals("选择日期");
+        return !date.isEmpty() && !date.equals(DATE_PLACEHOLDER);
     }
 
     private void selectTab(int index) {
         if (index != 0 && !isWaterPrepDateSet()) {
-            showStyledConfirmDialog("提示", "请先在基础数据中设置做水日",
-                    new String[]{"确定"}, null, null);
+            showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.basic_msg_no_water_prep),
+                    new String[]{getString(R.string.btn_ok)}, null, null);
             return;
         }
 
@@ -163,7 +164,7 @@ public class BasicDataActivity extends BaseActivity {
         etSeedBrand.setText(dbHelper.getBasicData(currentBatchId, "seed_brand"));
         etFeedBrand.setText(dbHelper.getBasicData(currentBatchId, "feed_brand"));
         String savedDate = dbHelper.getBasicData(currentBatchId, "stocking_date");
-        tvStockingDate.setText(savedDate.isEmpty() ? "选择日期" : savedDate);
+        tvStockingDate.setText(savedDate.isEmpty() ? DATE_PLACEHOLDER : savedDate);
         etPondCount.setText(dbHelper.getBasicData(currentBatchId, "pond_count"));
         etPondLength.setText(dbHelper.getBasicData(currentBatchId, "pond_length"));
         etAeratorCount.setText(dbHelper.getBasicData(currentBatchId, "aerator_count"));
@@ -183,8 +184,8 @@ public class BasicDataActivity extends BaseActivity {
         });
 
         String savedWaterPrep = dbHelper.getBasicData(currentBatchId, "water_prep_date");
-        boolean hasWaterPrep = !savedWaterPrep.isEmpty() && !"选择日期".equals(savedWaterPrep);
-        tvWaterPrepDate.setText(hasWaterPrep ? savedWaterPrep : "选择日期");
+        boolean hasWaterPrep = !savedWaterPrep.isEmpty() && !DATE_PLACEHOLDER.equals(savedWaterPrep);
+        tvWaterPrepDate.setText(hasWaterPrep ? savedWaterPrep : DATE_PLACEHOLDER);
 
         if (hasWaterPrep) {
             tvWaterPrepDate.setTextColor(0xFFAAAAAA);
@@ -265,9 +266,9 @@ public class BasicDataActivity extends BaseActivity {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("duplicate_warning", false)) {
             prefs.edit().remove("duplicate_warning").apply();
-            showStyledConfirmDialog("提示",
-                    "上一次输入由于相似度过高未被记录",
-                    new String[]{"确定"}, null, null);
+            showStyledConfirmDialog(getString(R.string.basic_title_prompt),
+                    getString(R.string.basic_msg_duplicate_warning),
+                    new String[]{getString(R.string.btn_ok)}, null, null);
         }
     }
 
@@ -390,7 +391,7 @@ public class BasicDataActivity extends BaseActivity {
             holder.btnTag.setOnClickListener(v -> {
                 String currentName = cachedNames.get(position);
                 if (currentName == null || currentName.trim().isEmpty()) {
-                    Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BasicDataActivity.this, getString(R.string.basic_toast_enter_name), Toast.LENGTH_SHORT).show();
                     return;
                 }
                 if (holder.layoutTags.getVisibility() == View.VISIBLE) {
@@ -457,7 +458,7 @@ public class BasicDataActivity extends BaseActivity {
             // 有勾选标签时禁止编辑名称
             holder.etPresetName.setOnTouchListener((v, event) -> {
                 if (event.getAction() == MotionEvent.ACTION_UP && !TextUtils.isEmpty(cachedTags.get(position))) {
-                    BasicDataActivity.this.showStyledConfirmDialog("提示", "请取消勾选标签后在修改内容", new String[]{"确定"}, null, null);
+                    BasicDataActivity.this.showStyledConfirmDialog(getString(R.string.basic_title_prompt), getString(R.string.basic_msg_uncheck_tag), new String[]{getString(R.string.btn_ok)}, null, null);
                     return true;
                 }
                 return false;
@@ -496,8 +497,8 @@ public class BasicDataActivity extends BaseActivity {
         private void buildTagCheckBoxes(ViewHolder holder, int position) {
             holder.tagsContainer.removeAllViews();
             String[] tagArray = isMix ?
-                    new String[]{"护肠类","保肝类","中药排毒类","营养类","防治弧菌","补钙","诱食"} :
-                    new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻","肥水类"};
+                    getResources().getStringArray(R.array.basic_tags_feed) :
+                    getResources().getStringArray(R.array.basic_tags_water);
             Set<String> selectedTags = loadSelectedTags(position);
             List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
             String savedPureTags = cachedTags.get(position);
@@ -531,7 +532,7 @@ public class BasicDataActivity extends BaseActivity {
                 cb.setChecked(selectedTags.contains(allTags.get(i)));
                 cb.setOnCheckedChangeListener((buttonView, isChecked) -> {
                     if (isChecked && etPresetName.getText().toString().trim().isEmpty()) {
-                        Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(BasicDataActivity.this, getString(R.string.basic_toast_enter_name), Toast.LENGTH_SHORT).show();
                         buttonView.setChecked(false);
                         return;
                     }
@@ -555,7 +556,7 @@ public class BasicDataActivity extends BaseActivity {
 
         private void addCustomButton(ViewHolder holder, int position, Set<String> selectedTags, int maxPerRow) {
             Button btnCustom = new Button(BasicDataActivity.this, null, android.R.attr.borderlessButtonStyle);
-            btnCustom.setText("+自定义");
+            btnCustom.setText(getString(R.string.basic_btn_custom_tag));
             btnCustom.setTextSize(14);
             btnCustom.setTextColor(0xFF2D8C42);
             btnCustom.setBackgroundResource(R.drawable.bg_button_secondary);
@@ -566,7 +567,7 @@ public class BasicDataActivity extends BaseActivity {
             btnCustom.setPadding(dpToPx(10), dpToPx(2), dpToPx(10), dpToPx(2));
             btnCustom.setOnClickListener(v -> {
                 if (holder.etPresetName.getText().toString().trim().isEmpty()) {
-                    Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BasicDataActivity.this, getString(R.string.basic_toast_enter_name), Toast.LENGTH_SHORT).show();
                     return;
                 }
                 removeFoldTimer(position);
@@ -589,8 +590,8 @@ public class BasicDataActivity extends BaseActivity {
 
         private void refreshTagCheckBoxes(ViewHolder holder, int position) {
             String[] tagArray = isMix ?
-                    new String[]{"护肠类","保肝类","中药排毒类","营养类","防治弧菌","补钙","诱食"} :
-                    new String[]{"解毒类","抗应激类","营养类","改底类","有益菌类","藻种","调pH","补硬度","补碱度","防治弧菌","保肝类","增氧","遮光控藻","肥水类"};
+                    getResources().getStringArray(R.array.basic_tags_feed) :
+                    getResources().getStringArray(R.array.basic_tags_water);
             final Set<String> selectedTags = loadSelectedTags(position);
             final List<String> allTags = new ArrayList<>(Arrays.asList(tagArray));
             String savedPureTags = cachedTags.get(position);
@@ -629,7 +630,7 @@ public class BasicDataActivity extends BaseActivity {
                         cb.setChecked(selectedTags.contains(tagName));
                         cb.setOnCheckedChangeListener((buttonView, isChecked) -> {
                             if (isChecked && etPresetName.getText().toString().trim().isEmpty()) {
-                                Toast.makeText(BasicDataActivity.this, "请先输入动保名称", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(BasicDataActivity.this, getString(R.string.basic_toast_enter_name), Toast.LENGTH_SHORT).show();
                                 buttonView.setChecked(false);
                                 return;
                             }
@@ -664,10 +665,10 @@ public class BasicDataActivity extends BaseActivity {
             final EditText[] inputHolder = new EditText[1];
             inputHolder[0] = DialogHelper.showStyledInputDialog(
                 BasicDataActivity.this,
-                "添加自定义标签",
-                "请输入标签名",
+                getString(R.string.basic_title_custom_tag),
+                getString(R.string.basic_msg_enter_tag_name),
                 null,
-                new String[]{"取消", "确定"},
+                new String[]{getString(R.string.btn_cancel), getString(R.string.btn_ok)},
                 new DialogInterface.OnClickListener[]{
                     null,
                     (dialog, which) -> {
@@ -690,7 +691,7 @@ public class BasicDataActivity extends BaseActivity {
 
         private void updateTagButton(Button btn, String tags, boolean hasName) {
     btn.setTextSize(14);	
-    String prefix = isMix ? "拌料动保" : "调水动保";
+    String prefix = isMix ? getString(R.string.basic_label_feed_medicine) : getString(R.string.basic_label_water_medicine);
     if (!hasName) {
         btn.setText(getString(R.string.tag_btn_dot, prefix));
         btn.setTextColor(0xFF000000);
@@ -764,9 +765,9 @@ public class BasicDataActivity extends BaseActivity {
                         notifyDataSetChanged();
                         clearEditTextAt(position);
                         if (!BasicDataActivity.this.isFinishing() && !BasicDataActivity.this.isDestroyed()) {
-                            showStyledConfirmDialog("提示",
-                                    String.format(java.util.Locale.ROOT, "与%02d号标签相似度过高", i + 1),
-                                    new String[]{"确定"}, null, null);
+                            showStyledConfirmDialog(getString(R.string.basic_title_prompt),
+                                    String.format(java.util.Locale.ROOT, getString(R.string.basic_msg_similar_to_tag), i + 1),
+                                    new String[]{getString(R.string.btn_ok)}, null, null);
                         }
                         return true;
                     }

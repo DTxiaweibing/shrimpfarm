@@ -68,7 +68,7 @@ public class WatermarkFrameLayout extends FrameLayout {
         if (showWatermark && !buttonAdded && getChildCount() > 0) {
             buttonAdded = true;
             upgradeBtn = new TextView(getContext());
-            upgradeBtn.setText("升级正版");
+            upgradeBtn.setText(getContext().getString(R.string.watermark_upgrade));
             upgradeBtn.setTextSize(13);
             upgradeBtn.setTextColor(0xFFFFFFFF);
             upgradeBtn.setPadding(dpi(12), dpi(6), dpi(12), dpi(6));
