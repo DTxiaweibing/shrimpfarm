@@ -1,4 +1,4 @@
-# 小棚养虾 | Shrimp Farming
+# 小棚养虾 | ShrimpFarm
 
 Android 小棚养殖全流程管理 App | A full-cycle management app for shed-based shrimp farming.
 
