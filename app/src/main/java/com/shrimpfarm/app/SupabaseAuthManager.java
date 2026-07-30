@@ -259,6 +259,47 @@ public class SupabaseAuthManager {
         }
     }
 
+    public String getUserId() {
+        String token = getToken();
+        if (token.isEmpty()) return "";
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return "";
+            byte[] decoded = Base64.decode(parts[1], Base64.URL_SAFE);
+            String json = new String(decoded, "UTF-8");
+            return new JSONObject(json).optString("sub", "");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public String upsertProfile(String nickname) {
+        try {
+            String userId = getUserId();
+            String token = getToken();
+            if (userId.isEmpty() || token.isEmpty()) return "not logged in";
+            JSONObject body = new JSONObject();
+            body.put("id", userId);
+            body.put("nickname", nickname);
+            Request request = new Request.Builder()
+                    .url(SUPABASE_URL + "/rest/v1/profiles")
+                    .header("apikey", ANON_KEY)
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .header("Prefer", "resolution=merge-duplicates")
+                    .post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    return "upsertProfile failed: " + response.code();
+                }
+                return null;
+            }
+        } catch (Exception e) {
+            return context.getString(R.string.error_network) + e.getMessage();
+        }
+    }
+
     public AuthResult login(String email, String password) {
         return loginWithNickname(email, password, null);
     }
@@ -336,6 +377,10 @@ public class SupabaseAuthManager {
                 }
 
                 syncRecorderToPrefs();
+                String profileErr = upsertProfile(currentNickname);
+                if (profileErr != null) {
+                    android.util.Log.w("SupabaseAuth", "login upsertProfile: " + profileErr);
+                }
                 // try to restore latest data from cloud
                 Thread t = new Thread(() -> restoreFromCloud(), "SupabaseAuth-restoreCloud");
                 t.setDaemon(true);
@@ -348,7 +393,13 @@ public class SupabaseAuthManager {
     }
 
     public String updateNickname(String nickname) {
-        return updateMetadataField("nickname", nickname);
+        String err = updateMetadataField("nickname", nickname);
+        if (err != null) return err;
+        String profileErr = upsertProfile(nickname);
+        if (profileErr != null) {
+            android.util.Log.w("SupabaseAuth", "updateNickname upsertProfile: " + profileErr);
+        }
+        return null;
     }
 
     private static final int PBKDF2_ITERATIONS = 10000;
@@ -630,6 +681,10 @@ public class SupabaseAuthManager {
                             .apply();
                     saveCredentials(email, password);
                     syncRecorderToPrefs();
+                    String profileErr = upsertProfile(nickname);
+                    if (profileErr != null) {
+                        android.util.Log.w("SupabaseAuth", "register upsertProfile: " + profileErr);
+                    }
                     return new AuthResult(true, context.getString(R.string.auth_register_success), nickname, email);
                 } else {
                     return new AuthResult(true, context.getString(R.string.auth_register_success_login), null, email);
