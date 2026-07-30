@@ -4,7 +4,7 @@ Android 小棚养殖全流程管理 App | A full-cycle management app for shed-b
 
 [![Language: Java](https://img.shields.io/badge/language-Java-orange)](https://java.com)
 [![Min SDK: 28](https://img.shields.io/badge/minSdk-28-brightgreen)](https://developer.android.com/studio)
-[![Target SDK: 36](https://img.shields.io/badge/targetSdk-33-brightgreen)](https://developer.android.com/studio)
+[![Target SDK: 33](https://img.shields.io/badge/targetSdk-36-brightgreen)](https://developer.android.com/studio)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## 功能 | Features
