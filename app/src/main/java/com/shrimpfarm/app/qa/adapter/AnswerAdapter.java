@@ -77,6 +77,7 @@ public class AnswerAdapter extends RecyclerView.Adapter<AnswerAdapter.ViewHolder
     }
 
     public void removeItem(int position) {
+        if (position < 0 || position >= answers.size()) return;
         answers.remove(position);
         notifyItemRemoved(position);
     }

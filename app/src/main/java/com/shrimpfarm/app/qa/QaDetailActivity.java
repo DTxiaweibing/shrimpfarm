@@ -198,7 +198,8 @@ public class QaDetailActivity extends BaseActivity {
                 .setPositiveButton(R.string.qa_btn_delete, (d, w) -> {
                     api.deleteAnswer(answer.id, new QaApi.QaCallback<Void>() {
                         @Override public void onSuccess(Void result) {
-                            answerAdapter.removeItem(position);
+                            int idx = answers.indexOf(answer);
+                            if (idx >= 0) answerAdapter.removeItem(idx);
                             Toast.makeText(QaDetailActivity.this, R.string.qa_toast_deleted, Toast.LENGTH_SHORT).show();
                         }
                         @Override public void onError(String error) {
