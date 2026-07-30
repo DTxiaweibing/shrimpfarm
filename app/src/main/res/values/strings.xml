@@ -508,6 +508,9 @@
     <string name="gallery_selected_count">已选 %1$d/%2$d</string>
     <string name="gallery_select_images">选择图片</string>
     <string name="gallery_toast_max_reached">最多选择%1$d张</string>
+    <string name="qa_hint_title">输入问题标题</string>
+    <string name="qa_hint_content">详细描述你的问题…</string>
+    <string name="qa_add_image">添加图片</string>
     <string name="qa_toast_max_images">最多添加5张图片</string>
     <string name="qa_toast_enter_title">请输入问题标题</string>
     <string name="qa_toast_enter_question_content">请输入问题内容</string>

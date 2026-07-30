@@ -185,6 +185,7 @@ public class QaApi {
                             JSONObject obj = arr.getJSONObject(i);
                             String id = obj.optString("id", "");
                             String nick = obj.optString("nickname", "");
+                            if ("null".equals(nick)) nick = "";
                             if (!id.isEmpty()) {
                                 profileCache.put(id, nick);
                             }

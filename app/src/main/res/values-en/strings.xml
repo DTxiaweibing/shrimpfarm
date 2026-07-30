@@ -508,6 +508,9 @@
     <string name="gallery_selected_count">Selected %1$d/%2$d</string>
     <string name="gallery_select_images">Select images</string>
     <string name="gallery_toast_max_reached">Max %1$d images</string>
+    <string name="qa_hint_title">Enter a question title</string>
+    <string name="qa_hint_content">Describe your question in detail…</string>
+    <string name="qa_add_image">Add Image</string>
     <string name="qa_toast_max_images">Max 5 images</string>
     <string name="qa_toast_enter_title">Enter a title</string>
     <string name="qa_toast_enter_question_content">Enter question content</string>
