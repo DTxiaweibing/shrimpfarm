@@ -5,7 +5,7 @@ Android 小棚养殖全流程管理 App | A full-cycle management app for shed-b
 [![Language: Java](https://img.shields.io/badge/language-Java-orange)](https://java.com)
 [![Min SDK: 28](https://img.shields.io/badge/minSdk-28-brightgreen)](https://developer.android.com/studio)
 [![Target SDK: 33](https://img.shields.io/badge/targetSdk-36-brightgreen)](https://developer.android.com/studio)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
 ## 功能 | Features
 
@@ -88,6 +88,12 @@ res/
 ├── values-en/strings.xml      # 英文文案
 └── assets/                    # 帮助页 HTML（中/英）
 ```
+
+## F-Droid
+
+[![F-Droid](https://img.shields.io/badge/F--Droid-available-brightgreen)](https://f-droid.org/)
+
+此应用已上架 F-Droid。由于依赖 Supabase 后端服务，标记为 **Non-Free-Networks** Anti-feature。
 
 ## 国际化 | Internationalization
 

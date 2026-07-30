@@ -1,0 +1,19 @@
+A comprehensive shrimp farming management app for small-scale shed (温室小棚) operations.
+
+Features:
+- Multi-batch management with independent lifecycle tracking
+- Daily feeding records (breakfast/lunch/dinner/night snack)
+- Water quality monitoring: pH, ammonia, nitrite, alkalinity, H2S, ORP, DO
+- Pond inspection with feed tray checks and growth advice
+- Feed mixing calculator with dynamic column configuration
+- Data analysis with feeding/water quality trend charts
+- Task planning and reminders
+- Seawater density calculator (EOS-80)
+- Water quality regulation dashboard
+- AI-powered Q&A with knowledge base (RAG)
+- Rule-based expert system for water quality alerts
+- Market price tracking
+- i18n: Chinese & English
+- Cloud backup via WebDAV (坚果云)
+
+Note: This app requires a Supabase backend service to function fully.
