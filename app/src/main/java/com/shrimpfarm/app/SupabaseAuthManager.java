@@ -176,28 +176,38 @@ public class SupabaseAuthManager {
     }
 
     /**
-     * 登录成功后保存加密的账号密码，用于后续自动重新登录
+     * 登录成功后保存加密的账号密码，用于后续自动重新登录。
+     * 密钥来自 Android Keystore（不可导出，硬件级保护）。
      */
     private void saveCredentials(String email, String password) {
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putString(KEY_ENCRYPTED_EMAIL, encrypt(email))
-                .putString(KEY_ENCRYPTED_PASSWORD, encrypt(password))
+                .putString(KEY_ENCRYPTED_EMAIL, com.shrimpfarm.app.utils.KeystoreHelper.encrypt(email))
+                .putString(KEY_ENCRYPTED_PASSWORD, com.shrimpfarm.app.utils.KeystoreHelper.encrypt(password))
                 .apply();
     }
 
     private String getSavedEmail() {
         String raw = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .getString(KEY_ENCRYPTED_EMAIL, "");
-        String decrypted = decrypt(raw);
-        return decrypted.isEmpty() && !raw.isEmpty() ? raw : decrypted;
+        return decryptLocalOrLegacy(raw);
     }
 
     private String getSavedPassword() {
         String raw = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .getString(KEY_ENCRYPTED_PASSWORD, "");
-        String decrypted = decrypt(raw);
-        return decrypted.isEmpty() && !raw.isEmpty() ? raw : decrypted;
+        return decryptLocalOrLegacy(raw);
+    }
+
+    /**
+     * 优先用 Keystore 解密；若数据是旧版本算法加密则回退到旧解密逻辑。
+     */
+    private String decryptLocalOrLegacy(String raw) {
+        if (raw.isEmpty()) return "";
+        String decrypted = com.shrimpfarm.app.utils.KeystoreHelper.decrypt(raw);
+        if (!decrypted.isEmpty()) return decrypted;
+        String legacy = decrypt(raw);
+        return legacy.isEmpty() && !raw.isEmpty() ? raw : legacy;
     }
 
     public String getRefreshToken() {

@@ -8,8 +8,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// XOR-obfuscated "非官方正版" (UTF-8: E9 9D 9E E5 AE 98 E6 96 B9 E6 AD A3 E7 89 88)
-// key "NM3LOALN" (4E 4D 33 4C 30 41 4C 4E)
+// XOR-obfuscated watermark text (常量明文不写入源码)
 static const unsigned char WATERMARK_ENC[] = {
     0xA7, 0xD0, 0xAD, 0xA9, 0x9E, 0xD9, 0xAA, 0xD8,
     0xF7, 0xAB, 0x9E, 0xEF, 0xD7, 0xC8, 0xC4
@@ -124,8 +123,7 @@ Java_com_shrimpfarm_app_WatermarkNative_renderWatermark(
     LOGI("Rendered %d watermark tiles", count);
 }
 
-// XOR-obfuscated "ShrimpFarm2024!!" (ASCII: 53 68 72 69 6D 70 46 61 72 6D 32 30 32 34 21 21)
-// key "NM3L0ALN" (4E 4D 33 4C 30 41 4C 4E)
+// XOR-obfuscated root key for local AES (常量明文不写入源码)
 static const unsigned char ROOT_KEY_ENC[] = {
     0x1D, 0x25, 0x41, 0x25, 0x5D, 0x31, 0x0A, 0x2F,
     0x3C, 0x20, 0x01, 0x7C, 0x02, 0x75, 0x6D, 0x6F
@@ -144,7 +142,7 @@ Java_com_shrimpfarm_app_WatermarkNative_getRootKey(JNIEnv *env, jclass clazz) {
 }
 
 // XOR-obfuscated official APK signing fingerprint (SHA-256 hex)
-// key "NM3L0ALN" (4E 4D 33 4C 30 41 4C 4E)
+// 常量明文不写入源码
 static const unsigned char FINGERPRINT_ENC[] = {
     0x2A, 0x7B, 0x0B, 0x2D, 0x53, 0x72, 0x28, 0x76,
     0x7E, 0x7D, 0x57, 0x2D, 0x05, 0x76, 0x2E, 0x28,
@@ -169,7 +167,7 @@ Java_com_shrimpfarm_app_WatermarkNative_getOfficialFingerprint(JNIEnv *env, jcla
 }
 
 // XOR-obfuscated AI API key fallback (remote fetch失败时使用，用完即销毁)
-// key "NM3L0ALN" (4E 4D 33 4C 30 41 4C 4E)
+// 常量明文不写入源码
 static const unsigned char AI_FALLBACK_KEY_ENC[] = {
     0x2B, 0x7C, 0x55, 0x7C, 0x51, 0x77, 0x74, 0x7E,
     0x2F, 0x2B, 0x00, 0x7F, 0x04, 0x70, 0x75, 0x7A,

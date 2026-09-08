@@ -13,7 +13,7 @@ public class EncryptUtils {
 
     private static String KEY = null;
 
-    private static String getKey() {
+    private static synchronized String getKey() {
         if (KEY == null) {
             KEY = com.shrimpfarm.app.WatermarkNative.getRootKey();
             if (KEY == null || KEY.getBytes(java.nio.charset.StandardCharsets.UTF_8).length != 16) {
