@@ -1,11 +1,9 @@
 package com.shrimpfarm.app;
 
 import android.app.Dialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -54,6 +52,9 @@ import com.shrimpfarm.app.utils.LocaleHelper;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import android.annotation.SuppressLint;
 import androidx.annotation.NonNull;
@@ -85,7 +86,6 @@ public class MainActivity extends BaseActivity {
     private ViewGroup layoutAlertBars;
     private LinearLayout alertBarsContainer;
     private LinearLayout layoutTaskBars;
-    private BroadcastReceiver taskUpdateReceiver;
 
     // 功能网格数据
     private final int[] funcIcons = {
@@ -108,6 +108,13 @@ public class MainActivity extends BaseActivity {
     private ExcelBasedFeedConversion fcrModel;
     private SharedPreferences alertPrefs;
     private static final String PREF_DISMISSED_ALERTS = "dismissed_alerts";
+
+    // 后台预计算缓存（消除主线程 DB 查询）
+    private volatile int cachedStockingDay = 0;
+    private volatile double cachedTotalFeed = 0;
+    private volatile double cachedEstimate = 0;
+    private ExecutorService precomputeExecutor;
+    private Future<?> precomputeTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -645,12 +652,13 @@ public class MainActivity extends BaseActivity {
                 if (position == 0 && currentBatchName != null && !currentBatchName.isEmpty()) {
                     TextView tvData = view.findViewById(R.id.tv_data);
                     if (tvData != null) {
-                        int day = dbHelper.getStockingDay(prefs.getString("current_batch_id", ""));
-                        if (day > 0) {
-                            tvData.setText(String.valueOf(day));
+                        if (cachedStockingDay > 0) {
+                            tvData.setText(String.valueOf(cachedStockingDay));
                             tvData.setTextColor(0xFFFF0000);
                             tvData.setTextSize(20);
                             tvData.setVisibility(View.VISIBLE);
+                        } else {
+                            tvData.setVisibility(View.GONE);
                         }
                     }
                 }
@@ -661,11 +669,11 @@ public class MainActivity extends BaseActivity {
                     if (tvData != null && ivIcon != null) {
                         tvData.setVisibility(View.VISIBLE);
                         if (prefs.getBoolean(PREF_SMART_PREFIX + "estimate", true)) {
-                            updateEstimateButtonData(tvData, tvName);
+                            tvData.setText(String.format(Locale.getDefault(), "%.1f", cachedEstimate));
+                            tvName.setText(getString(R.string.main_estimate_yield));
                             ivIcon.setOnClickListener(v -> toggleEstimateDisplay(prefs, tvData, tvName));
                         } else {
-                            double total = calculateTotalFeed(prefs.getString("current_batch_id", ""));
-                            tvData.setText(String.format(Locale.getDefault(), "%.1f", total));
+                            tvData.setText(String.format(Locale.getDefault(), "%.1f", cachedTotalFeed));
                             tvName.setText(getString(R.string.main_feed_total));
                             ivIcon.setOnClickListener(null);
                         }
@@ -700,6 +708,70 @@ public class MainActivity extends BaseActivity {
         if (tvRecorderName != null) tvRecorderName.setText(String.format(Locale.getDefault(), getString(R.string.main_recorder_format), currentRecorder));
         if (toolbarBatchName != null) toolbarBatchName.setText(displayName);
         adjustNavigationViewWidth();
+    }
+
+    private void precomputeMainData() {
+        String batchId = prefs.getString("current_batch_id", "");
+        if (batchId.isEmpty()) { cachedStockingDay = 0; cachedTotalFeed = 0; cachedEstimate = 0; return; }
+        if (dbHelper == null) dbHelper = DatabaseHelper.getInstance(this);
+
+        if (precomputeTask != null && !precomputeTask.isDone()) precomputeTask.cancel(false);
+        if (precomputeExecutor == null || precomputeExecutor.isShutdown()) {
+            precomputeExecutor = Executors.newSingleThreadExecutor(r -> new Thread(r, "MainData-precompute"));
+        }
+
+        precomputeTask = precomputeExecutor.submit(() -> {
+            int stockingDay = dbHelper.getStockingDay(batchId);
+            double totalFeed = 0;
+            double estimate = 0;
+            Cursor cursor = null;
+            try {
+                Calendar cal = Calendar.getInstance();
+                String todayStr = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(cal.getTime());
+                cursor = dbHelper.getReadableDatabase().rawQuery(
+                        "SELECT " + DatabaseHelper.COLUMN_BREAKFAST + ", " +
+                        DatabaseHelper.COLUMN_LUNCH + ", " +
+                        DatabaseHelper.COLUMN_DINNER + ", " +
+                        DatabaseHelper.COLUMN_NIGHT_SNACK +
+                        " FROM " + DatabaseHelper.TABLE_DAILY_RECORDS +
+                        " WHERE " + DatabaseHelper.COLUMN_BATCH_ID + "=? AND " +
+                        DatabaseHelper.COLUMN_DATE + "<=?",
+                        new String[]{batchId, todayStr});
+                while (cursor.moveToNext()) {
+                    for (int i = 0; i < 4; i++) {
+                        String encVal = cursor.getString(i);
+                        if (encVal != null && !encVal.isEmpty()) {
+                            try {
+                                String val = EncryptUtils.decrypt(encVal);
+                                if (val != null && !val.isEmpty()) {
+                                    totalFeed += Double.parseDouble(val);
+                                }
+                            } catch (Exception ignored) { /* ignored */ }
+                        }
+                    }
+                }
+            } catch (Exception ignored) { /* ignored */ }
+            finally { if (cursor != null && !cursor.isClosed()) cursor.close(); }
+
+            if (totalFeed > 0 && stockingDay > 0) {
+                String seedBrand = dbHelper.getBasicData(batchId, "seed_brand");
+                String feedBrand = dbHelper.getBasicData(batchId, "feed_brand");
+                String stockingDate = dbHelper.getBasicData(batchId, "stocking_date");
+                if (!stockingDate.isEmpty() && !getString(R.string.main_select_date).equals(stockingDate)) {
+                    int days = calculateDaysSinceStocking(stockingDate);
+                    estimate = fcrModel.estimateYield((float) totalFeed, days, seedBrand, feedBrand);
+                } else {
+                    estimate = totalFeed * 0.8;
+                }
+            }
+
+            cachedStockingDay = stockingDay;
+            cachedTotalFeed = totalFeed;
+            cachedEstimate = estimate;
+            runOnUiThread(() -> {
+                if (gvFunctions != null) gvFunctions.invalidateViews();
+            });
+        });
     }
 
     private void loadPlanTasks() {
@@ -913,7 +985,7 @@ public class MainActivity extends BaseActivity {
         currentRecorder = prefs.getString("login_user_name", "");
         updateBatchDisplay();
         setupFunctionGrid();
-        refreshEstimateData();
+        precomputeMainData();
         if (bannerManager != null) {
             bannerManager.onResume();
         }
@@ -921,54 +993,8 @@ public class MainActivity extends BaseActivity {
             startupManager.run();
         }
         loadPlanTasks();
-
-        if (taskUpdateReceiver == null) {
-            taskUpdateReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    loadPlanTasks();
-                }
-            };
-            IntentFilter filter = new IntentFilter("com.shrimpfarm.app.TASK_UPDATE");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(taskUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                registerReceiver(taskUpdateReceiver, filter);
-            }
-        }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (taskUpdateReceiver != null) {
-            try { unregisterReceiver(taskUpdateReceiver); } catch (Exception ignored) { /* ignored */ }
-            taskUpdateReceiver = null;
-        }
-    }
-
-    private void refreshEstimateData() {
-        if (gvFunctions == null || gvFunctions.getAdapter() == null) return;
-        for (int i = 0; i < gvFunctions.getChildCount(); i++) {
-            View view = gvFunctions.getChildAt(i);
-            if (view != null) {
-                TextView tvData = view.findViewById(R.id.tv_data);
-                TextView tvName = view.findViewById(R.id.tv_name);
-                if (tvData != null && tvData.getVisibility() == View.VISIBLE) {
-                    if (i == 0) {
-                        int day = dbHelper.getStockingDay(prefs.getString("current_batch_id", ""));
-                        if (day > 0) {
-                            tvData.setText(String.valueOf(day));
-                            tvData.setTextColor(0xFFFF0000);
-                            tvData.setTextSize(20);
-                        }
-                    } else {
-                        updateEstimateButtonData(tvData, tvName);
-                    }
-                }
-            }
-        }
-    }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
@@ -979,6 +1005,7 @@ public class MainActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (precomputeExecutor != null) precomputeExecutor.shutdownNow();
         if (bannerManager != null) {
             bannerManager.destroy();
         }

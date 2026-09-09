@@ -151,8 +151,5 @@
             android:name=".AssetWebViewActivity"
             android:screenOrientation="portrait"
             android:exported="false" />
-        <service
-            android:name=".PlanTaskService"
-            android:exported="false" />
     </application>
 </manifest>
