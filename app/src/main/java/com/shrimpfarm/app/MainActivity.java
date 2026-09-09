@@ -115,6 +115,8 @@ public class MainActivity extends BaseActivity {
     private volatile double cachedEstimate = 0;
     private ExecutorService precomputeExecutor;
     private Future<?> precomputeTask;
+    private volatile long planTaskSequence = 0;
+    private String lastGridKey = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -696,10 +698,11 @@ public class MainActivity extends BaseActivity {
                     case 6: return;
                     case 7: intent = new Intent(MainActivity.this, HelpActivity.class); break;
                     case 8: intent = new Intent(MainActivity.this, ExpertActivity.class); break;
-                    case 9: intent = new Intent(MainActivity.this, com.shrimpfarm.app.hq.HqActivity.class); break;
+case 9: intent = new Intent(MainActivity.this, com.shrimpfarm.app.hq.HqActivity.class); break;
                 }
                 if (intent != null) startActivity(intent);
         });
+        lastGridKey = currentBatchName;
     }
 
     private void updateBatchDisplay() {
@@ -787,12 +790,17 @@ public class MainActivity extends BaseActivity {
             scrollTaskBars.setVisibility(View.INVISIBLE); return;
         }
 
-        Thread t = new Thread(() -> {
+        if (precomputeExecutor == null || precomputeExecutor.isShutdown()) {
+            precomputeExecutor = Executors.newSingleThreadExecutor(r -> new Thread(r, "MainData-precompute"));
+        }
+        final long seq = ++planTaskSequence;
+        precomputeExecutor.execute(() -> {
             List<AlertItem> alerts = AlertGenerator.generate(MainActivity.this, dbHelper, sp, batchId);
             Set<String> dismissed = alertPrefs.getStringSet(PREF_DISMISSED_ALERTS, new HashSet<>());
             List<TaskScheduler.TaskItem> tasks = TaskScheduler.computeTasks(MainActivity.this, dbHelper, batchId);
 
             runOnUiThread(() -> {
+                if (seq != planTaskSequence) return; // 已有更新的刷新任务，丢弃过期结果
                 int alertCount = 0;
                 for (AlertItem alert : alerts) {
                     if (!dismissed.contains(String.valueOf(alert.id))) {
@@ -824,9 +832,7 @@ public class MainActivity extends BaseActivity {
                     scrollTaskBars.setVisibility(View.INVISIBLE);
                 }
             });
-        }, "MainActivity-loadPlanTasks");
-        t.setDaemon(true);
-        t.start();
+        });
     }
 
     private View buildTaskBar(final long taskId, final String batchId, String label,
@@ -976,7 +982,6 @@ public class MainActivity extends BaseActivity {
     }
 
     @Override
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     protected void onResume() {
         super.onResume();
         if (!prefs.getBoolean("consent_accepted", false)) return;
@@ -984,7 +989,9 @@ public class MainActivity extends BaseActivity {
         currentBatchName = prefs.getString("current_batch_name", "");
         currentRecorder = prefs.getString("login_user_name", "");
         updateBatchDisplay();
-        setupFunctionGrid();
+        if (!currentBatchName.equals(lastGridKey)) {
+            setupFunctionGrid();
+        }
         precomputeMainData();
         if (bannerManager != null) {
             bannerManager.onResume();
