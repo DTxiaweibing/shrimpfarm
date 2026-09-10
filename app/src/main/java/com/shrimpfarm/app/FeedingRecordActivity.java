@@ -40,9 +40,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class FeedingRecordActivity extends BaseActivity {
 
@@ -243,6 +245,13 @@ public class FeedingRecordActivity extends BaseActivity {
                     loadMoreData();
                 }
             }
+
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    syncVisibleRows();
+                }
+            }
         });
     }
 
@@ -328,12 +337,9 @@ public class FeedingRecordActivity extends BaseActivity {
     // ==================== Scroll sync ====================
 
     private void syncVisibleRows() {
-        for (int i = 0; i < recordRecyclerView.getChildCount(); i++) {
-            View child = recordRecyclerView.getChildAt(i);
-            RecyclerView.ViewHolder vh = recordRecyclerView.getChildViewHolder(child);
-            if (vh instanceof RecordViewHolder) {
-                ((RecordViewHolder) vh).rowScroll.scrollTo(masterScrollX, 0);
-            }
+        if (adapter == null) return;
+        for (RecordViewHolder vh : adapter.attachedHolders) {
+            vh.rowScroll.scrollTo(masterScrollX, 0);
         }
     }
 
@@ -499,10 +505,25 @@ public class FeedingRecordActivity extends BaseActivity {
     // ==================== Adapter ====================
 
     class RecordAdapter extends RecyclerView.Adapter<RecordViewHolder> {
+        final Set<RecordViewHolder> attachedHolders = new HashSet<>();
 
         @Override
         public int getItemCount() {
             return allRecords.size();
+        }
+
+        @Override
+        public void onViewAttachedToWindow(@NonNull RecordViewHolder holder) {
+            super.onViewAttachedToWindow(holder);
+            attachedHolders.add(holder);
+            // 复用/回收后重新挂载的行，强制拉回全局滚动位置，杜绝单行错位
+            holder.rowScroll.scrollTo(masterScrollX, 0);
+        }
+
+        @Override
+        public void onViewDetachedFromWindow(@NonNull RecordViewHolder holder) {
+            super.onViewDetachedFromWindow(holder);
+            attachedHolders.remove(holder);
         }
 
         @Override
@@ -622,6 +643,15 @@ public class FeedingRecordActivity extends BaseActivity {
                         break;
                     case MotionEvent.ACTION_UP:
                         v.performClick();
+                        // 拖动结束兜底：若互斥窗口吞掉了该行最后几帧滚动，
+                        // 以该行真实 scrollX 为基准立即全量对齐，避免单行错位
+                        isSyncingScroll = true;
+                        masterScrollX = Math.max(0, v.getScrollX());
+                        headerScrollContainer.scrollTo(masterScrollX, 0);
+                        syncVisibleRows();
+                        isSyncingScroll = false;
+                        break;
+                    case MotionEvent.ACTION_CANCEL:
                         break;
                 }
                 return false;
@@ -667,10 +697,13 @@ public class FeedingRecordActivity extends BaseActivity {
                 }
             });
 
-            // Restore horizontal scroll position
-            isSyncingScroll = true;
-            holder.rowScroll.scrollTo(masterScrollX, 0);
-            isSyncingScroll = false;
+            // Restore horizontal scroll position（layout 完成后恢复，避免测量时序导致 clamp 失效）
+            final HorizontalScrollView rowScroll = holder.rowScroll;
+            rowScroll.post(() -> {
+                isSyncingScroll = true;
+                rowScroll.scrollTo(masterScrollX, 0);
+                isSyncingScroll = false;
+            });
         }
 
         // ---- Cell builders (called once per view creation) ----
