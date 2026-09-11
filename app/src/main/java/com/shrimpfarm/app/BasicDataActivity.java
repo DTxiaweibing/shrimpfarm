@@ -160,6 +160,20 @@ public class BasicDataActivity extends BaseActivity {
     }
 
     private void setupBasicDataTab() {
+        if (dbHelper.isBatchFinished(currentBatchId)) {
+            etSeedQuantity.setEnabled(false);
+            etSeedBrand.setEnabled(false);
+            etFeedBrand.setEnabled(false);
+            etPondCount.setEnabled(false);
+            etPondLength.setEnabled(false);
+            etAeratorCount.setEnabled(false);
+            etAerationPower.setEnabled(false);
+            tvStockingDate.setClickable(false);
+            tvStockingDate.setFocusable(false);
+            tvWaterPrepDate.setClickable(false);
+            tvWaterPrepDate.setFocusable(false);
+            Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();
+        }
         etSeedQuantity.setText(dbHelper.getBasicData(currentBatchId, "seed_quantity"));
         etSeedBrand.setText(dbHelper.getBasicData(currentBatchId, "seed_brand"));
         etFeedBrand.setText(dbHelper.getBasicData(currentBatchId, "feed_brand"));

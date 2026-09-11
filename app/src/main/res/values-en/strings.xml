@@ -549,6 +549,13 @@
     <string name="batch_confirm">Confirm</string>
     <string name="batch_toast_deleted">Batch and data deleted</string>
     <string name="batch_toast_cloud_deleted">Cloud backup synced deleted</string>
+    <string name="batch_btn_finish">Finish</string>
+    <string name="batch_title_finish">Finish Batch</string>
+    <string name="batch_msg_finish">Finish batch "%s"?\n\nAfter finishing, no more data (basic data, days, feeding records, feed check, water quality) can be recorded for this batch. This cannot be undone. Existing data remains viewable.</string>
+    <string name="batch_btn_confirm_finish">Finish</string>
+    <string name="batch_tag_finished">Finished</string>
+    <string name="batch_toast_finished">Batch "%s" finished</string>
+    <string name="batch_toast_finished_no_record">This batch is finished, cannot record data</string>
     <string name="indicator_ammonia">Ammonia</string>
     <string name="indicator_nitrite">Nitrite</string>
     <string name="indicator_do">Dissolved O2</string>

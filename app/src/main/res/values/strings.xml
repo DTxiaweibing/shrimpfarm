@@ -549,6 +549,13 @@
     <string name="batch_confirm">确定</string>
     <string name="batch_toast_deleted">批次及关联数据已删除</string>
     <string name="batch_toast_cloud_deleted">云端备份已同步删除</string>
+    <string name="batch_btn_finish">完结</string>
+    <string name="batch_title_finish">完结批次</string>
+    <string name="batch_msg_finish">确定要完结批次 "%s" 吗？\n\n完结后该批次将不能再记录基础数据、天数、记录表、查料表、水质检测等数据，且不可撤销。历史数据仍可正常查看。</string>
+    <string name="batch_btn_confirm_finish">确认完结</string>
+    <string name="batch_tag_finished">已完结</string>
+    <string name="batch_toast_finished">批次 "%s" 已完结</string>
+    <string name="batch_toast_finished_no_record">该批次已完结，无法再记录数据</string>
     <string name="indicator_ammonia">氨氮</string>
     <string name="indicator_nitrite">亚硝酸盐</string>
     <string name="indicator_do">溶解氧</string>

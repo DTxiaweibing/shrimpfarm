@@ -27,6 +27,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -346,6 +347,10 @@ public class FeedingRecordActivity extends BaseActivity {
     // ==================== Debounced save ====================
 
     private void scheduleSave(DayRecord record) {
+        if (dbHelper.isBatchFinished(currentBatchId)) {
+            Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();
+            return;
+        }
         String key = record.date;
         Runnable existing = pendingSaves.get(key);
         if (existing != null) debounceHandler.removeCallbacks(existing);

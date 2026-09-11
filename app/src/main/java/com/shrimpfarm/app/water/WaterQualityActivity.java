@@ -172,6 +172,10 @@ public class WaterQualityActivity extends BaseActivity {
     }
 
     private void saveData() {
+        if (dbHelper.isBatchFinished(currentBatchId)) {
+            Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();
+            return;
+        }
         String date = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
 
         String vibrio = etVibrio.getText().toString().trim();

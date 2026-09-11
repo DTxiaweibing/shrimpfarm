@@ -392,8 +392,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return AppIntegrityChecker.checkEverStarted;
     }
 
+    // ==================== 批次完结 ====================
+    private static final String BD_KEY_FINISHED = "_finished";
+    private static final String BD_KEY_FINISH_DATE = "_finish_date";
+
+    public void finishBatch(String batchId) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues flag = new ContentValues();
+        flag.put(COLUMN_BD_KEY, BD_KEY_FINISHED);
+        flag.put(COLUMN_BATCH_ID, batchId);
+        flag.put(COLUMN_BD_VALUE, EncryptUtils.encrypt("1"));
+        db.insertWithOnConflict(TABLE_BASIC_DATA, null, flag, SQLiteDatabase.CONFLICT_REPLACE);
+
+        String today = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(new java.util.Date());
+        ContentValues finDate = new ContentValues();
+        finDate.put(COLUMN_BD_KEY, BD_KEY_FINISH_DATE);
+        finDate.put(COLUMN_BATCH_ID, batchId);
+        finDate.put(COLUMN_BD_VALUE, EncryptUtils.encrypt(today));
+        db.insertWithOnConflict(TABLE_BASIC_DATA, null, finDate, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public boolean isBatchFinished(String batchId) {
+        if (batchId == null || batchId.isEmpty() || "_meta".equals(batchId)) return false;
+        String saved = getBasicData(batchId, BD_KEY_FINISHED);
+        return "1".equals(saved);
+    }
+
     public void insertFeedingStats(String batchId, String date, long avgDurationMillis, long recordTime) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_STATS_DATE, date);
@@ -406,6 +433,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // ==================== 查料分析表操作 ====================
     public void insertFeedingCheckAnalysis(String batchId, String date, double avgSeconds, double standardSeconds) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BATCH_ID, batchId);
@@ -422,6 +450,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                                    String maxTemp, String minTemp,
                                    String chlorine, String hydrogenSulfide, String orp) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_WQ_DATE, date);
@@ -452,6 +481,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // ==================== 基础数据表操作 ====================
     public void saveBasicData(String batchId, String key, String value) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BD_KEY, key);
@@ -479,6 +509,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // ==================== 拌料动保预设表操作 ====================
     public void saveMixPreset(String batchId, int row, String name, String tags) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MIX_ROW, row);
@@ -555,6 +586,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // ==================== 调水动保预设表操作 ====================
     public void saveWaterPreset(String batchId, int row, String name, String tags) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_WATER_ROW, row);
@@ -725,6 +757,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {
         if (!isSaveAllowed()) return;
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_DATE, record.date);
@@ -813,6 +846,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public void deleteCheckRecordsByDate(String batchId, String date) {
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         db.delete(TABLE_FEEDING_CHECK_RECORDS,
                 "batch_id = ? AND record_date = ?",
@@ -822,6 +856,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void insertCheckRecords(List<ContentValues> valuesList) {
         if (valuesList == null || valuesList.isEmpty()) return;
         if (!isSaveAllowed()) return;
+        String batchId = valuesList.get(0).getAsString("batch_id");
+        if (isBatchFinished(batchId)) return;
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -1195,8 +1231,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 if (parsed == null) continue;
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(parsed);
-                Calendar now = Calendar.getInstance();
-                long diff = now.getTimeInMillis() - cal.getTimeInMillis();
+                java.util.Date now = new java.util.Date();
+                String finishDateStr = getBasicData(batchId, BD_KEY_FINISH_DATE);
+                if (finishDateStr != null && !finishDateStr.isEmpty()) {
+                    try {
+                        java.util.Date finishDate = new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).parse(finishDateStr);
+                        if (finishDate != null && finishDate.before(now)) now = finishDate;
+                    } catch (Exception ignored) { /* ignored */ }
+                }
+                long diff = now.getTime() - cal.getTimeInMillis();
                 int days = (int) (diff / (1000 * 60 * 60 * 24)) + 1;
                 return Math.max(days, 1);
             } catch (Exception ignored) { /* ignored */ }

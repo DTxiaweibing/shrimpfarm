@@ -78,6 +78,7 @@ public class BatchManageActivity extends BaseActivity {
                     BatchItem item = new BatchItem();
                     item.id = obj.getString("id");
                     item.name = obj.getString("name");
+                    item.finished = obj.optBoolean("finished", false);
                     batchList.add(item);
                 }
             } catch (Exception e) {
@@ -110,6 +111,7 @@ public class BatchManageActivity extends BaseActivity {
                 org.json.JSONObject obj = new org.json.JSONObject();
                 obj.put("id", item.id);
                 obj.put("name", item.name);
+                obj.put("finished", item.finished);
                 jsonArray.put(obj);
             }
             String json = jsonArray.toString();
@@ -210,6 +212,26 @@ public class BatchManageActivity extends BaseActivity {
                 });
     }
 
+    private void confirmFinishBatch(final BatchItem batchItem) {
+        DialogHelper.showStyledConfirmDialog(this, getString(R.string.batch_title_finish),
+                getString(R.string.batch_msg_finish, batchItem.name),
+                new String[]{getString(R.string.basic_cancel), getString(R.string.batch_btn_confirm_finish)},
+                new int[]{0xFF666666, 0xFFE53935},
+                new DialogInterface.OnClickListener[]{
+                    null,
+                    (d, w) -> {
+                        batchItem.finished = true;
+                        saveBatchList();
+                        DatabaseHelper dbHelper = DatabaseHelper.getInstance(BatchManageActivity.this);
+                        dbHelper.finishBatch(batchItem.id);
+                        adapter.notifyDataSetChanged();
+                        Toast.makeText(BatchManageActivity.this,
+                                getString(R.string.batch_toast_finished, batchItem.name), Toast.LENGTH_SHORT).show();
+                    }
+                },
+                false);
+    }
+
     private void deleteCloudBackup(String batchName) {
         Toast.makeText(this, getString(R.string.batch_toast_cloud_deleted), Toast.LENGTH_SHORT).show();
     }
@@ -217,17 +239,22 @@ public class BatchManageActivity extends BaseActivity {
     private static class BatchItem {
         String id;
         String name;
+        boolean finished;
     }
 
     private class BatchAdapter extends BaseAdapter {
         class ViewHolder {
             TextView tvName;
+            TextView tvFinished;
             ImageView ivCheck;
             ImageView ivDelete;
+            Button btnFinish;
             ViewHolder(View v) {
                 tvName = v.findViewById(R.id.tv_batch_name);
+                tvFinished = v.findViewById(R.id.tv_finished);
                 ivCheck = v.findViewById(R.id.iv_check);
                 ivDelete = v.findViewById(R.id.iv_delete);
+                btnFinish = v.findViewById(R.id.btn_finish);
             }
         }
 
@@ -268,6 +295,21 @@ public class BatchManageActivity extends BaseActivity {
                 holder.ivCheck.setVisibility(View.GONE);
                 holder.tvName.setTextColor(0xFF333333);
             }
+
+            if (batch.finished) {
+                holder.tvFinished.setVisibility(View.VISIBLE);
+                holder.btnFinish.setVisibility(View.GONE);
+            } else {
+                holder.tvFinished.setVisibility(View.GONE);
+                holder.btnFinish.setVisibility(View.VISIBLE);
+            }
+
+            holder.btnFinish.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        confirmFinishBatch(batch);
+                    }
+                });
 
             holder.ivDelete.setOnClickListener(new View.OnClickListener() {
                     @Override

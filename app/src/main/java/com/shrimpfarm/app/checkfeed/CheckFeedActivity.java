@@ -560,6 +560,12 @@ public class CheckFeedActivity extends BaseActivity {
         String endTime = etEndTime.getText().toString().trim();
         if (startTime.isEmpty() || endTime.isEmpty()) return;
 
+        if (dbHelper.isBatchFinished(currentBatchId)) {
+            runOnUiThread(() -> Toast.makeText(CheckFeedActivity.this,
+                    getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show());
+            return;
+        }
+
         String recordDate = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(new Date());
 
         List<ContentValues> allRecords = new ArrayList<>();

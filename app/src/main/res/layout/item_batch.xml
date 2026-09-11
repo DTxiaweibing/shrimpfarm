@@ -26,6 +26,31 @@
         android:textSize="16sp"
         android:textColor="#333333" />
 
+    <!-- 已完结标记 -->
+    <TextView
+        android:id="@+id/tv_finished"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="@string/batch_tag_finished"
+        android:textColor="#4CAF50"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <!-- 完结按钮 -->
+    <Button
+        android:id="@+id/btn_finish"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="2dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:text="@string/batch_btn_finish"
+        android:textAllCaps="false"
+        android:textColor="#E53935"
+        android:textSize="13sp" />
+
     <!-- 垃圾桶删除图标 -->
     <ImageView
         android:id="@+id/iv_delete"
