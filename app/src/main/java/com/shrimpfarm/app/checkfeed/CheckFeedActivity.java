@@ -77,6 +77,7 @@ public class CheckFeedActivity extends BaseActivity {
     private DatabaseHelper dbHelper;
     private SharedPreferences sharedPreferences;
     private boolean isTableInitialized = false;
+    private boolean batchFinished = false;
 
     // 时间格式化
     private SimpleDateFormat fullDateTimeFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault());
@@ -131,6 +132,7 @@ public class CheckFeedActivity extends BaseActivity {
 
         dbHelper = DatabaseHelper.getInstance(this);
         sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        batchFinished = dbHelper.isBatchFinished(currentBatchId);
 
         // 获取水百分比
         waterPercentage = getIntent().getIntExtra("WATER_PERCENTAGE", 20);
@@ -163,7 +165,16 @@ public class CheckFeedActivity extends BaseActivity {
 
         etShedCount.setFocusable(false);
         etShedCount.setFocusableInTouchMode(false);
-        etShedCount.setClickable(true);
+        etShedCount.setClickable(!batchFinished);
+
+        if (batchFinished) {
+            etStartTime.setFocusable(false);
+            etStartTime.setFocusableInTouchMode(false);
+            etStartTime.setClickable(false);
+            etEndTime.setFocusable(false);
+            etEndTime.setFocusableInTouchMode(false);
+            etEndTime.setClickable(false);
+        }
     }
 
     private void setupTimeInputFilters() {
@@ -307,6 +318,7 @@ public class CheckFeedActivity extends BaseActivity {
             btnClear.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
+                        if (batchFinished) return;
                         showClearConfirmationDialog();
                     }
                 });
@@ -316,6 +328,7 @@ public class CheckFeedActivity extends BaseActivity {
             etShedCount.setOnLongClickListener(new View.OnLongClickListener() {
                     @Override
                     public boolean onLongClick(View v) {
+                        if (batchFinished) return false;
                         if (isTableInitialized) {
                             setTableInitialized(false);
                             clearTable();
@@ -865,9 +878,10 @@ public class CheckFeedActivity extends BaseActivity {
         rowLayout.setWeightSum(100f);
 
         final TextView tvRowNumber = createTableCell(String.valueOf(rowNumber), 15);
-        tvRowNumber.setClickable(true);
-        tvRowNumber.setFocusable(true);
-        tvRowNumber.setLongClickable(true);
+        tvRowNumber.setClickable(!batchFinished);
+        tvRowNumber.setFocusable(!batchFinished);
+        tvRowNumber.setLongClickable(!batchFinished);
+        if (!batchFinished) {
         tvRowNumber.setOnLongClickListener(new View.OnLongClickListener() {
                 @Override
                 public boolean onLongClick(View v) {
@@ -885,9 +899,16 @@ public class CheckFeedActivity extends BaseActivity {
                     return true;
                 }
             });
+        }
         rowLayout.addView(tvRowNumber);
 
         final EditText etInputCell = createInputCell(15);
+        if (batchFinished) {
+            etInputCell.setFocusable(false);
+            etInputCell.setFocusableInTouchMode(false);
+            etInputCell.setClickable(false);
+            etInputCell.setEnabled(false);
+        }
         rowLayout.addView(etInputCell);
 
         final TextView tvCheckTime = createTableCell("", 35);
@@ -902,6 +923,7 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void markRowAsExcluded(LinearLayout rowLayout, TextView rowNumberView) {
+        if (batchFinished) return;
         View[] otherViews = (View[]) rowLayout.getTag();
         EditText etInputCell = (EditText) otherViews[0];
         TextView tvCheckTime = (TextView) otherViews[1];
@@ -925,6 +947,7 @@ public class CheckFeedActivity extends BaseActivity {
     }
 
     private void markRowAsIncluded(LinearLayout rowLayout, TextView rowNumberView, int rowNumber) {
+        if (batchFinished) return;
         View[] otherViews = (View[]) rowLayout.getTag();
         EditText etInputCell = (EditText) otherViews[0];
         TextView tvCheckTime = (TextView) otherViews[1];
@@ -1346,27 +1369,29 @@ public class CheckFeedActivity extends BaseActivity {
                 saveShedCount(shedCount);
                 generateTable();
                 updateTitleTimeDisplay();
-                if (etStartTime != null) {
-                    etStartTime.setFocusable(true);
-                    etStartTime.setFocusableInTouchMode(true);
-                    etStartTime.setImeOptions(EditorInfo.IME_ACTION_NEXT);
-                    etStartTime.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                etStartTime.requestFocus();
-                                etStartTime.postDelayed(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            showKeyboard(etStartTime);
-                                        }
-                                    }, 200);
-                            }
-                        }, 100);
-                }
-                if (etEndTime != null) {
-                    etEndTime.setFocusable(true);
-                    etEndTime.setFocusableInTouchMode(true);
-                    etEndTime.setImeOptions(EditorInfo.IME_ACTION_DONE);
+                if (!batchFinished) {
+                    if (etStartTime != null) {
+                        etStartTime.setFocusable(true);
+                        etStartTime.setFocusableInTouchMode(true);
+                        etStartTime.setImeOptions(EditorInfo.IME_ACTION_NEXT);
+                        etStartTime.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    etStartTime.requestFocus();
+                                    etStartTime.postDelayed(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                showKeyboard(etStartTime);
+                                            }
+                                        }, 200);
+                                }
+                            }, 100);
+                    }
+                    if (etEndTime != null) {
+                        etEndTime.setFocusable(true);
+                        etEndTime.setFocusableInTouchMode(true);
+                        etEndTime.setImeOptions(EditorInfo.IME_ACTION_DONE);
+                    }
                 }
             } catch (NumberFormatException e) {
                 etShedCount.setText("");
