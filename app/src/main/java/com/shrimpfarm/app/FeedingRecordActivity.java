@@ -57,6 +57,7 @@ public class FeedingRecordActivity extends BaseActivity {
     private String stockingDate;
 
     private boolean isTabletMode = false;
+    private boolean batchFinished = false;
     private int cellWidth;
     private int remarkWidth;
     private int rowHeight;
@@ -135,6 +136,7 @@ public class FeedingRecordActivity extends BaseActivity {
         }
 
         stockingDate = dbHelper.getBasicData(currentBatchId, "stocking_date");
+        batchFinished = dbHelper.isBatchFinished(currentBatchId);
 
         setupHeader();
         setupRecyclerView();
@@ -609,6 +611,7 @@ public class FeedingRecordActivity extends BaseActivity {
             remark.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
             remark.setVerticalScrollBarEnabled(true);
             remark.setOnClickListener(v -> {
+                if (batchFinished) return;
                 remark.requestFocus();
                 InputMethodManager imm = (InputMethodManager) FeedingRecordActivity.this.getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null) imm.showSoftInput(remark, InputMethodManager.SHOW_IMPLICIT);
@@ -673,10 +676,12 @@ public class FeedingRecordActivity extends BaseActivity {
 
             // --- Bind number cells (breakfast, lunch, dinner, nightSnack) ---
             boolean afterStocking = isDateAfterStocking(record.date);
-            bindNumberCell(holder.itemView, R.id.cell_breakfast, record.breakfast, record, "breakfast", afterStocking);
-            bindNumberCell(holder.itemView, R.id.cell_lunch, record.lunch, record, "lunch", afterStocking);
-            bindNumberCell(holder.itemView, R.id.cell_dinner, record.dinner, record, "dinner", afterStocking);
-            bindNumberCell(holder.itemView, R.id.cell_night_snack, record.nightSnack, record, "nightSnack", afterStocking);
+            boolean editable = afterStocking && !batchFinished;
+            boolean grayOut = !afterStocking && !batchFinished;
+            bindNumberCell(holder.itemView, R.id.cell_breakfast, record.breakfast, record, "breakfast", editable, grayOut);
+            bindNumberCell(holder.itemView, R.id.cell_lunch, record.lunch, record, "lunch", editable, grayOut);
+            bindNumberCell(holder.itemView, R.id.cell_dinner, record.dinner, record, "dinner", editable, grayOut);
+            bindNumberCell(holder.itemView, R.id.cell_night_snack, record.nightSnack, record, "nightSnack", editable, grayOut);
 
             // --- Bind product cells ---
             bindProductCell(holder.itemView, R.id.cell_water_mix1, record.waterMix1, record, "waterMix1", position);
@@ -691,6 +696,9 @@ public class FeedingRecordActivity extends BaseActivity {
             // --- Bind remark ---
             EditText remarkEt = holder.itemView.findViewById(R.id.cell_remark);
             remarkEt.setOnFocusChangeListener(null);
+            remarkEt.setFocusable(!batchFinished);
+            remarkEt.setFocusableInTouchMode(!batchFinished);
+            remarkEt.setClickable(!batchFinished);
             remarkEt.setText(record.remark);
             if (remarkEt.isFocused()) remarkEt.setSelection(remarkEt.length());
             remarkEt.setOnFocusChangeListener((v, hasFocus) -> {
@@ -760,7 +768,7 @@ public class FeedingRecordActivity extends BaseActivity {
 
         // ---- Binding helpers (called on every bind) ----
 
-        private void bindNumberCell(View root, int cellId, String value, DayRecord record, String field, boolean enabled) {
+        private void bindNumberCell(View root, int cellId, String value, DayRecord record, String field, boolean editable, boolean grayOut) {
             final EditText et = root.findViewById(cellId);
             Object tag = et.getTag(R.id.tag_watcher);
             if (tag instanceof TextWatcher) {
@@ -768,22 +776,27 @@ public class FeedingRecordActivity extends BaseActivity {
             }
             et.setOnFocusChangeListener(null);
             et.setText(value);
-            et.setEnabled(enabled);
-            et.setFocusable(enabled);
-            et.setFocusableInTouchMode(enabled);
-            et.setClickable(enabled);
-            if (enabled) {
+            et.setEnabled(editable);
+            et.setFocusable(editable);
+            et.setFocusableInTouchMode(editable);
+            et.setClickable(editable);
+            if (grayOut) {
+                et.setInputType(android.text.InputType.TYPE_NULL);
+                et.setKeyListener(null);
+                et.setTextColor(0xFFCCCCCC);
+                et.setBackground(createCellBorder(0xFFF5F5F5));
+            } else if (editable) {
                 et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
                 et.setTextColor(0xFF444444);
                 et.setBackground(createCellBorder(0xFFFFFFFF));
             } else {
                 et.setInputType(android.text.InputType.TYPE_NULL);
                 et.setKeyListener(null);
-                et.setTextColor(0xFFCCCCCC);
-                et.setBackground(createCellBorder(0xFFF5F5F5));
+                et.setTextColor(0xFF444444);
+                et.setBackground(createCellBorder(0xFFFFFFFF));
             }
             if (et.isFocused()) et.setSelection(et.length());
-            if (enabled) {
+            if (editable) {
                 TextWatcher watcher = new TextWatcher() {
                     @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                     @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -817,7 +830,15 @@ public class FeedingRecordActivity extends BaseActivity {
             final EditText et = root.findViewById(cellId);
             String display = DatabaseHelper.extractProductName(value);
             et.setText(display);
-            et.setOnClickListener(v -> showProductSelector(field, position, record));
+            if (batchFinished) {
+                et.setOnClickListener(null);
+                et.setClickable(false);
+                et.setFocusable(false);
+                et.setFocusableInTouchMode(false);
+            } else {
+                et.setOnClickListener(v -> showProductSelector(field, position, record));
+                et.setClickable(true);
+            }
         }
     }
 

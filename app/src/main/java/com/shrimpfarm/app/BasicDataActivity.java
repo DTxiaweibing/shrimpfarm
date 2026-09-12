@@ -170,6 +170,7 @@ public class BasicDataActivity extends BaseActivity {
             etAerationPower.setEnabled(false);
             tvStockingDate.setClickable(false);
             tvStockingDate.setFocusable(false);
+            tvStockingDate.setTextColor(0xFFAAAAAA);
             tvWaterPrepDate.setClickable(false);
             tvWaterPrepDate.setFocusable(false);
             Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();

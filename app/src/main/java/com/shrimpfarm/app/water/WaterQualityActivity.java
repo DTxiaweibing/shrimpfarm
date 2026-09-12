@@ -50,8 +50,28 @@ public class WaterQualityActivity extends BaseActivity {
         }
 
         initViews();
+        if (dbHelper.isBatchFinished(currentBatchId)) {
+            disableInputs();
+            Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();
+        }
         loadLastRecord();
         setupBottomNavigation();
+    }
+
+    private void disableInputs() {
+        etVibrio.setEnabled(false);
+        etSalinity.setEnabled(false);
+        etAmmonia.setEnabled(false);
+        etNitrite.setEnabled(false);
+        etPh.setEnabled(false);
+        etDissolvedOxygen.setEnabled(false);
+        etMaxTemp.setEnabled(false);
+        etMinTemp.setEnabled(false);
+        etChlorine.setEnabled(false);
+        etHydrogenSulfide.setEnabled(false);
+        etOrp.setEnabled(false);
+        btnSave.setEnabled(false);
+        btnClear.setEnabled(false);
     }
 
     @Override

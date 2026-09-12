@@ -248,7 +248,7 @@ public class BatchManageActivity extends BaseActivity {
             TextView tvFinished;
             ImageView ivCheck;
             ImageView ivDelete;
-            Button btnFinish;
+            TextView btnFinish;
             ViewHolder(View v) {
                 tvName = v.findViewById(R.id.tv_batch_name);
                 tvFinished = v.findViewById(R.id.tv_finished);
