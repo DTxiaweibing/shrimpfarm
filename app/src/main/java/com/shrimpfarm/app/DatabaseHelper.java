@@ -566,13 +566,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     String tagContent = "";
                     if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
                         String[] tagsArr = tagsWithPrefix.split(",");
+                        StringBuilder sb = new StringBuilder();
                         for (String t : tagsArr) {
                             String pure = removeUsagePrefix(t);
                             if (!pure.isEmpty()) {
-                                tagContent = pure;
-                                break;
+                                if (sb.length() > 0) sb.append(",");
+                                sb.append(pure);
                             }
                         }
+                        tagContent = sb.toString();
                     }
                     map.put(product, tagContent);
                 }
@@ -643,13 +645,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     String tagContent = "";
                     if (tagsWithPrefix != null && !tagsWithPrefix.isEmpty()) {
                         String[] tagsArr = tagsWithPrefix.split(",");
+                        StringBuilder sb = new StringBuilder();
                         for (String t : tagsArr) {
                             String pure = removeUsagePrefix(t);
                             if (!pure.isEmpty()) {
-                                tagContent = pure;
-                                break;
+                                if (sb.length() > 0) sb.append(",");
+                                sb.append(pure);
                             }
                         }
+                        tagContent = sb.toString();
                     }
                     map.put(product, tagContent);
                 }
@@ -658,6 +662,69 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             if (cursor != null && !cursor.isClosed()) cursor.close();
         }
         return map;
+    }
+
+    // ==================== 回填：把预设当前全量标签同步到历史记录 ====================
+    public int backfillPresetTagsInRecords(String batchId) {
+        if (batchId == null || batchId.isEmpty()) return 0;
+        if (isBatchFinished(batchId)) return 0;
+        Map<String, String> mixMap = getMixPresetTagsMap(batchId);
+        Map<String, String> waterMap = getWaterPresetTagsMap(batchId);
+        if (mixMap.isEmpty() && waterMap.isEmpty()) return 0;
+
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor cursor = db.query(TABLE_DAILY_RECORDS,
+                new String[]{COLUMN_DATE, COLUMN_WATER_MIX1, COLUMN_WATER_MIX2, COLUMN_WATER_MIX3, COLUMN_WATER_MIX4,
+                        COLUMN_MIX1, COLUMN_MIX2, COLUMN_MIX3, COLUMN_MIX4},
+                COLUMN_BATCH_ID + "=?", new String[]{batchId}, null, null, null);
+        Map<String, ContentValues> pending = new HashMap<>();
+        try {
+            while (cursor.moveToNext()) {
+                String date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+                ContentValues cv = new ContentValues();
+                boolean need = backfillColumn(cursor, COLUMN_WATER_MIX1, "【调水】", waterMap, cv);
+                need |= backfillColumn(cursor, COLUMN_WATER_MIX2, "【调水】", waterMap, cv);
+                need |= backfillColumn(cursor, COLUMN_WATER_MIX3, "【调水】", waterMap, cv);
+                need |= backfillColumn(cursor, COLUMN_WATER_MIX4, "【调水】", waterMap, cv);
+                need |= backfillColumn(cursor, COLUMN_MIX1, "【拌料】", mixMap, cv);
+                need |= backfillColumn(cursor, COLUMN_MIX2, "【拌料】", mixMap, cv);
+                need |= backfillColumn(cursor, COLUMN_MIX3, "【拌料】", mixMap, cv);
+                need |= backfillColumn(cursor, COLUMN_MIX4, "【拌料】", mixMap, cv);
+                if (need) pending.put(date, cv);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
+        }
+        if (pending.isEmpty()) return 0;
+
+        int changed = 0;
+        db.beginTransaction();
+        try {
+            for (Map.Entry<String, ContentValues> entry : pending.entrySet()) {
+                ContentValues encrypted = encryptContentValues(entry.getValue());
+                db.update(TABLE_DAILY_RECORDS, encrypted,
+                        COLUMN_DATE + "=? AND " + COLUMN_BATCH_ID + "=?",
+                        new String[]{entry.getKey(), batchId});
+                changed++;
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        return changed;
+    }
+
+    private boolean backfillColumn(Cursor c, String column, String prefix, Map<String, String> tagMap, ContentValues cv) {
+        if (tagMap.isEmpty()) return false;
+        String raw = decryptField(c, column);
+        String product = extractProductName(raw);
+        if (product.isEmpty() || !tagMap.containsKey(product)) return false;
+        String newTags = tagMap.get(product);
+        if (newTags == null || newTags.isEmpty()) return false;
+        String expected = prefix + newTags + "+" + product;
+        if (expected.equals(raw)) return false;
+        cv.put(column, expected);
+        return true;
     }
 
     // ==================== 投喂记录优化：排序 / 批量查询 / 事务 ====================
@@ -753,6 +820,36 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             cal.add(Calendar.DAY_OF_MONTH, 1);
         }
         return count;
+    }
+
+    public List<FeedingRecordActivity.DayRecord> getRecordsForExport(String batchId) {
+        List<FeedingRecordActivity.DayRecord> result = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_DAILY_RECORDS, null,
+                COLUMN_BATCH_ID + "=?", new String[]{batchId}, null, null, COLUMN_DATE + " ASC");
+        try {
+            while (cursor.moveToNext()) {
+                FeedingRecordActivity.DayRecord r = new FeedingRecordActivity.DayRecord();
+                r.date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+                r.breakfast = decryptField(cursor, COLUMN_BREAKFAST);
+                r.lunch = decryptField(cursor, COLUMN_LUNCH);
+                r.dinner = decryptField(cursor, COLUMN_DINNER);
+                r.nightSnack = decryptField(cursor, COLUMN_NIGHT_SNACK);
+                r.waterMix1 = decryptField(cursor, COLUMN_WATER_MIX1);
+                r.waterMix2 = decryptField(cursor, COLUMN_WATER_MIX2);
+                r.waterMix3 = decryptField(cursor, COLUMN_WATER_MIX3);
+                r.waterMix4 = decryptField(cursor, COLUMN_WATER_MIX4);
+                r.mix1 = decryptField(cursor, COLUMN_MIX1);
+                r.mix2 = decryptField(cursor, COLUMN_MIX2);
+                r.mix3 = decryptField(cursor, COLUMN_MIX3);
+                r.mix4 = decryptField(cursor, COLUMN_MIX4);
+                r.remark = decryptField(cursor, COLUMN_REMARK);
+                result.add(r);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
+        }
+        return result;
     }
 
     public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {
@@ -1220,6 +1317,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     // ==================== 放苗天数工具 ====================
+    public String getStockingDate(String batchId) {
+        String dateStr = getBasicData(batchId, "stocking_date");
+        if (dateStr == null || dateStr.trim().isEmpty() || "选择日期".equals(dateStr)) return null;
+        return dateStr.trim();
+    }
+
     public int getStockingDay(String batchId) {
         String dateStr = getBasicData(batchId, "stocking_date");
         if (dateStr == null || dateStr.isEmpty() || "选择日期".equals(dateStr)) return 0;

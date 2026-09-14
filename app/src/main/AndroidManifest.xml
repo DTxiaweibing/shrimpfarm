@@ -48,6 +48,12 @@
             android:screenOrientation="portrait"
             android:exported="false" />
         <activity
+            android:name=".ExportActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="导出数据"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
             android:name=".BatchManageActivity"
             android:theme="@style/AppTheme.NoWindowBackground"
             android:label="批次管理"

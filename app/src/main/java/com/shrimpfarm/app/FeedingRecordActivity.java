@@ -850,7 +850,7 @@ public class FeedingRecordActivity extends BaseActivity {
         debounceHandler.removeCallbacksAndMessages(null);
     }
 
-    static class DayRecord {
+    public static class DayRecord {
         public String date = "";
         public String breakfast = "";
         public String lunch = "";

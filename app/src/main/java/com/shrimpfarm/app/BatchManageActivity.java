@@ -2,6 +2,7 @@ package com.shrimpfarm.app;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -18,6 +19,7 @@ import android.util.Log;
 import androidx.appcompat.widget.Toolbar;
 import com.shrimpfarm.app.DatabaseHelper;
 import com.shrimpfarm.app.utils.DialogHelper;
+import com.shrimpfarm.app.utils.ExcelExporter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -232,6 +234,30 @@ public class BatchManageActivity extends BaseActivity {
                 false);
     }
 
+    private void showExportDialog(final BatchItem batchItem) {
+        DialogHelper.showStyledConfirmDialog(this, getString(R.string.export_title),
+                getString(R.string.batch_msg_export, batchItem.name),
+                new String[]{getString(R.string.basic_cancel),
+                        getString(R.string.export_option_raw),
+                        getString(R.string.export_option_behavior)},
+                new int[]{0xFF666666, 0xFF2D84C2, 0xFF2D84C2},
+                new DialogInterface.OnClickListener[]{
+                    null,
+                    (d, w) -> launchExport(batchItem, false),
+                    (d, w) -> launchExport(batchItem, true)
+                },
+                false);
+    }
+
+    private void launchExport(final BatchItem batchItem, final boolean behaviorMode) {
+        Intent intent = new Intent(BatchManageActivity.this, ExportActivity.class);
+        intent.putExtra(ExportActivity.EXTRA_BATCH_ID, batchItem.id);
+        intent.putExtra(ExportActivity.EXTRA_BATCH_NAME, batchItem.name);
+        intent.putExtra(ExportActivity.EXTRA_MODE,
+                behaviorMode ? ExcelExporter.MODE_BEHAVIOR : ExcelExporter.MODE_RAW);
+        startActivity(intent);
+    }
+
     private void deleteCloudBackup(String batchName) {
         Toast.makeText(this, getString(R.string.batch_toast_cloud_deleted), Toast.LENGTH_SHORT).show();
     }
@@ -249,12 +275,14 @@ public class BatchManageActivity extends BaseActivity {
             ImageView ivCheck;
             ImageView ivDelete;
             TextView btnFinish;
+            TextView btnExport;
             ViewHolder(View v) {
                 tvName = v.findViewById(R.id.tv_batch_name);
                 tvFinished = v.findViewById(R.id.tv_finished);
                 ivCheck = v.findViewById(R.id.iv_check);
                 ivDelete = v.findViewById(R.id.iv_delete);
                 btnFinish = v.findViewById(R.id.btn_finish);
+                btnExport = v.findViewById(R.id.btn_export);
             }
         }
 
@@ -308,6 +336,13 @@ public class BatchManageActivity extends BaseActivity {
                     @Override
                     public void onClick(View v) {
                         confirmFinishBatch(batch);
+                    }
+                });
+
+            holder.btnExport.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        showExportDialog(batch);
                     }
                 });
 

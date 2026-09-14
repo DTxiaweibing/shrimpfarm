@@ -34,6 +34,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.shrimpfarm.app.utils.DialogHelper;
 
@@ -50,6 +52,20 @@ public class BasicDataActivity extends BaseActivity {
     private DatabaseHelper dbHelper;
     private String currentBatchId;
     private static final String DATE_PLACEHOLDER = "选择日期";
+    private final Handler tagBackfillHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService backfillExecutor = Executors.newSingleThreadExecutor();
+    private final Runnable tagBackfillTask = new Runnable() {
+        @Override
+        public void run() {
+            int changed = dbHelper.backfillPresetTagsInRecords(currentBatchId);
+            if (changed > 0) {
+                final int count = changed;
+                runOnUiThread(() -> Toast.makeText(BasicDataActivity.this,
+                        String.format(java.util.Locale.ROOT, getString(R.string.preset_toast_backfilled), count),
+                        Toast.LENGTH_SHORT).show());
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,6 +93,24 @@ public class BasicDataActivity extends BaseActivity {
             selectTab(0);
         }
         setupBottomNavigation();
+    }
+
+    private void scheduleBackfill() {
+        tagBackfillHandler.removeCallbacks(tagBackfillTask);
+        final Runnable fire = new Runnable() {
+            @Override
+            public void run() {
+                backfillExecutor.execute(tagBackfillTask);
+            }
+        };
+        tagBackfillHandler.postDelayed(fire, 500);
+    }
+
+    @Override
+    protected void onDestroy() {
+        tagBackfillHandler.removeCallbacks(tagBackfillTask);
+        backfillExecutor.shutdown();
+        super.onDestroy();
     }
 
     private void showNoBatchDialog() {
@@ -737,6 +771,9 @@ public class BasicDataActivity extends BaseActivity {
                 dbHelper.saveMixPreset(currentBatchId, rowNum, prefixedName, prefixedTags);
             } else {
                 dbHelper.saveWaterPreset(currentBatchId, rowNum, prefixedName, prefixedTags);
+            }
+            if (pureTags != null && !pureTags.trim().isEmpty()) {
+                scheduleBackfill();
             }
         }
 
