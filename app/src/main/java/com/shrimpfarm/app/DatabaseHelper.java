@@ -132,6 +132,22 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         public long createdAt;
     }
 
+    // ==================== 水质检测导出数据类 ====================
+    public static class WaterQualityRecord {
+        public String date;
+        public String vibrio;
+        public String salinity;
+        public String ammonia;
+        public String nitrite;
+        public String ph;
+        public String dissolvedOxygen;
+        public String maxTemp;
+        public String minTemp;
+        public String chlorine;
+        public String hydrogenSulfide;
+        public String orp;
+    }
+
     // ==================== 内部类 ====================
     public static class DailyFeedSummary {
         public String date;
@@ -476,6 +492,48 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.query(TABLE_WATER_QUALITY, null,
                 COLUMN_BATCH_ID + "=?", new String[]{batchId},
                 null, null, COLUMN_WQ_DATE + " DESC, rowid DESC");
+    }
+
+    public List<WaterQualityRecord> getWaterQualityList(String batchId) {
+        List<WaterQualityRecord> list = new ArrayList<>();
+        Cursor cursor = null;
+        try {
+            cursor = getReadableDatabase().query(TABLE_WATER_QUALITY,
+                    new String[]{COLUMN_WQ_DATE, COLUMN_VIBRIO, COLUMN_SALINITY, COLUMN_AMMONIA,
+                            COLUMN_NITRITE, COLUMN_PH, COLUMN_DISSOLVED_OXYGEN, COLUMN_MAX_TEMP,
+                            COLUMN_MIN_TEMP, COLUMN_CHLORINE, COLUMN_HYDROGEN_SULFIDE, COLUMN_ORP},
+                    COLUMN_BATCH_ID + "=?", new String[]{batchId},
+                    null, null, COLUMN_WQ_DATE + " ASC, rowid ASC");
+            while (cursor.moveToNext()) {
+                WaterQualityRecord r = new WaterQualityRecord();
+                r.date = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WQ_DATE));
+                r.vibrio = decryptCell(cursor, COLUMN_VIBRIO);
+                r.salinity = decryptCell(cursor, COLUMN_SALINITY);
+                r.ammonia = decryptCell(cursor, COLUMN_AMMONIA);
+                r.nitrite = decryptCell(cursor, COLUMN_NITRITE);
+                r.ph = decryptCell(cursor, COLUMN_PH);
+                r.dissolvedOxygen = decryptCell(cursor, COLUMN_DISSOLVED_OXYGEN);
+                r.maxTemp = decryptCell(cursor, COLUMN_MAX_TEMP);
+                r.minTemp = decryptCell(cursor, COLUMN_MIN_TEMP);
+                r.chlorine = decryptCell(cursor, COLUMN_CHLORINE);
+                r.hydrogenSulfide = decryptCell(cursor, COLUMN_HYDROGEN_SULFIDE);
+                r.orp = decryptCell(cursor, COLUMN_ORP);
+                list.add(r);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
+        }
+        return list;
+    }
+
+    private static String decryptCell(Cursor cursor, String column) {
+        String raw = cursor.getString(cursor.getColumnIndexOrThrow(column));
+        if (raw == null || raw.isEmpty()) return "";
+        try {
+            return EncryptUtils.decrypt(raw);
+        } catch (Exception e) {
+            return raw;
+        }
     }
 
     // ==================== 基础数据表操作 ====================
@@ -1008,6 +1066,48 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     try {
                         record.durationSeconds = Long.parseLong(EncryptUtils.decrypt(encryptedDuration));
                     } catch (NumberFormatException e) {
+                        record.durationSeconds = 0;
+                    }
+                } else {
+                    record.durationSeconds = 0;
+                }
+                list.add(record);
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
+        }
+        return list;
+    }
+
+    public List<CheckRecord> getCheckRecordsByBatch(String batchId) {
+        List<CheckRecord> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_FEEDING_CHECK_RECORDS,
+                new String[]{"id", "record_date", "shed_row_index", "is_excluded", "water_percentage",
+                        "created_at", "start_time", "end_time", "shed_number", "check_time", "duration_seconds"},
+                "batch_id = ?",
+                new String[]{batchId}, null, null,
+                "record_date ASC, shed_row_index ASC, id ASC");
+        try {
+            while (cursor.moveToNext()) {
+                CheckRecord record = new CheckRecord();
+                record.id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
+                record.recordDate = cursor.getString(cursor.getColumnIndexOrThrow("record_date"));
+                record.shedRowIndex = cursor.getInt(cursor.getColumnIndexOrThrow("shed_row_index"));
+                record.excluded = cursor.getInt(cursor.getColumnIndexOrThrow("is_excluded")) == 1;
+                record.waterPercentage = cursor.getInt(cursor.getColumnIndexOrThrow("water_percentage"));
+                record.createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"));
+
+                record.startTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("start_time")));
+                record.endTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("end_time")));
+                record.shedNumber = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("shed_number")));
+                record.checkTime = EncryptUtils.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("check_time")));
+
+                String encryptedDuration = cursor.getString(cursor.getColumnIndexOrThrow("duration_seconds"));
+                if (encryptedDuration != null && !encryptedDuration.isEmpty()) {
+                    try {
+                        record.durationSeconds = Long.parseLong(EncryptUtils.decrypt(encryptedDuration));
+                    } catch (Exception e) {
                         record.durationSeconds = 0;
                     }
                 } else {

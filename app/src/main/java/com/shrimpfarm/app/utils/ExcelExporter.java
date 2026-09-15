@@ -13,16 +13,22 @@ import android.provider.MediaStore;
 import com.shrimpfarm.app.DatabaseHelper;
 import com.shrimpfarm.app.FeedingRecordActivity.DayRecord;
 import com.shrimpfarm.app.R;
+import com.shrimpfarm.app.model.FeedingTimeStandard;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -47,8 +53,12 @@ public class ExcelExporter {
                                        List<DayRecord> records,
                                        Map<String, String> mixTags,
                                        Map<String, String> waterTags,
-                                       boolean behaviorMode) throws Exception {
-        byte[] bytes = buildXlsx(ctx, batchName, stockingDate, records, mixTags, waterTags, behaviorMode);
+                                       boolean behaviorMode,
+                                       List<DatabaseHelper.CheckRecord> checkRecords,
+                                       List<DatabaseHelper.WaterQualityRecord> waterRecords,
+                                       boolean isFourMeals) throws Exception {
+        byte[] bytes = buildXlsx(ctx, batchName, stockingDate, records, mixTags, waterTags, behaviorMode,
+                checkRecords, waterRecords, isFourMeals);
         if (bytes == null) throw new Exception(ctx.getString(R.string.export_toast_failed));
         String suffix = behaviorMode
                 ? ctx.getString(R.string.export_suffix_behavior)
@@ -96,7 +106,10 @@ public class ExcelExporter {
     private static byte[] buildXlsx(Context ctx, String batchName, String stockingDate,
                                     List<DayRecord> records,
                                     Map<String, String> mixTags, Map<String, String> waterTags,
-                                    boolean behaviorMode) throws Exception {
+                                    boolean behaviorMode,
+                                    List<DatabaseHelper.CheckRecord> checkRecords,
+                                    List<DatabaseHelper.WaterQualityRecord> waterRecords,
+                                    boolean isFourMeals) throws Exception {
         String dateH = ctx.getString(R.string.export_header_date);
         String dayH = ctx.getString(R.string.export_header_day);
         String breakfastH = ctx.getString(R.string.feeding_header_breakfast);
@@ -215,8 +228,346 @@ public class ExcelExporter {
             putEntry(zos, "xl/_rels/workbook.xml.rels", workbookRelsXml());
             putEntry(zos, "xl/styles.xml", stylesXml());
             putEntry(zos, "xl/worksheets/sheet1.xml", sheet.toString());
+            putEntry(zos, "xl/worksheets/sheet2.xml",
+                    buildCheckSheet(ctx, batchName, stockingDate, checkRecords, isFourMeals));
+            putEntry(zos, "xl/worksheets/sheet3.xml",
+                    buildWaterSheet(ctx, batchName, stockingDate, waterRecords));
         }
         return bos.toByteArray();
+    }
+
+    private static String buildCheckSheet(Context ctx, String batchName, String stockingDate,
+                                          List<DatabaseHelper.CheckRecord> records,
+                                          boolean isFourMeals) {
+        String sheetName = ctx.getString(R.string.export_sheet_check);
+        String bName = (batchName == null) ? "" : batchName.trim();
+        String legend = ctx.getString(R.string.export_check_legend);
+        String title = bName.isEmpty() ? sheetName : bName + " " + sheetName;
+        String titleText = title + "\n" + legend;
+        List<DatabaseHelper.CheckRecord> valid = new ArrayList<>();
+        if (records != null) {
+            for (DatabaseHelper.CheckRecord r : records) {
+                if (r == null || r.excluded || r.recordDate == null) continue;
+                valid.add(r);
+            }
+        }
+        Collections.sort(valid, new Comparator<DatabaseHelper.CheckRecord>() {
+            @Override
+            public int compare(DatabaseHelper.CheckRecord a, DatabaseHelper.CheckRecord b) {
+                int c = a.recordDate.compareTo(b.recordDate);
+                if (c != 0) return c;
+                c = Integer.compare(shedSortKey(a.shedNumber, a.shedRowIndex), shedSortKey(b.shedNumber, b.shedRowIndex));
+                if (c != 0) return c;
+                return Long.compare(a.id, b.id);
+            }
+        });
+
+        LinkedHashSet<String> shedOrder = new LinkedHashSet<>();
+        for (DatabaseHelper.CheckRecord r : valid) shedOrder.add(shedLabel(r.shedNumber, r.shedRowIndex));
+        if (shedOrder.isEmpty()) shedOrder.add(ctx.getString(R.string.export_header_shed));
+        List<String> sheds = new ArrayList<>(shedOrder);
+        Collections.sort(sheds, new Comparator<String>() {
+            @Override
+            public int compare(String a, String b) {
+                int ai = parseShed(a);
+                int bi = parseShed(b);
+                if (ai < 0 && bi < 0) return a.compareTo(b);
+                if (ai < 0) return 1;
+                if (bi < 0) return -1;
+                return Integer.compare(ai, bi);
+            }
+        });
+
+        int shedCount = sheds.size();
+        int lastCol = 1 + shedCount * 3;
+        String lastColName = colName(lastCol);
+
+        List<TreeSet<Integer>> shedRatioRows = new ArrayList<>();
+        for (int i = 0; i < shedCount; i++) shedRatioRows.add(new TreeSet<>());
+
+        Date firstDate = null;
+        if (stockingDate != null && !stockingDate.trim().isEmpty()) {
+            firstDate = parseRecordDate(stockingDate);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        sb.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+        sb.append("<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+
+        // 列宽：日期列 + 每棚3列（查料时间 / 用时 / 超时比例）
+        sb.append("<cols>");
+        sb.append("<col min=\"1\" max=\"1\" width=\"12\" customWidth=\"1\"/>");
+        for (int i = 0; i < shedCount; i++) {
+            int base = 2 + i * 3;
+            sb.append("<col min=\"").append(base).append("\" max=\"").append(base)
+                    .append("\" width=\"9.3\" customWidth=\"1\"/>");
+            sb.append("<col min=\"").append(base + 1).append("\" max=\"").append(base + 1)
+                    .append("\" width=\"5.2\" customWidth=\"1\"/>");
+            sb.append("<col min=\"").append(base + 2).append("\" max=\"").append(base + 2)
+                    .append("\" width=\"9.3\" customWidth=\"1\"/>");
+        }
+        sb.append("</cols>");
+
+        sb.append("<sheetData>");
+
+        // 第1行：标题（全宽合并）
+        sb.append("<row r=\"1\" ht=\"60\" customHeight=\"1\">");
+        writeCellWithStyle(sb, 1, 1, titleText, 2);
+        sb.append("</row>");
+
+        // 第2行：A2:A3 竖并「棚号/日期」，每棚横并 3 列（widesheet）
+        sb.append("<row r=\"2\" ht=\"30\" customHeight=\"1\">");
+        writeCell(sb, 2, 1, ctx.getString(R.string.export_header_shed_date), true);
+        for (int i = 0; i < shedCount; i++) {
+            int base = 2 + i * 3;
+            writeCell(sb, 2, base, sheds.get(i), true);
+        }
+        sb.append("</row>");
+
+        // 第3行：每棚拆三列
+        sb.append("<row r=\"3\" ht=\"30\" customHeight=\"1\">");
+        for (int i = 0; i < shedCount; i++) {
+            int base = 2 + i * 3;
+            writeCell(sb, 3, base, ctx.getString(R.string.export_header_check_time), true);
+            writeCell(sb, 3, base + 1, ctx.getString(R.string.export_header_elapsed), true);
+            writeCell(sb, 3, base + 2, ctx.getString(R.string.export_header_overtime), true);
+        }
+        sb.append("</row>");
+
+        // 数据区：按日期分组，一天展开 max(N) 行，日期列纵向合并
+        int row = 4;
+        if (!valid.isEmpty()) {
+            int daysWritten = 0;
+            // 按日期切分
+            List<Map.Entry<String, List<DatabaseHelper.CheckRecord>>> batches = new ArrayList<>();
+            String curDate = null;
+            List<DatabaseHelper.CheckRecord> curList = new ArrayList<>();
+            for (DatabaseHelper.CheckRecord r : valid) {
+                if (!r.recordDate.equals(curDate)) {
+                    if (curDate != null) batches.add(new java.util.AbstractMap.SimpleEntry<>(curDate, curList));
+                    curDate = r.recordDate;
+                    curList = new ArrayList<>();
+                }
+                curList.add(r);
+            }
+            if (curDate != null) batches.add(new java.util.AbstractMap.SimpleEntry<>(curDate, curList));
+
+            StringBuilder merges = new StringBuilder();
+            int mergeCount = 0;
+            // 标题合并 + 表头纵横合并
+            merges.append("<mergeCell ref=\"A1:").append(lastColName).append("1\"/>");
+            merges.append("<mergeCell ref=\"A2:A3\"/>");
+            mergeCount += 2;
+            for (int i = 0; i < shedCount; i++) {
+                int base = 2 + i * 3;
+                merges.append("<mergeCell ref=\"")
+                        .append(colName(base)).append("2:")
+                        .append(colName(base + 2)).append("2\"/>");
+                mergeCount++;
+            }
+
+            for (Map.Entry<String, List<DatabaseHelper.CheckRecord>> e : batches) {
+                String date = e.getKey();
+                List<DatabaseHelper.CheckRecord> dayRecords = e.getValue();
+                // 按棚聚合
+                LinkedHashMap<String, List<DatabaseHelper.CheckRecord>> byShed = new LinkedHashMap<>();
+                for (DatabaseHelper.CheckRecord r : dayRecords) {
+                    String label = shedLabel(r.shedNumber, r.shedRowIndex);
+                    List<DatabaseHelper.CheckRecord> l = byShed.get(label);
+                    if (l == null) { l = new ArrayList<>(); byShed.put(label, l); }
+                    l.add(r);
+                }
+                int maxN = 0;
+                for (String sh : sheds) {
+                    List<DatabaseHelper.CheckRecord> l = byShed.get(sh);
+                    if (l != null && l.size() > maxN) maxN = l.size();
+                }
+                if (maxN == 0) continue;
+                int firstRowInDate = row;
+                int dayIdx = (firstDate == null) ? (daysWritten + 1) : dayIndexOf(date, firstDate);
+                for (int k = 0; k < maxN; k++) {
+                    sb.append("<row r=\"").append(row).append("\" customHeight=\"0\">");
+                    writeCell(sb, row, 1, k == 0 ? date : "", false);
+                    for (int s = 0; s < shedCount; s++) {
+                        int base = 2 + s * 3;
+                        String sh = sheds.get(s);
+                        List<DatabaseHelper.CheckRecord> l = byShed.get(sh);
+                        DatabaseHelper.CheckRecord r = (l != null && k < l.size()) ? l.get(k) : null;
+                        if (r == null) {
+                            writeCell(sb, row, base, "", false);
+                            writeCell(sb, row, base + 1, "", false);
+                            writeCell(sb, row, base + 2, "", false);
+                            continue;
+                        }
+                        writeCell(sb, row, base, timePart(r.checkTime), false);
+                        writeCell(sb, row, base + 1, formatMinutes(r.durationSeconds), false);
+                        long stdSec = FeedingTimeStandard.getStandardSeconds(dayIdx, isFourMeals);
+                        if (stdSec > 0 && r.durationSeconds > 0) {
+                            double ratio = (r.durationSeconds - stdSec) / (double) stdSec;
+                            writeNumberCell(sb, row, base + 2, ratio);
+                            shedRatioRows.get(s).add(row);
+                        } else {
+                            writeCell(sb, row, base + 2, "", false);
+                        }
+                    }
+                    sb.append("</row>");
+                    row++;
+                }
+                if (maxN > 1) {
+                    merges.append("<mergeCell ref=\"A").append(firstRowInDate)
+                            .append(":A").append(row - 1).append("\"/>");
+                    mergeCount++;
+                }
+                daysWritten++;
+            }
+
+            sb.append("</sheetData>");
+            sb.append("<mergeCells count=\"").append(mergeCount).append("\">").append(merges).append("</mergeCells>");
+            sb.append(checkConditionalFormatting(shedRatioRows));
+            sb.append("<printOptions horizontalCentered=\"1\"/>");
+            sb.append("<pageMargins left=\"0.25\" right=\"0.25\" top=\"0.6\" bottom=\"0.6\" header=\"0.3\" footer=\"0.3\"/>");
+            sb.append("<pageSetup paperSize=\"9\" orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/>");
+            sb.append("<headerFooter><oddFooter><center>第 &amp;P 页</center></oddFooter></headerFooter>");
+        } else {
+            // 无数据：仍输出标题 + 空表头
+            sb.append("</sheetData>");
+            int mergeCount = 2 + shedCount;
+            sb.append("<mergeCells count=\"").append(mergeCount).append("\">");
+            sb.append("<mergeCell ref=\"A1:").append(lastColName).append("1\"/>");
+            sb.append("<mergeCell ref=\"A2:A3\"/>");
+            for (int i = 0; i < shedCount; i++) {
+                int base = 2 + i * 3;
+                sb.append("<mergeCell ref=\"").append(colName(base)).append("2:").append(colName(base + 2)).append("2\"/>");
+            }
+            sb.append("</mergeCells>");
+            sb.append("<printOptions horizontalCentered=\"1\"/>");
+            sb.append("<pageMargins left=\"0.25\" right=\"0.25\" top=\"0.6\" bottom=\"0.6\" header=\"0.3\" footer=\"0.3\"/>");
+            sb.append("<pageSetup paperSize=\"9\" orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/>");
+            sb.append("<headerFooter><oddFooter><center>第 &amp;P 页</center></oddFooter></headerFooter>");
+        }
+        sb.append("</worksheet>");
+        return sb.toString();
+    }
+
+    private static String buildWaterSheet(Context ctx, String batchName, String stockingDate,
+                                          List<DatabaseHelper.WaterQualityRecord> records) {
+        String sheetName = ctx.getString(R.string.export_sheet_water);
+        String bName = (batchName == null) ? "" : batchName.trim();
+        String title = bName.isEmpty() ? sheetName : bName + " " + sheetName;
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        sb.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+        sb.append("<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+        sb.append("<cols>");
+        sb.append("<col min=\"1\" max=\"1\" width=\"12\" customWidth=\"1\"/>");
+        sb.append("<col min=\"2\" max=\"2\" width=\"5\" customWidth=\"1\"/>");
+        sb.append("<col min=\"3\" max=\"6\" width=\"10\" customWidth=\"1\"/>");
+        sb.append("<col min=\"7\" max=\"7\" width=\"8\" customWidth=\"1\"/>");
+        sb.append("<col min=\"8\" max=\"8\" width=\"10\" customWidth=\"1\"/>");
+        sb.append("<col min=\"9\" max=\"10\" width=\"8\" customWidth=\"1\"/>");
+        sb.append("<col min=\"11\" max=\"13\" width=\"10\" customWidth=\"1\"/>");
+        sb.append("</cols>");
+        sb.append("<sheetData>");
+        sb.append("<row r=\"1\" ht=\"30\" customHeight=\"1\">");
+        writeCellWithStyle(sb, 1, 1, title, 3);
+        sb.append("</row>");
+        sb.append("<row r=\"2\" ht=\"30\" customHeight=\"1\">");
+        writeCell(sb, 2, 1, ctx.getString(R.string.export_header_date), true);
+        writeCell(sb, 2, 2, ctx.getString(R.string.export_header_day), true);
+        writeCell(sb, 2, 3, ctx.getString(R.string.export_header_vibrio), true);
+        writeCell(sb, 2, 4, ctx.getString(R.string.export_header_salinity), true);
+        writeCell(sb, 2, 5, ctx.getString(R.string.export_header_ammonia), true);
+        writeCell(sb, 2, 6, ctx.getString(R.string.export_header_nitrite), true);
+        writeCell(sb, 2, 7, ctx.getString(R.string.export_header_ph), true);
+        writeCell(sb, 2, 8, ctx.getString(R.string.export_header_do), true);
+        writeCell(sb, 2, 9, ctx.getString(R.string.export_header_max_temp), true);
+        writeCell(sb, 2, 10, ctx.getString(R.string.export_header_min_temp), true);
+        writeCell(sb, 2, 11, ctx.getString(R.string.export_header_chlorine), true);
+        writeCell(sb, 2, 12, ctx.getString(R.string.export_header_h2s), true);
+        writeCell(sb, 2, 13, ctx.getString(R.string.export_header_orp), true);
+        sb.append("</row>");
+        Date firstDate = null;
+        if (stockingDate != null && !stockingDate.trim().isEmpty()) {
+            firstDate = parseRecordDate(stockingDate);
+        }
+        int row = 3;
+        int idx = 1;
+        if (records != null) {
+            for (DatabaseHelper.WaterQualityRecord r : records) {
+                if (r == null) { row++; idx++; continue; }
+                int day = (firstDate == null) ? idx : dayIndexOf(r.date, firstDate);
+                sb.append("<row r=\"").append(row).append("\" customHeight=\"0\">");
+                writeCell(sb, row, 1, r.date, false);
+                writeCell(sb, row, 2, String.valueOf(day), false);
+                writeCell(sb, row, 3, r.vibrio, false);
+                writeCell(sb, row, 4, r.salinity, false);
+                writeCell(sb, row, 5, r.ammonia, false);
+                writeCell(sb, row, 6, r.nitrite, false);
+                writeCell(sb, row, 7, r.ph, false);
+                writeCell(sb, row, 8, r.dissolvedOxygen, false);
+                writeCell(sb, row, 9, r.maxTemp, false);
+                writeCell(sb, row, 10, r.minTemp, false);
+                writeCell(sb, row, 11, r.chlorine, false);
+                writeCell(sb, row, 12, r.hydrogenSulfide, false);
+                writeCell(sb, row, 13, r.orp, false);
+                sb.append("</row>");
+                row++;
+                idx++;
+            }
+        }
+        sb.append("</sheetData>");
+        sb.append("<mergeCells count=\"1\"><mergeCell ref=\"A1:M1\"/></mergeCells>");
+        sb.append("<printOptions horizontalCentered=\"1\"/>");
+        sb.append("<pageMargins left=\"0.25\" right=\"0.25\" top=\"0.6\" bottom=\"0.6\" header=\"0.3\" footer=\"0.3\"/>");
+        sb.append("<pageSetup paperSize=\"9\" orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/>");
+        sb.append("<headerFooter><oddFooter><center>第 &amp;P 页</center></oddFooter></headerFooter>");
+        sb.append("</worksheet>");
+        return sb.toString();
+    }
+
+    private static String timePart(String dateTime) {
+        if (dateTime == null) return "";
+        int sp = dateTime.indexOf(' ');
+        if (sp >= 0) return dateTime.substring(sp + 1);
+        return dateTime.trim();
+    }
+
+    private static int shedSortKey(String shedNumber, int shedRowIndex) {
+        int n = parseShedNumber(shedNumber);
+        return n > 0 ? n : shedRowIndex + 1;
+    }
+
+    private static int parseShedNumber(String shedNumber) {
+        if (shedNumber == null) return -1;
+        String t = shedNumber.trim().replace("号", "").replace("棚", "");
+        try {
+            return Integer.parseInt(t);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private static String shedLabel(String shedNumber, int shedRowIndex) {
+        String base;
+        if (shedNumber != null && !shedNumber.trim().isEmpty()) {
+            base = shedNumber.trim();
+        } else {
+            base = String.valueOf(shedRowIndex + 1);
+        }
+        String suffix = shedNumber != null && (shedNumber.contains("号") || shedNumber.contains("棚"))
+                ? "" : "号";
+        return base + suffix;
+    }
+
+    private static int parseShed(String label) {
+        if (label == null) return -1;
+        return parseShedNumber(label);
+    }
+
+    private static String formatMinutes(long seconds) {
+        if (seconds <= 0) return "";
+        return String.valueOf(Math.round(seconds / 60.0));
     }
 
     private static String cellOrBlank(String raw, Map<String, String> tags, boolean behaviorMode) {
@@ -247,6 +598,68 @@ public class ExcelExporter {
             sb.append(" xml:space=\"preserve\"");
         }
         sb.append('>').append(escapeXml(text)).append("</t></is></c>");
+    }
+
+    private static void writeNumberCell(StringBuilder sb, int row, int col, double value) {
+        sb.append("<c r=\"").append(colName(col)).append(row).append("\" s=\"5\"><v>")
+                .append(formatNumber(value)).append("</v></c>");
+    }
+
+    private static String formatNumber(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return "0";
+        return String.format(java.util.Locale.ROOT, "%.4f", value);
+    }
+
+    private static String checkConditionalFormatting(List<TreeSet<Integer>> shedRatioRows) {
+        StringBuilder sb = new StringBuilder();
+        int globalPriority = 1;
+        for (int i = 0; i < shedRatioRows.size(); i++) {
+            TreeSet<Integer> rows = shedRatioRows.get(i);
+            if (rows.isEmpty()) continue;
+            int base = 2 + i * 3;
+            int col = base + 2;
+            String colL = colName(col);
+            // 合并连续行为范围，如 D4:D5 D7 D10
+            StringBuilder sqref = new StringBuilder();
+            int prev = -2;
+            int rangeStart = -1;
+            for (int r : rows) {
+                if (prev + 1 == r) {
+                    prev = r;
+                } else {
+                    if (rangeStart >= 0) {
+                        if (sqref.length() > 0) sqref.append(' ');
+                        sqref.append(colL).append(rangeStart);
+                        if (prev != rangeStart) sqref.append(':').append(colL).append(prev);
+                    }
+                    rangeStart = r;
+                    prev = r;
+                }
+            }
+            if (rangeStart >= 0) {
+                if (sqref.length() > 0) sqref.append(' ');
+                sqref.append(colL).append(rangeStart);
+                if (prev != rangeStart) sqref.append(':').append(colL).append(prev);
+            }
+            // 公式引用用该棚列的首数据行
+            String ref = colL + rows.first();
+            // dxfId: 0=orange 1=red 2=purple 3=lightgreen 4=darkgreen 5=saturatedblue
+            sb.append("<conditionalFormatting sqref=\"").append(sqref).append("\">");
+            sb.append("<cfRule type=\"expression\" dxfId=\"0\" priority=\"").append(globalPriority++)
+                    .append("\" stopIfTrue=\"1\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&gt;=0,").append(ref).append("&lt;0.1)</formula></cfRule>");
+            sb.append("<cfRule type=\"expression\" dxfId=\"1\" priority=\"").append(globalPriority++)
+                    .append("\" stopIfTrue=\"1\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&gt;=0.1,").append(ref).append("&lt;0.2)</formula></cfRule>");
+            sb.append("<cfRule type=\"expression\" dxfId=\"2\" priority=\"").append(globalPriority++)
+                    .append("\" stopIfTrue=\"1\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&gt;=0.2)</formula></cfRule>");
+            sb.append("<cfRule type=\"expression\" dxfId=\"3\" priority=\"").append(globalPriority++)
+                    .append("\" stopIfTrue=\"1\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&lt;0,").append(ref).append("&gt;-0.1)</formula></cfRule>");
+            sb.append("<cfRule type=\"expression\" dxfId=\"4\" priority=\"").append(globalPriority++)
+                    .append("\" stopIfTrue=\"1\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&lt;=-0.1,").append(ref).append("&gt;-0.2)</formula></cfRule>");
+            sb.append("<cfRule type=\"expression\" dxfId=\"5\" priority=\"").append(globalPriority++)
+                    .append("\"><formula>AND(ISNUMBER(").append(ref).append("),").append(ref).append("&lt;=-0.2)</formula></cfRule>");
+            sb.append("</conditionalFormatting>");
+        }
+        return sb.toString();
     }
 
     private static int dayIndexOf(String date, Date first) {
@@ -309,6 +722,8 @@ public class ExcelExporter {
                 + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
                 + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
                 + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                + "<Override PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                + "<Override PartName=\"/xl/worksheets/sheet3.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
                 + "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>"
                 + "</Types>";
     }
@@ -324,8 +739,14 @@ public class ExcelExporter {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\""
                 + " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
-                + "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>"
-                + "<definedNames><definedName name=\"_xlnm.Print_Titles\">'Sheet1'!$1:$2</definedName></definedNames>"
+                + "<sheets>"
+                + "<sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/>"
+                + "<sheet name=\"Sheet2\" sheetId=\"2\" r:id=\"rId2\"/>"
+                + "<sheet name=\"Sheet3\" sheetId=\"3\" r:id=\"rId3\"/>"
+                + "</sheets>"
+                + "<definedNames><definedName name=\"_xlnm.Print_Titles\">"
+                + "'Sheet1'!$1:$2,'Sheet2'!$1:$3,'Sheet3'!$1:$2"
+                + "</definedName></definedNames>"
                 + "</workbook>";
     }
 
@@ -333,13 +754,18 @@ public class ExcelExporter {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
                 + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
-                + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
+                + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet2.xml\"/>"
+                + "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet3.xml\"/>"
+                + "<Relationship Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
                 + "</Relationships>";
     }
 
     private static String stylesXml() {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+                + "<numFmts count=\"1\">"
+                + "<numFmt numFmtId=\"164\" formatCode=\"0.0%\"/>"
+                + "</numFmts>"
                 + "<fonts count=\"3\">"
                 + "<font><sz val=\"11\"/><name val=\"Calibri\"/></font>"
                 + "<font><b/><color rgb=\"FFFFFFFF\"/><sz val=\"11\"/><name val=\"Calibri\"/></font>"
@@ -355,14 +781,23 @@ public class ExcelExporter {
                 + "<border><left style=\"thin\"><color rgb=\"FF000000\"/></left><right style=\"thin\"><color rgb=\"FF000000\"/></right><top style=\"thin\"><color rgb=\"FF000000\"/></top><bottom style=\"thin\"><color rgb=\"FF000000\"/></bottom><diagonal/></border>"
                 + "</borders>"
                 + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"
-                + "<cellXfs count=\"5\">"
+                + "<cellXfs count=\"6\">"
                 + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>"
                 + "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\"/></xf>"
                 + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment wrapText=\"1\" horizontal=\"center\" vertical=\"center\"/></xf>"
                 + "<xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\"/></xf>"
                 + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\"/></xf>"
+                + "<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\"/></xf>"
                 + "</cellXfs>"
                 + "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>"
+                + "<dxfs count=\"6\">"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFED7D31\"/><bgColor rgb=\"FFED7D31\"/></patternFill></fill></dxf>"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFF0000\"/><bgColor rgb=\"FFFF0000\"/></patternFill></fill></dxf>"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF7030A0\"/><bgColor rgb=\"FF7030A0\"/></patternFill></fill></dxf>"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF92D050\"/><bgColor rgb=\"FF92D050\"/></patternFill></fill></dxf>"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF008000\"/><bgColor rgb=\"FF008000\"/></patternFill></fill></dxf>"
+                + "<dxf><font><color rgb=\"FFFFFFFF\"/></font><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF0057D8\"/><bgColor rgb=\"FF0057D8\"/></patternFill></fill></dxf>"
+                + "</dxfs>"
                 + "</styleSheet>";
     }
 

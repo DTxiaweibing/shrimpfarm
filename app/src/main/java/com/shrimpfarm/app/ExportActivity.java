@@ -6,7 +6,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.util.Log;
 
+import com.shrimpfarm.app.model.FeedCheckAlertModel;
 import com.shrimpfarm.app.utils.ExcelExporter;
 import com.shrimpfarm.app.utils.StoragePermissionHelper;
 
@@ -96,6 +98,9 @@ public class ExportActivity extends BaseActivity {
                     final Map<String, String> mixTags = db.getMixPresetTagsMap(batchId);
                     final Map<String, String> waterTags = db.getWaterPresetTagsMap(batchId);
                     final String stockingDate = db.getStockingDate(batchId);
+                    final List<DatabaseHelper.CheckRecord> checkRecords = db.getCheckRecordsByBatch(batchId);
+                    final List<DatabaseHelper.WaterQualityRecord> waterRecords = db.getWaterQualityList(batchId);
+                    final boolean isFourMeals = FeedCheckAlertModel.isFourMeals(db.getReadableDatabase(), batchId);
                     if (mode == ExcelExporter.MODE_BEHAVIOR) {
                         ExcelExporter.UntaggedInfo untagged =
                                 ExcelExporter.collectUntaggedProducts(records, mixTags, waterTags);
@@ -106,11 +111,13 @@ public class ExportActivity extends BaseActivity {
                     }
                     final String path = ExcelExporter.exportAndSave(ExportActivity.this, batchName,
                             stockingDate, records, mixTags, waterTags,
-                            mode == ExcelExporter.MODE_BEHAVIOR);
+                            mode == ExcelExporter.MODE_BEHAVIOR, checkRecords, waterRecords, isFourMeals);
                     toastAndFinish(getString(R.string.export_toast_done, path));
                 } catch (SecurityException e) {
+                    Log.e("ExportActivity", "export security denied", e);
                     toastAndFinish(getString(R.string.export_toast_need_permission));
                 } catch (Exception e) {
+                    Log.e("ExportActivity", "export failed", e);
                     toastAndFinish(getString(R.string.export_toast_failed));
                 }
             }
