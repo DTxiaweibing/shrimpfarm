@@ -64,13 +64,10 @@ public class AppIntegrityChecker {
     }
 
     private static boolean checkWithSupabase(Context context, String fingerprint) throws Exception {
-        int versionCode = context.getPackageManager()
-                .getPackageInfo(context.getPackageName(), 0).versionCode;
-
         String url = SUPABASE_URL + "/rest/v1/app_checksums"
                 + "?package_name=eq." + context.getPackageName()
-                + "&version_code=eq." + versionCode
-                + "&select=allowed_fingerprint";
+                + "&select=allowed_fingerprint"
+                + "&order=version_code.desc&limit=1";
 
         Request request = new Request.Builder()
                 .url(url)
