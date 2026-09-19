@@ -29,7 +29,7 @@
             android:id="@+id/btn_toggle_input"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.14"
+            android:layout_weight="0.12"
             android:src="@drawable/avd_mic"
             android:scaleType="centerInside"
             android:padding="6dp"
@@ -39,7 +39,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="0.58"
+            android:layout_weight="0.52"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
             android:orientation="vertical">
@@ -95,11 +95,22 @@
 
         </LinearLayout>
 
+        <ImageButton
+            android:id="@+id/btn_speaker"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.12"
+            android:src="@drawable/ic_speaker_on"
+            android:scaleType="centerInside"
+            android:padding="6dp"
+            android:background="@drawable/input_bg"
+            android:contentDescription="语音播报" />
+
         <TextView
             android:id="@+id/btn_unleash"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.14"
+            android:layout_weight="0.12"
             android:gravity="center"
             android:text="严"
             android:textStyle="bold"
@@ -113,7 +124,7 @@
             android:id="@+id/btn_send"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.14"
+            android:layout_weight="0.12"
             android:src="@drawable/ic_send"
             android:scaleType="centerInside"
             android:padding="6dp"

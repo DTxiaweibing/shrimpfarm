@@ -10,8 +10,18 @@ android {
         targetSdkVersion 36
         versionCode 6
         versionName "1.5.6"
-        multiDexEnabled true
-        ndk { abiFilters "arm64-v8a" }
+multiDexEnabled true
+    ndk { abiFilters "arm64-v8a" }
+    packagingOptions {
+        pickFirst 'lib/arm64-v8a/libonnxruntime.so'
+        pickFirst 'lib/armeabi-v7a/libonnxruntime.so'
+        pickFirst 'lib/x86/libonnxruntime.so'
+        pickFirst 'lib/x86_64/libonnxruntime.so'
+        pickFirst 'lib/arm64-v8a/libonnxruntime4j_jni.so'
+        pickFirst 'lib/armeabi-v7a/libonnxruntime4j_jni.so'
+        pickFirst 'lib/x86/libonnxruntime4j_jni.so'
+        pickFirst 'lib/x86_64/libonnxruntime4j_jni.so'
+    }
         externalNativeBuild {
             cmake {
                 cppFlags "-std=c++17"
@@ -45,7 +55,9 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
-    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.27.0'
+    implementation 'com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.8'
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.28.0'
+    implementation 'org.apache.commons:commons-compress:1.26.2'
     implementation 'com.github.lecho:hellocharts-library:1.5.8@aar'
     implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
     implementation 'androidx.cardview:cardview:1.0.0'

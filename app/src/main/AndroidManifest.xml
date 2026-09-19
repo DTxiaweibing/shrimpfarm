@@ -125,6 +125,12 @@
         <activity
             android:name=".ExpertActivity"
             android:label="专家咨询"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".VoiceModelDownloadActivity"
+            android:label="@string/voice_download_title"
             android:screenOrientation="portrait"
             android:exported="false" />
         <!-- 轮播图网页详情 -->

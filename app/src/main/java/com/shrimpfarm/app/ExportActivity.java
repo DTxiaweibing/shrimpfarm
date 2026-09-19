@@ -90,6 +90,7 @@ public class ExportActivity extends BaseActivity {
             public void run() {
                 final DatabaseHelper db = DatabaseHelper.getInstance(ExportActivity.this);
                 try {
+                    db.markSoldIfIdle(batchId);
                     final List<FeedingRecordActivity.DayRecord> records = db.getRecordsForExport(batchId);
                     if (records.isEmpty()) {
                         toastAndFinish(getString(R.string.export_toast_no_data));

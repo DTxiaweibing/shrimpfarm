@@ -426,6 +426,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         finDate.put(COLUMN_BATCH_ID, batchId);
         finDate.put(COLUMN_BD_VALUE, EncryptUtils.encrypt(today));
         db.insertWithOnConflict(TABLE_BASIC_DATA, null, finDate, SQLiteDatabase.CONFLICT_REPLACE);
+
+        appendSoldTag(batchId);
     }
 
     public boolean isBatchFinished(String batchId) {
@@ -910,6 +912,141 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return result;
     }
 
+    // ==================== 系统判断卖虾：超过7天无新记录则打标 ====================
+
+    public boolean markSoldIfIdle(String batchId) {
+        if (batchId == null || batchId.isEmpty()) return false;
+        if (isBatchFinished(batchId)) return false;
+        if (daysSinceLastRecord(batchId) > 7) return appendSoldTag(batchId);
+        return revokeSoldTags(batchId);
+    }
+
+    private boolean revokeSoldTags(String batchId) {
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor c = db.query(TABLE_DAILY_RECORDS,
+                new String[]{COLUMN_DATE, COLUMN_REMARK},
+                COLUMN_BATCH_ID + "=?", new String[]{batchId},
+                null, null, null);
+        boolean changed = false;
+        try {
+            while (c != null && c.moveToNext()) {
+                String date = c.getString(c.getColumnIndexOrThrow(COLUMN_DATE));
+                String remark = decryptField(c, COLUMN_REMARK);
+                String stripped = stripSoldTag(remark);
+                if (stripped == null) continue;
+                updateRemark(db, batchId, date, stripped);
+                changed = true;
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
+        return changed;
+    }
+
+    private String stripSoldTag(String remark) {
+        if (remark == null) return null;
+        String tagWithSep = SOLD_SEP + SOLD_TAG;
+        String stripped;
+        if (remark.endsWith(tagWithSep)) {
+            stripped = remark.substring(0, remark.length() - tagWithSep.length());
+        } else if (remark.endsWith(SOLD_TAG)) {
+            stripped = remark.substring(0, remark.length() - SOLD_TAG.length());
+        } else {
+            return null;
+        }
+        while (stripped.endsWith(SOLD_SEP)) {
+            stripped = stripped.substring(0, stripped.length() - SOLD_SEP.length());
+        }
+        return stripped;
+    }
+
+    private void clearStaleSoldTags(String batchId, String keepDate) {
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor c = db.query(TABLE_DAILY_RECORDS,
+                new String[]{COLUMN_DATE, COLUMN_REMARK},
+                COLUMN_BATCH_ID + "=?", new String[]{batchId},
+                null, null, null);
+        try {
+            while (c != null && c.moveToNext()) {
+                String date = c.getString(c.getColumnIndexOrThrow(COLUMN_DATE));
+                if (keepDate.equals(date)) continue;
+                String remark = decryptField(c, COLUMN_REMARK);
+                String stripped = stripSoldTag(remark);
+                if (stripped == null) continue;
+                updateRemark(db, batchId, date, stripped);
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
+    }
+
+    public boolean appendSoldTag(String batchId) {
+        if (batchId == null || batchId.isEmpty()) return false;
+        SQLiteDatabase db = getWritableDatabase();
+        String lastDate = null;
+        String remark = null;
+        Cursor c = db.query(TABLE_DAILY_RECORDS,
+                new String[]{COLUMN_DATE, COLUMN_REMARK},
+                COLUMN_BATCH_ID + "=?" + SOLD_FEED_FILTER, new String[]{batchId},
+                null, null, COLUMN_DATE + " DESC", "1");
+        try {
+            if (c != null && c.moveToFirst()) {
+                lastDate = c.getString(c.getColumnIndexOrThrow(COLUMN_DATE));
+                remark = decryptField(c, COLUMN_REMARK);
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
+        if (lastDate == null || remark == null) return false;
+        clearStaleSoldTags(batchId, lastDate);
+        if (remark.contains(SOLD_TAG)) return false;
+        String newRemark = remark.isEmpty() ? SOLD_TAG : remark + SOLD_SEP + SOLD_TAG;
+        updateRemark(db, batchId, lastDate, newRemark);
+        return true;
+    }
+
+    public static final String SOLD_TAG = "【系统判断】卖虾";
+    private static final String SOLD_SEP = "，";
+    private static final String SOLD_FEED_FILTER =
+            " AND ( " + COLUMN_BREAKFAST + " IS NOT NULL AND " + COLUMN_BREAKFAST + " <> ''" +
+            " OR " + COLUMN_LUNCH + " IS NOT NULL AND " + COLUMN_LUNCH + " <> ''" +
+            " OR " + COLUMN_DINNER + " IS NOT NULL AND " + COLUMN_DINNER + " <> ''" +
+            " OR " + COLUMN_NIGHT_SNACK + " IS NOT NULL AND " + COLUMN_NIGHT_SNACK + " <> '')";
+
+    private int daysSinceLastRecord(String batchId) {
+        SQLiteDatabase db = getReadableDatabase();
+        String lastDate = null;
+        Cursor c = db.query(TABLE_DAILY_RECORDS,
+                new String[]{COLUMN_DATE},
+                COLUMN_BATCH_ID + "=?" + SOLD_FEED_FILTER, new String[]{batchId},
+                null, null, COLUMN_DATE + " DESC", "1");
+        try {
+            if (c != null && c.moveToFirst()) {
+                lastDate = c.getString(c.getColumnIndexOrThrow(COLUMN_DATE));
+            }
+        } finally {
+            if (c != null && !c.isClosed()) c.close();
+        }
+        if (lastDate == null) return 0;
+        return daysSince(lastDate);
+    }
+
+    private int daysSince(String dateStr) {
+        Calendar cal = parseDate(dateStr);
+        Calendar now = Calendar.getInstance();
+        long diff = now.getTimeInMillis() - cal.getTimeInMillis();
+        return (int) (diff / (24L * 60 * 60 * 1000));
+    }
+
+    private void updateRemark(SQLiteDatabase db, String batchId, String date, String newRemark) {
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_REMARK, newRemark);
+        ContentValues encrypted = encryptContentValues(values);
+        db.update(TABLE_DAILY_RECORDS, encrypted,
+                COLUMN_DATE + "=? AND " + COLUMN_BATCH_ID + "=?",
+                new String[]{date, batchId});
+    }
+
     public void saveRecordWithTransaction(String batchId, FeedingRecordActivity.DayRecord record) {
         if (!isSaveAllowed()) return;
         if (isBatchFinished(batchId)) return;
@@ -935,6 +1072,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         try {
             db.insertWithOnConflict(TABLE_DAILY_RECORDS, null, encrypted, SQLiteDatabase.CONFLICT_REPLACE);
             db.setTransactionSuccessful();
+            revokeSoldTags(batchId);
         } finally {
             db.endTransaction();
         }

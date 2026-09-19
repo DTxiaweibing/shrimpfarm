@@ -13,3 +13,7 @@ app/.cxx/
 app/debug/
 app/src/main/cpp/build/
 .cxx/
+tmp/
+
+app/src/main/assets/sherpa_models/
+

@@ -78,6 +78,9 @@ public class MyApplication extends MultiDexApplication {
                                 WindowInsetsCompat.Type.statusBars()).top;
                         int navBarHeight = insets.getInsets(
                                 WindowInsetsCompat.Type.navigationBars()).bottom;
+                        int imeHeight = insets.getInsets(
+                                WindowInsetsCompat.Type.ime()).bottom;
+                        int bottom = Math.max(navBarHeight, imeHeight);
                         View content = v.findViewById(android.R.id.content);
                         if (content != null) {
                             content.setBackgroundColor(statusBarColor);
@@ -85,7 +88,7 @@ public class MyApplication extends MultiDexApplication {
                                     content.getPaddingLeft(),
                                     statusBarHeight,
                                     content.getPaddingRight(),
-                                    navBarHeight
+                                    bottom
                             );
                         }
                         return insets;

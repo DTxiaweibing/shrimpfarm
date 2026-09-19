@@ -3,31 +3,32 @@ package com.shrimpfarm.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
-import android.media.AudioManager;
+import android.app.Dialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
-import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import com.shrimpfarm.app.BaseActivity;
 import androidx.core.content.ContextCompat;
@@ -39,6 +40,9 @@ import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 import com.shrimpfarm.app.model.RagPipeline;
 import com.shrimpfarm.app.model.Reranker;
 import com.shrimpfarm.app.model.TokenEmbedder;
+import com.shrimpfarm.app.sherpa.AsrEngine;
+import com.shrimpfarm.app.sherpa.TtsEngine;
+import com.shrimpfarm.app.sherpa.VoiceModelManager;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -90,8 +94,15 @@ public class ExpertActivity extends BaseActivity {
     private TextView btnUnleash;
     private LinearLayout btnHoldSpeak;
     private ImageView imgMicHold;
+    private ImageButton btnSpeaker;
     private ChatAdapter adapter;
     private boolean isKeyboardMode = true;
+    private boolean speakingEnabled = true;
+    private int speakSid = 2;
+
+    private static final String PREFS_NAME = "expert_voice";
+    private static final String KEY_SPEAKING = "speaking";
+    private static final String KEY_SID = "speak_sid";
 
     private static final boolean ENABLE_ROUTING = false;
 
@@ -101,22 +112,9 @@ public class ExpertActivity extends BaseActivity {
     private String cloudApiKey;
     private TextToSpeech textToSpeech;
     private boolean ttsReady = false;
-    private boolean isVoiceInput = false;
     private Vibrator vibrator;
-    private final ActivityResultLauncher<Intent> voiceLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    ArrayList<String> matches = result.getData()
-                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    if (matches != null && !matches.isEmpty()) {
-                        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                        if (am != null) am.playSoundEffect(AudioManager.FX_KEY_CLICK);
-                        isVoiceInput = true;
-                        inputMessage.setText(matches.get(0));
-                        sendMessage();
-                    }
-                }
-            });
+    private AsrEngine asrEngine;
+    private TtsEngine ttsEngine;
 
     private boolean unleashed = false;
 
@@ -161,20 +159,25 @@ public class ExpertActivity extends BaseActivity {
 
     private static class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
         private final List<ChatMessage> messages;
+        private Runnable replayListener;
+        private String replayText;
         ChatAdapter(List<ChatMessage> messages) { this.messages = messages; }
+        void setReplayListener(Runnable replayListener) { this.replayListener = replayListener; }
+        void setReplayText(String replayText) { this.replayText = replayText; }
         static class ViewHolder extends RecyclerView.ViewHolder {
-            final TextView textMsg; final TextView textTime; final TextView textKbVersion; final View bubble;
+            final TextView textMsg; final TextView textTime; final TextView textKbVersion; final View bubble; final ImageButton btnReplay;
             ViewHolder(View itemView, int viewType) {
                 super(itemView);
                 if (viewType == TYPE_DEBUG) {
-                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; textKbVersion = null; bubble = null;
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_debug); textTime = null; textKbVersion = null; bubble = null; btnReplay = null;
                 } else if (viewType == TYPE_ANIMATION) {
-                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_animation); textTime = null; textKbVersion = null; bubble = null;
+                    textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_animation); textTime = null; textKbVersion = null; bubble = null; btnReplay = null;
                 } else {
                     textMsg = itemView.findViewById(com.shrimpfarm.app.R.id.text_message);
                     textTime = itemView.findViewById(com.shrimpfarm.app.R.id.text_time);
                     textKbVersion = itemView.findViewById(com.shrimpfarm.app.R.id.text_kb_version);
                     bubble = itemView.findViewById(com.shrimpfarm.app.R.id.bubble);
+                    btnReplay = itemView.findViewById(com.shrimpfarm.app.R.id.btn_replay);
                 }
             }
         }
@@ -200,6 +203,13 @@ public class ExpertActivity extends BaseActivity {
                     holder.textKbVersion.setVisibility(View.GONE);
                 }
             }
+            if (holder.btnReplay != null) {
+                holder.btnReplay.setVisibility(msg.text == null || msg.text.trim().isEmpty() ? View.GONE : View.VISIBLE);
+                holder.btnReplay.setOnClickListener(v -> {
+                    setReplayText(msg.text);
+                    if (replayListener != null) replayListener.run();
+                });
+            }
         }
         @Override public int getItemCount() { return messages.size(); }
     }
@@ -216,10 +226,27 @@ public class ExpertActivity extends BaseActivity {
         btnHoldSpeak = findViewById(com.shrimpfarm.app.R.id.btn_hold_speak);
         imgMicHold = findViewById(com.shrimpfarm.app.R.id.img_mic_hold);
         btnUnleash = findViewById(com.shrimpfarm.app.R.id.btn_unleash);
+        btnSpeaker = findViewById(com.shrimpfarm.app.R.id.btn_speaker);
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        speakingEnabled = prefs.getBoolean(KEY_SPEAKING, true);
+        speakSid = prefs.getInt(KEY_SID, 2);
+        updateSpeakerIcon();
 
         chatList.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ChatAdapter(messages);
         chatList.setAdapter(adapter);
+        adapter.setReplayListener(() -> {
+            String text = adapter.replayText;
+            if (text == null || text.trim().isEmpty()) return;
+            stopCurrentSpeech();
+            synchronized (ttsBuffer) { ttsBuffer.setLength(0); }
+            if (ttsEngine != null && ttsEngine.isReady()) {
+                ttsEngine.speak(text.replace("*", "").replace("#", "").replace("`", "").trim(), speakSid, 1.0f, null);
+            } else if (ttsReady) {
+                textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+            }
+        });
 
         int kbVer = com.shrimpfarm.app.model.KnowledgeBaseUpdater.getLocalVersion(this);
         String welcomeText = getString(R.string.expert_welcome);
@@ -238,7 +265,21 @@ public class ExpertActivity extends BaseActivity {
 
         btnToggleInput.setOnClickListener(v -> toggleInputMode());
 
-        btnHoldSpeak.setOnClickListener(v -> startVoiceInput());
+        btnHoldSpeak.setOnTouchListener(this::onSpeakTouch);
+
+        btnSpeaker.setOnClickListener(v -> {
+            speakingEnabled = !speakingEnabled;
+            saveSpeakingPref();
+            updateSpeakerIcon();
+            if (!speakingEnabled) {
+                stopCurrentSpeech();
+                ttsBuffer.setLength(0);
+            }
+        });
+        btnSpeaker.setOnLongClickListener(v -> {
+            showSidPicker();
+            return true;
+        });
 
         startAvd(btnToggleInput.getDrawable());
 
@@ -261,6 +302,7 @@ public class ExpertActivity extends BaseActivity {
                 reranker = null;
                 Log.w(TAG, "Reranker unavailable: " + e.getMessage());
             }
+            initVoiceEngines();
             KnowledgeBaseUpdater.checkUpdate(this);
             initialized = true;
             Log.i(TAG, "Init OK, KB=" + knowledgeBase.size());
@@ -268,6 +310,66 @@ public class ExpertActivity extends BaseActivity {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
             Log.e(TAG, "Init failed: " + err);
         }
+    }
+
+    private void initVoiceEngines() {
+        VoiceModelManager mgr = VoiceModelManager.getInstance(this);
+        mgr.installFromAssets();
+        if (mgr.isAsrReady()) {
+            asrEngine = new AsrEngine(mgr.asrDir());
+            if (!asrEngine.init()) asrEngine = null;
+        }
+        if (mgr.isTtsReady()) {
+            ttsEngine = new TtsEngine(mgr.ttsDir());
+            if (!ttsEngine.init()) ttsEngine = null;
+        }
+    }
+
+    private void speakAnswer(String text) {
+        if (!speakingEnabled || text == null || text.trim().isEmpty()) return;
+        if (ttsEngine != null && ttsEngine.isReady()) {
+            ttsEngine.speak(text, speakSid, 1.0f, null);
+        } else if (ttsReady) {
+            textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+    }
+
+    private final StringBuilder ttsBuffer = new StringBuilder();
+
+    private void speechChunk(String delta) {
+        synchronized (ttsBuffer) {
+            if (!speakingEnabled) {
+                ttsBuffer.setLength(0);
+                return;
+            }
+            ttsBuffer.append(delta);
+            String buf = ttsBuffer.toString();
+            int last = -1;
+            for (int i = 0; i < buf.length(); i++) {
+                char c = buf.charAt(i);
+                if (c == '。' || c == '！' || c == '？' || c == '；' || c == '\n') last = i + 1;
+            }
+            if (last <= 0) return;
+            String ready = buf.substring(0, last);
+            ttsBuffer.delete(0, last);
+            String clean = ready.replace("。", "").replace("！", "").replace("？", "").replace("；", "").replace("\n", "")
+                    .replace("*", "").replace("#", "").replace("`", "").trim();
+            if (!clean.isEmpty()) speakAnswer(clean);
+        }
+    }
+
+    private void speechFlush() {
+        synchronized (ttsBuffer) {
+            if (ttsBuffer.length() == 0) return;
+            String left = ttsBuffer.toString().trim();
+            ttsBuffer.setLength(0);
+            if (!left.isEmpty() && speakingEnabled) speakAnswer(left);
+        }
+    }
+
+    private void stopCurrentSpeech() {
+        if (ttsEngine != null) ttsEngine.stop();
+        if (textToSpeech != null) textToSpeech.stop();
     }
 
     private static String deobfuscate(String s) {
@@ -318,33 +420,136 @@ public class ExpertActivity extends BaseActivity {
         }
     }
 
-    private void startVoiceInput() {
+    private boolean onSpeakTouch(View v, MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                beginHoldSpeak();
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                endHoldSpeak();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void beginHoldSpeak() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 100);
             return;
         }
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.expert_voice_prompt));
-        if (intent.resolveActivity(getPackageManager()) == null) {
-            Toast.makeText(this, getString(R.string.expert_toast_no_voice), Toast.LENGTH_SHORT).show();
+        VoiceModelManager mgr = VoiceModelManager.getInstance(this);
+        if (!mgr.isAsrReady()) {
+            confirmDownloadModel();
+            return;
+        }
+        if (asrEngine == null || !asrEngine.isReady()) {
+            Toast.makeText(this, getString(R.string.expert_toast_asr_loading), Toast.LENGTH_SHORT).show();
             return;
         }
         if (vibrator != null && vibrator.hasVibrator()) {
             vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE));
         }
-        voiceLauncher.launch(intent);
+        imgMicHold.setImageResource(R.drawable.ic_mic_red);
+        asrEngine.startRecording();
+    }
+
+    private void endHoldSpeak() {
+        imgMicHold.setImageResource(R.drawable.avd_mic);
+        if (asrEngine == null || !asrEngine.isRecording()) return;
+        asrEngine.stop(new AsrEngine.ResultCallback() {
+            @Override
+            public void onResult(String text) {
+                if (vibrator != null && vibrator.hasVibrator()) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE));
+                }
+                mainHandler.post(() -> {
+                    inputMessage.setText(text);
+                    sendMessage();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                mainHandler.post(() -> Toast.makeText(ExpertActivity.this,
+                        message, Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void confirmDownloadModel() {
+        showStyledConfirmDialog(
+                getString(R.string.expert_voice_need_model),
+                getString(R.string.expert_voice_need_model_msg),
+                new String[]{getString(R.string.expert_voice_download), getString(R.string.expert_voice_cancel)},
+                new int[]{0xFF4CAF50, 0xFF757575},
+                new android.content.DialogInterface.OnClickListener[]{
+                        (d, w) -> startActivity(new Intent(this, VoiceModelDownloadActivity.class)),
+                        (d, w) -> { /* cancel */ }
+                });
+    }
+
+    private void updateSpeakerIcon() {
+        if (btnSpeaker == null) return;
+        btnSpeaker.setImageResource(speakingEnabled
+                ? R.drawable.ic_speaker_on : R.drawable.ic_speaker_off);
+    }
+
+    private void saveSpeakingPref() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                .putBoolean(KEY_SPEAKING, speakingEnabled).apply();
+    }
+
+    private void saveSidPref() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                .putInt(KEY_SID, speakSid).apply();
+    }
+
+    private void showSidPicker() {
+        int count = (ttsEngine != null && ttsEngine.isReady()) ? ttsEngine.numSpeakers() : 5;
+        String[] items = new String[count];
+        for (int i = 0; i < count; i++) {
+            items[i] = String.format(Locale.getDefault(), "%s %d", getString(R.string.expert_voice_sid), i + 1);
+        }
+        Dialog dialog = new Dialog(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_sid_picker, null);
+        dialog.setContentView(dialogView);
+        dialog.setCanceledOnTouchOutside(true);
+        dialog.setCancelable(true);
+
+        TextView tvTitle = dialogView.findViewById(R.id.tv_title);
+        tvTitle.setText(R.string.expert_voice_sid_title);
+
+        final int current = Math.max(0, Math.min(speakSid, count - 1));
+        ListView lv = dialogView.findViewById(R.id.lv_sids);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.item_sid, items);
+        lv.setAdapter(adapter);
+        lv.setItemChecked(current, true);
+        lv.setOnItemClickListener((parent, view, position, id) -> {
+            speakSid = position;
+            saveSidPref();
+            stopCurrentSpeech();
+            dialog.dismiss();
+        });
+
+        dialogView.findViewById(R.id.btn_cancel).setOnClickListener(v -> dialog.dismiss());
+
+        dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.show();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startVoiceInput();
-        } else {
-            Toast.makeText(this, getString(R.string.expert_toast_perm_audio), Toast.LENGTH_SHORT).show();
+        if (requestCode == 100) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, getString(R.string.expert_toast_perm_granted), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, getString(R.string.expert_toast_perm_audio), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -406,22 +611,26 @@ public class ExpertActivity extends BaseActivity {
     private void sendMessage() {
         String text = inputMessage.getText().toString().trim();
         if (text.isEmpty()) return;
+        stopCurrentSpeech();
+        synchronized (ttsBuffer) { ttsBuffer.setLength(0); }
         inputMessage.setText("");
         addUserMessage(text);
         startAnimation(unleashed ? getString(R.string.expert_anim_direct) : getString(R.string.expert_anim_refine));
-        if (!initialized) { Log.w(TAG, "Not initialized"); stopAnimation(); btnSend.setEnabled(true); return; }
-        if (cloudApiKey == null) { Log.w(TAG, "No API key"); stopAnimation(); btnSend.setEnabled(true); return; }
+        if (!initialized || cloudApiKey == null) {
+            stopAnimation();
+            btnSend.setEnabled(true);
+            Toast.makeText(this, R.string.expert_toast_ai_loading, Toast.LENGTH_SHORT).show();
+            return;
+        }
         btnSend.setEnabled(false);
-        final boolean wasVoice = isVoiceInput;
-        isVoiceInput = false;
-        executor.execute(() -> processQuery(text, wasVoice));
+        executor.execute(() -> processQuery(text));
     }
 
-    private void processQuery(String query, boolean wasVoice) {
+    private void processQuery(String query) {
         try {
             if (unleashed) {
                 mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_contacting)));
-                startStreamingResponse(query, wasVoice);
+                startStreamingResponse(query);
                 return;
             }
             RagPipeline pipeline = new RagPipeline();
@@ -435,8 +644,7 @@ public class ExpertActivity extends BaseActivity {
                     adapter.notifyItemInserted(messages.size() - 1);
                     chatList.scrollToPosition(messages.size() - 1);
                     btnSend.setEnabled(true);
-                    if (wasVoice && ttsReady)
-                        textToSpeech.speak(result.text, TextToSpeech.QUEUE_FLUSH, null, null);
+                    speakAnswer(result.text);
                 });
             } else {
                 String context = buildConversationContext();
@@ -444,7 +652,7 @@ public class ExpertActivity extends BaseActivity {
                         ? result.promptForApi
                         : context + "\n" + result.promptForApi;
                 mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_contacting)));
-                startStreamingResponse(promptWithContext, wasVoice);
+                startStreamingResponse(promptWithContext);
             }
         } catch (Throwable t) {
             String err = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
@@ -472,10 +680,9 @@ public class ExpertActivity extends BaseActivity {
         return sb.toString();
     }
 
-    private void startStreamingResponse(String userPrompt, boolean wasVoice) {
+    private void startStreamingResponse(String userPrompt) {
         mainHandler.post(() -> transitionAnimation(getString(R.string.expert_anim_thinking)));
 
-        final boolean speak = wasVoice;
         callCloudAPIStreaming(getSystemPrompt(), userPrompt, new StreamCallback() {
             private final StringBuilder accumulated = new StringBuilder();
             private boolean firstChunk = true;
@@ -484,6 +691,7 @@ public class ExpertActivity extends BaseActivity {
             @Override
             public void onChunk(String delta) {
                 accumulated.append(delta);
+                speechChunk(delta);
                 final String text = accumulated.toString();
                 mainHandler.post(() -> {
                     if (firstChunk) {
@@ -503,10 +711,9 @@ public class ExpertActivity extends BaseActivity {
 
             @Override
             public void onComplete() {
+                speechFlush();
                 mainHandler.post(() -> {
                     btnSend.setEnabled(true);
-                    if (speak && ttsReady)
-                        textToSpeech.speak(accumulated.toString(), TextToSpeech.QUEUE_FLUSH, null, null);
                 });
             }
 
@@ -619,12 +826,35 @@ public class ExpertActivity extends BaseActivity {
     private void addUserMessage(String text) { messages.add(new ChatMessage(TYPE_USER, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
     private void addBotMessage(String text) { messages.add(new ChatMessage(TYPE_BOT, text)); adapter.notifyItemInserted(messages.size() - 1); chatList.scrollToPosition(messages.size() - 1); }
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (asrEngine == null || ttsEngine == null) {
+            executor.execute(this::ensureVoiceEngines);
+        }
+    }
+
+    private void ensureVoiceEngines() {
+        VoiceModelManager mgr = VoiceModelManager.getInstance(this);
+        mgr.installFromAssets();
+        if (asrEngine == null && mgr.isAsrReady()) {
+            asrEngine = new AsrEngine(mgr.asrDir());
+            if (!asrEngine.init()) asrEngine = null;
+        }
+        if (ttsEngine == null && mgr.isTtsReady()) {
+            ttsEngine = new TtsEngine(mgr.ttsDir());
+            if (!ttsEngine.init()) ttsEngine = null;
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         stopAnimationTimer();
         executor.shutdown();
         if (embedder != null) embedder.close();
         if (reranker != null) reranker.close();
+        if (asrEngine != null) asrEngine.release();
+        if (ttsEngine != null) ttsEngine.release();
         if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
     }
 }
