@@ -85,6 +85,7 @@ public class TtsEngine {
                 OfflineTtsModelConfig modelConfig = new OfflineTtsModelConfig();
                 modelConfig.setVits(vits);
                 modelConfig.setNumThreads(2);
+                modelConfig.setProvider("xnnpack");
                 OfflineTtsConfig config = new OfflineTtsConfig();
                 config.setModel(modelConfig);
                 config.setRuleFsts(ruleFstsPath());
@@ -92,6 +93,7 @@ public class TtsEngine {
                 config.setSilenceScale(0.2f);
                 tts = new OfflineTts(null, config);
                 Log.i(TAG, "TTS ready, speakers=" + tts.numSpeakers());
+                warmup(tts);
                 if (!running) {
                     running = true;
                     synthExecutor.execute(this::synthesizeLoop);
@@ -103,6 +105,16 @@ public class TtsEngine {
                 Log.e(TAG, "TTS init failed: " + t.getMessage());
                 return false;
             }
+        }
+    }
+
+    private void warmup(OfflineTts ttsRef) {
+        try {
+            long start = System.currentTimeMillis();
+            ttsRef.generate("嗯", 0, 1.0f);
+            Log.i(TAG, "TTS warmup done in " + (System.currentTimeMillis() - start) + "ms");
+        } catch (Throwable t) {
+            Log.w(TAG, "TTS warmup skipped: " + t.getMessage());
         }
     }
 

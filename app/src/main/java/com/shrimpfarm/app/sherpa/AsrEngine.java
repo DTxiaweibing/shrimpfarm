@@ -25,6 +25,7 @@ public class AsrEngine {
 
     private static final String TAG = "AsrEngine";
     private static final int SAMPLE_RATE = 16000;
+    private static final int MAX_SAMPLES = SAMPLE_RATE * 180;
 
     private final File modelDir;
     private final Object lock = new Object();
@@ -49,12 +50,14 @@ public class AsrEngine {
                 OfflineModelConfig modelConfig = new OfflineModelConfig();
                 modelConfig.setParaformer(para);
                 modelConfig.setNumThreads(2);
+                modelConfig.setProvider("xnnpack");
                 modelConfig.setModelType("paraformer");
                 modelConfig.setTokens(new File(modelDir, "tokens.txt").getAbsolutePath());
                 OfflineRecognizerConfig config = new OfflineRecognizerConfig();
                 config.setFeatConfig(new FeatureConfig());
                 config.setModelConfig(modelConfig);
                 recognizer = new OfflineRecognizer(null, config);
+                warmup(recognizer);
                 Log.i(TAG, "ASR recognizer ready");
                 return true;
             } catch (Throwable t) {
@@ -62,6 +65,19 @@ public class AsrEngine {
                 Log.e(TAG, "Init failed: " + t.getMessage());
                 return false;
             }
+        }
+    }
+
+    private void warmup(OfflineRecognizer rec) {
+        try {
+            long start = System.currentTimeMillis();
+            OfflineStream stream = rec.createStream();
+            stream.acceptWaveform(new float[3200], SAMPLE_RATE);
+            rec.decode(stream);
+            stream.release();
+            Log.i(TAG, "ASR warmup done in " + (System.currentTimeMillis() - start) + "ms");
+        } catch (Throwable t) {
+            Log.w(TAG, "ASR warmup skipped: " + t.getMessage());
         }
     }
 
@@ -107,11 +123,17 @@ public class AsrEngine {
         try {
             rec.startRecording();
             byte[] buf = new byte[SAMPLE_RATE * 2];
-            float[] samples = new float[SAMPLE_RATE * 10];
+            float[] samples = new float[SAMPLE_RATE * 30];
             int pos = 0;
             while (recording) {
                 int n = rec.read(buf, 0, buf.length);
                 if (n <= 0) continue;
+                if (pos + n / 2 > samples.length && samples.length < MAX_SAMPLES) {
+                    int grow = Math.min(MAX_SAMPLES, samples.length * 2);
+                    float[] tmp = new float[grow];
+                    System.arraycopy(samples, 0, tmp, 0, pos);
+                    samples = tmp;
+                }
                 int limit = pos + n / 2;
                 if (limit > samples.length) limit = samples.length;
                 int read = 0;
@@ -164,7 +186,7 @@ public class AsrEngine {
                 return;
             }
             long start = System.currentTimeMillis();
-            String text = recognizeAndGet(data, rec);
+            String text = recognizeChunked(data, rec);
             Log.i(TAG, "decoded(" + (System.currentTimeMillis() - start) + "ms): " + text);
             if (callback != null) {
                 if (text == null || text.isEmpty()) {
@@ -174,6 +196,20 @@ public class AsrEngine {
                 }
             }
         }, "asr-stop").start();
+    }
+
+    private String recognizeChunked(float[] samples, OfflineRecognizer rec) {
+        int chunk = SAMPLE_RATE * 15;
+        if (samples.length <= chunk) return recognizeAndGet(samples, rec);
+        StringBuilder sb = new StringBuilder();
+        for (int off = 0; off < samples.length; off += chunk) {
+            int len = Math.min(chunk, samples.length - off);
+            float[] part = new float[len];
+            System.arraycopy(samples, off, part, 0, len);
+            String t = recognizeAndGet(part, rec);
+            if (t != null && !t.isEmpty()) sb.append(t);
+        }
+        return sb.toString().trim();
     }
 
     private String recognizeAndGet(float[] samples, OfflineRecognizer rec) {
