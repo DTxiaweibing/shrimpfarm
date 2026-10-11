@@ -91,7 +91,7 @@ public class MainActivity extends BaseActivity {
     private final int[] funcIcons = {
             R.drawable.jcsj, R.drawable.yzjl, R.drawable.cljl, R.drawable.bljs,
             R.drawable.szjc, R.drawable.sjcx, R.drawable.clyg, R.drawable.bzjy,
-            R.drawable.zjzx, R.drawable.hqzx
+            R.drawable.zjzx, R.drawable.hqzx, R.drawable.finance
     };
     private String[] funcNames;
 
@@ -631,7 +631,8 @@ public class MainActivity extends BaseActivity {
             getString(R.string.func_yield_estimate),
             getString(R.string.func_community_help),
             getString(R.string.func_expert_consult),
-            getString(R.string.func_market_info)
+            getString(R.string.func_market_info),
+            getString(R.string.func_finance)
         };
 
         List<Map<String, Object>> items = new ArrayList<>();
@@ -699,6 +700,7 @@ public class MainActivity extends BaseActivity {
                     case 7: intent = new Intent(MainActivity.this, HelpActivity.class); break;
                     case 8: intent = new Intent(MainActivity.this, ExpertActivity.class); break;
 case 9: intent = new Intent(MainActivity.this, com.shrimpfarm.app.hq.HqActivity.class); break;
+                case 10: intent = new Intent(MainActivity.this, com.shrimpfarm.app.finance.FinanceActivity.class); break;
                 }
                 if (intent != null) startActivity(intent);
         });

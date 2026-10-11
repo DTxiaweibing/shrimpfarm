@@ -26,7 +26,7 @@ import java.util.Map;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "FeedingRecord.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 15;
 
     // ==================== 表名 ====================
     public static final String TABLE_DAILY_RECORDS = "daily_records";
@@ -39,6 +39,116 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String TABLE_MARKET_PRICES = "market_prices";
     public static final String TABLE_PLAN_TASKS = "plan_tasks";
     public static final String TABLE_FEEDING_CHECK_ANALYSIS = "feeding_check_analysis";
+
+    // ==================== 财务模块表名 ====================
+    public static final String TABLE_FIN_CATEGORY = "fin_category";
+    public static final String TABLE_FIN_PRODUCT = "fin_product";
+    public static final String TABLE_FIN_PRODUCT_CATEGORY = "fin_product_category";
+    public static final String TABLE_FIN_SUPPLIER = "fin_supplier";
+    public static final String TABLE_FIN_SUPPLIER_PRODUCT = "fin_supplier_product";
+    public static final String TABLE_FIN_EXPENSE = "fin_expense";
+    public static final String TABLE_FIN_TICKET = "fin_ticket";
+    public static final String TABLE_FIN_TICKET_ITEM = "fin_ticket_item";
+    public static final String TABLE_FIN_INCOME = "fin_income";
+    public static final String TABLE_FIN_SEED = "fin_seed";
+    public static final String TABLE_FIN_WAGE = "fin_wage";
+    public static final String TABLE_FIN_REST = "fin_rest";
+    public static final String TABLE_FIN_LEAVE = "fin_leave";
+    public static final String TABLE_FIN_SALARY = "fin_salary";
+    public static final String TABLE_FIN_PAYMENT_ACCOUNT = "fin_payment_account";
+    public static final String TABLE_FIN_PAYMENT = "fin_payment";
+    public static final String TABLE_FIN_PAYMENT_TICKET = "fin_payment_ticket";
+    public static final String TABLE_FIN_ADVANCE = "fin_advance";
+    public static final String TABLE_FIN_CONTACT_ACCOUNT = "fin_contact_account";
+    public static final String TABLE_FIN_PURCHASE_ORDER = "fin_purchase_order";
+    public static final String TABLE_FIN_PURCHASE_ITEM = "fin_purchase_item";
+
+    // ==================== 财务模块公共字段 ====================
+    public static final String COLUMN_ID = "id";
+    public static final String COLUMN_FIN_NAME = "name";
+    public static final String COLUMN_FIN_ENABLED = "enabled";
+    public static final String COLUMN_FIN_SORT_ORDER = "sort_order";
+    public static final String COLUMN_FIN_IS_CUSTOM = "is_custom";
+    public static final String COLUMN_FIN_UNIT = "unit";
+    public static final String COLUMN_FIN_CREATE_TIME = "create_time";
+    public static final String COLUMN_FIN_PRODUCT_ID = "product_id";
+    public static final String COLUMN_FIN_CATEGORY_ID = "category_id";
+    public static final String COLUMN_FIN_SUPPLIER_ID = "supplier_id";
+    public static final String COLUMN_FIN_PRODUCT_NAME = "product_name";
+    public static final String COLUMN_FIN_SPEC = "spec";
+    public static final String COLUMN_FIN_CONTACT = "contact";
+    public static final String COLUMN_FIN_PHONE = "phone";
+    public static final String COLUMN_FIN_PERSON_TYPE = "person_type";
+    public static final String COLUMN_FIN_SUPPLIER_NO = "supplier_no";
+    public static final String COLUMN_FIN_AMOUNT = "amount";
+    public static final String COLUMN_FIN_DATE = "date";
+    public static final String COLUMN_FIN_TOTAL_AMOUNT = "total_amount";
+    public static final String COLUMN_FIN_TICKET_ID = "ticket_id";
+    public static final String COLUMN_FIN_ORDER_ID = "order_id";
+    public static final String COLUMN_FIN_ORDER_NO = "order_no";
+    public static final String COLUMN_FIN_HISTORY_PRICE = "history_price";
+    public static final String COLUMN_FIN_SUPPLIER_PRODUCT_ID = "supplier_product_id";
+    public static final String COLUMN_FIN_QUANTITY = "quantity";
+    public static final String COLUMN_FIN_UNIT_PRICE = "unit_price";
+    public static final String COLUMN_FIN_CATEGORY = "category";
+    public static final String COLUMN_FIN_SUB_CATEGORY = "sub_category";
+    public static final String COLUMN_FIN_CAR_NO = "car_no";
+    public static final String COLUMN_FIN_SHED_NO = "shed_no";
+    public static final String COLUMN_FIN_SPECS = "specs";
+    public static final String COLUMN_FIN_WEIGHT = "weight";
+    public static final String COLUMN_FIN_PRICE = "price";
+    public static final String COLUMN_FIN_NET_FEE = "net_fee";
+    public static final String COLUMN_FIN_NET_FEE_PAID = "net_fee_paid";
+    public static final String COLUMN_FIN_NET_FEE_PAY_DATE = "net_fee_pay_date";
+    public static final String COLUMN_FIN_NET_FEE_ACCOUNT_ID = "net_fee_account_id";
+    public static final String COLUMN_FIN_ACTUAL_AMOUNT = "actual_amount";
+    public static final String COLUMN_FIN_AGENT = "agent";
+    public static final String COLUMN_FIN_CUSTOMER = "customer";
+    public static final String COLUMN_FIN_PAYEE = "payee";
+    public static final String COLUMN_FIN_START_DATE = "start_date";
+    public static final String COLUMN_FIN_DAILY_WAGE = "daily_wage";
+    public static final String COLUMN_FIN_REST_DATE = "rest_date";
+    public static final String COLUMN_FIN_SETTLE_TYPE = "settle_type";
+    public static final String COLUMN_FIN_SETTLED = "settled";
+    public static final String COLUMN_FIN_ACCOUNT_ID = "account_id";
+    public static final String COLUMN_FIN_ACCOUNT_NAME = "account_name";
+    public static final String COLUMN_FIN_ACCOUNT_TYPE = "account_type";
+    public static final String COLUMN_FIN_ACCOUNT_NO = "account_no";
+    public static final String COLUMN_FIN_RECEIVE_ACCOUNT_ID = "receive_account_id";
+    public static final String COLUMN_FIN_PAYMENT_ID = "payment_id";
+    public static final String COLUMN_FIN_DUE_AMOUNT = "due_amount";
+    public static final String COLUMN_FIN_PAID_AMOUNT = "paid_amount";
+    public static final String COLUMN_FIN_DIFF_AMOUNT = "diff_amount";
+    public static final String COLUMN_FIN_DIFF_REASON = "diff_reason";
+
+    // ==================== 请假/工资单字段 ====================
+    public static final String COLUMN_FIN_AM_TYPE = "am_type";
+    public static final String COLUMN_FIN_PM_TYPE = "pm_type";
+    public static final String COLUMN_FIN_YEAR = "year";
+    public static final String COLUMN_FIN_MONTH = "month";
+    public static final String COLUMN_FIN_WORK_DAYS = "work_days";
+    public static final String COLUMN_FIN_PERSONAL_DAYS = "personal_days";
+    public static final String COLUMN_FIN_SICK_DAYS = "sick_days";
+    public static final String COLUMN_FIN_ABSENT_DAYS = "absent_days";
+    public static final String COLUMN_FIN_BASE_SALARY = "base_salary";
+    public static final String COLUMN_FIN_BONUS = "bonus";
+    public static final String COLUMN_FIN_DEDUCTION = "deduction";
+    public static final String COLUMN_FIN_ACTUAL_SALARY = "actual_salary";
+    public static final String COLUMN_FIN_PAID = "paid";
+    public static final String COLUMN_FIN_PAY_DATE = "pay_date";
+    public static final String COLUMN_FIN_PAY_DAY = "pay_day";
+    public static final String COLUMN_FIN_SETTLED_AMOUNT = "settled_amount";
+
+    // ==================== 进货单字段 ====================
+    public static final String COLUMN_FIN_PURCHASE_PAID = "purchase_paid";
+    public static final String COLUMN_FIN_PURCHASE_ACCOUNT_ID = "purchase_account_id";
+
+    // ==================== 供应商商品字段（按品类建品） ====================
+    public static final String COLUMN_FIN_SP_CATEGORY_ID = "sp_category_id";
+    public static final String COLUMN_FIN_SP_UNIT = "sp_unit";
+    public static final String COLUMN_FIN_SP_PRICE = "sp_price";
+    public static final String COLUMN_FIN_SP_PACK_UNIT = "sp_pack_unit";
+    public static final String COLUMN_FIN_SP_PACK_QTY = "sp_pack_qty";
 
     // ==================== 批次ID字段 ====================
     public static final String COLUMN_BATCH_ID = "batch_id";
@@ -322,6 +432,263 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_LAST_TRIGGER_DAY + " INTEGER DEFAULT 0, " +
                     COLUMN_LAST_TRIGGER_FEED + " REAL DEFAULT 0.0)";
 
+    // ==================== 财务模块建表SQL ====================
+    private static final String CREATE_FIN_CATEGORY_TABLE =
+            "CREATE TABLE " + TABLE_FIN_CATEGORY + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_NAME + " TEXT NOT NULL, " +
+                    COLUMN_FIN_IS_CUSTOM + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_SORT_ORDER + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PRODUCT_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PRODUCT + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_NAME + " TEXT NOT NULL, " +
+                    COLUMN_FIN_UNIT + " TEXT, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PRODUCT_CATEGORY_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PRODUCT_CATEGORY + " (" +
+                    COLUMN_FIN_PRODUCT_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_CATEGORY_ID + " INTEGER NOT NULL, " +
+                    "PRIMARY KEY (" + COLUMN_FIN_PRODUCT_ID + ", " + COLUMN_FIN_CATEGORY_ID + "))";
+
+    private static final String CREATE_FIN_SUPPLIER_TABLE =
+            "CREATE TABLE " + TABLE_FIN_SUPPLIER + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_NAME + " TEXT NOT NULL, " +
+                    COLUMN_FIN_PERSON_TYPE + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_CONTACT + " TEXT, " +
+                    COLUMN_FIN_PHONE + " TEXT, " +
+                    COLUMN_FIN_START_DATE + " TEXT, " +
+                    COLUMN_FIN_DAILY_WAGE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_SUPPLIER_PRODUCT_TABLE =
+            "CREATE TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_PRODUCT_ID + " INTEGER, " +
+                    COLUMN_FIN_PRODUCT_NAME + " TEXT, " +
+                    COLUMN_FIN_SPEC + " TEXT, " +
+                    COLUMN_FIN_SP_CATEGORY_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_SP_UNIT + " TEXT, " +
+                    COLUMN_FIN_SP_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_SP_PACK_UNIT + " TEXT, " +
+                    COLUMN_FIN_SP_PACK_QTY + " REAL DEFAULT 1, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_EXPENSE_TABLE =
+            "CREATE TABLE " + TABLE_FIN_EXPENSE + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_CATEGORY + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_SUB_CATEGORY + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_AMOUNT + " REAL NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PURCHASE_ORDER_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PURCHASE_ORDER + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_ORDER_NO + " TEXT, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PURCHASE_PAID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PURCHASE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PURCHASE_ITEM_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PURCHASE_ITEM + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_ORDER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_CATEGORY_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_SUPPLIER_PRODUCT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PRODUCT_NAME + " TEXT, " +
+                    COLUMN_FIN_SPEC + " TEXT, " +
+                    COLUMN_FIN_UNIT + " TEXT, " +
+                    COLUMN_FIN_QUANTITY + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_HISTORY_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_TICKET_TABLE =
+            "CREATE TABLE " + TABLE_FIN_TICKET + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_NO + " TEXT, " +
+                    COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_SETTLE_TYPE + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_SETTLED + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_TICKET_ITEM_TABLE =
+            "CREATE TABLE " + TABLE_FIN_TICKET_ITEM + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_TICKET_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_SUPPLIER_PRODUCT_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_QUANTITY + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_AMOUNT + " REAL DEFAULT 0)";
+
+    private static final String CREATE_FIN_PAYMENT_ACCOUNT_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PAYMENT_ACCOUNT + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_NAME + " TEXT NOT NULL, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_SORT_ORDER + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_CONTACT_ACCOUNT_TABLE =
+            "CREATE TABLE " + TABLE_FIN_CONTACT_ACCOUNT + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_ACCOUNT_TYPE + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_ACCOUNT_NAME + " TEXT, " +
+                    COLUMN_FIN_ACCOUNT_NO + " TEXT, " +
+                    COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PAYMENT_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PAYMENT + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_DUE_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_PAID_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_DIFF_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_DIFF_REASON + " TEXT, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PAYMENT_TICKET_TABLE =
+            "CREATE TABLE " + TABLE_FIN_PAYMENT_TICKET + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_PAYMENT_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_TICKET_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_AMOUNT + " REAL DEFAULT 0)";
+
+    private static final String CREATE_FIN_INCOME_TABLE =
+            "CREATE TABLE " + TABLE_FIN_INCOME + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_CAR_NO + " TEXT, " +
+                    COLUMN_FIN_SHED_NO + " TEXT, " +
+                    COLUMN_FIN_SPECS + " TEXT, " +
+                    COLUMN_FIN_WEIGHT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE_PAID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE_PAY_DATE + " TEXT, " +
+                    COLUMN_FIN_NET_FEE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PAID + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_PAY_DATE + " TEXT, " +
+                    COLUMN_FIN_AGENT + " TEXT, " +
+                    COLUMN_FIN_CUSTOMER + " TEXT, " +
+                    COLUMN_FIN_PHONE + " TEXT, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_SEED_TABLE =
+            "CREATE TABLE " + TABLE_FIN_SEED + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_QUANTITY + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_WAGE_TABLE =
+            "CREATE TABLE " + TABLE_FIN_WAGE + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PAYEE + " TEXT, " +
+                    COLUMN_FIN_AMOUNT + " REAL NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_REST_TABLE =
+            "CREATE TABLE " + TABLE_FIN_REST + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_REST_DATE + " TEXT NOT NULL, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                    "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_REST_DATE + "))";
+
+    private static final String CREATE_FIN_LEAVE_TABLE =
+            "CREATE TABLE " + TABLE_FIN_LEAVE + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT NOT NULL, " +
+                    COLUMN_FIN_AM_TYPE + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PM_TYPE + " INTEGER DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                    "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_DATE + "))";
+
+    private static final String CREATE_FIN_SALARY_TABLE =
+            "CREATE TABLE " + TABLE_FIN_SALARY + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_YEAR + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_MONTH + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_WORK_DAYS + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_PERSONAL_DAYS + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_SICK_DAYS + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_ABSENT_DAYS + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_BASE_SALARY + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_BONUS + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_DEDUCTION + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_ACTUAL_SALARY + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_PAID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_PAY_DATE + " TEXT, " +
+                    COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                    "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_YEAR + ", " + COLUMN_FIN_MONTH + "))";
+
+    private static final String CREATE_FIN_ADVANCE_TABLE =
+            "CREATE TABLE " + TABLE_FIN_ADVANCE + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_BATCH_ID + " TEXT, " +
+                    COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                    COLUMN_FIN_DATE + " TEXT, " +
+                    COLUMN_FIN_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_SETTLED_AMOUNT + " REAL DEFAULT 0, " +
+                    COLUMN_FIN_SETTLED + " INTEGER DEFAULT 0, " +
+                    COLUMN_REMARK + " TEXT, " +
+                    COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
+
     private static DatabaseHelper instance;
 
     public DatabaseHelper(Context context) {
@@ -360,6 +727,36 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_MARKET_PRICES_TABLE);
         db.execSQL(CREATE_PLAN_TASKS_TABLE);
         db.execSQL(CREATE_FEEDING_CHECK_ANALYSIS_TABLE);
+        createFinanceTables(db);
+    }
+
+    @Override
+    public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
+        // 已是 v14 的老库不会触发 onCreate/onUpgrade，这里每次打开补一次内置品类。
+        // seedBuiltinCategories 幂等（按名称对齐、只更新 sort_order），代价仅 19 条。
+        try {
+            seedBuiltinCategories(db);
+        } catch (Exception ignored) { /* 忽略 */ }
+        // fin_ticket.account_id 由 case 14 的 ALTER 加入，但建表语句里没有它。
+        // 已经升到 v15 的设备不会再走 onUpgrade，因此每次打开补一次，保证不会缺列。
+        ensureColumn(db, TABLE_FIN_TICKET, COLUMN_FIN_ACCOUNT_ID, "INTEGER DEFAULT 0");
+    }
+
+    /** 该列存在则直接返回，不存在则补上（自愈存量库，避免建表语句与迁移脱节）。 */
+    private void ensureColumn(SQLiteDatabase db, String table, String column, String ddl) {
+        try {
+            Cursor c = db.rawQuery("PRAGMA table_info(" + table + ")", null);
+            try {
+                int nameIdx = c.getColumnIndex("name");
+                while (c.moveToNext()) {
+                    if (column.equalsIgnoreCase(c.getString(nameIdx))) return;
+                }
+            } finally {
+                c.close();
+            }
+            db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + ddl);
+        } catch (Exception ignored) { /* 并发/已存在等异常一律忽略 */ }
     }
 
     @Override
@@ -367,14 +764,311 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         for (int i = oldVersion; i < newVersion; i++) {
             switch (i) {
                 case 1:
-                    // v1 → v2: 示例 — 给 water_quality 加一列
-                    // db.execSQL("ALTER TABLE " + TABLE_WATER_QUALITY + " ADD COLUMN water_temperature REAL DEFAULT 0");
+                    createFinanceTables(db);
                     break;
                 case 2:
-                    // v2 → v3
+                    // v2 → v3：联系人类型 + 苗种表 + 工资表 + 员工字段 + 休息表
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER + " ADD COLUMN "
+                                + COLUMN_FIN_PERSON_TYPE + " INTEGER DEFAULT 1");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER + " ADD COLUMN "
+                                + COLUMN_FIN_START_DATE + " TEXT");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER + " ADD COLUMN "
+                                + COLUMN_FIN_DAILY_WAGE + " REAL DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_SEED + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_BATCH_ID + " TEXT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_DATE + " TEXT, " +
+                            COLUMN_FIN_QUANTITY + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_WAGE + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_BATCH_ID + " TEXT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_PAYEE + " TEXT, " +
+                            COLUMN_FIN_AMOUNT + " REAL NOT NULL, " +
+                            COLUMN_FIN_DATE + " TEXT, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_REST + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_REST_DATE + " TEXT NOT NULL, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                            "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_REST_DATE + "))");
                     break;
+                case 3:
+                    // v3 → v4：票据结算状态 + 支付账户/付款记录/付款-票据关联
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_TICKET + " ADD COLUMN "
+                                + COLUMN_FIN_SETTLE_TYPE + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_TICKET + " ADD COLUMN "
+                                + COLUMN_FIN_SETTLED + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_PAYMENT_ACCOUNT + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_NAME + " TEXT NOT NULL, " +
+                            COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                            COLUMN_FIN_SORT_ORDER + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_PAYMENT + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_BATCH_ID + " TEXT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_DATE + " TEXT, " +
+                            COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_DUE_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_PAID_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_DIFF_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_DIFF_REASON + " TEXT, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_PAYMENT_TICKET + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_PAYMENT_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_TICKET_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_AMOUNT + " REAL DEFAULT 0)");
+                    break;
+                case 4:
+                    // v4 → v5：半天请假表 + 按月工资单表
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_LEAVE + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_DATE + " TEXT NOT NULL, " +
+                            COLUMN_FIN_AM_TYPE + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_PM_TYPE + " INTEGER DEFAULT 0, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                            "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_DATE + "))");
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_SALARY + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_YEAR + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_MONTH + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_WORK_DAYS + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_PERSONAL_DAYS + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_SICK_DAYS + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_ABSENT_DAYS + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_BASE_SALARY + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_BONUS + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_DEDUCTION + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_ACTUAL_SALARY + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_PAID + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_PAY_DATE + " TEXT, " +
+                            COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0, " +
+                            "UNIQUE (" + COLUMN_FIN_SUPPLIER_ID + ", " + COLUMN_FIN_YEAR + ", " + COLUMN_FIN_MONTH + "))");
+                    break;
+                case 5:
+                    // v5 → v6：员工借款/预支表（发放工资时抵扣，剩余挂账）
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_ADVANCE + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_BATCH_ID + " TEXT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_DATE + " TEXT, " +
+                            COLUMN_FIN_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_SETTLED_AMOUNT + " REAL DEFAULT 0, " +
+                            COLUMN_FIN_SETTLED + " INTEGER DEFAULT 0, " +
+                            COLUMN_REMARK + " TEXT, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    break;
+                case 6:
+                    // v6 → v7：卖虾单客户字段
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_INCOME + " ADD COLUMN "
+                                + COLUMN_FIN_CUSTOMER + " TEXT");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    break;
+                case 7:
+                    // v7 → v8：联系人收款账户表 + 付款/工资/工资流水记录收款账户
+                    db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_FIN_CONTACT_ACCOUNT + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_FIN_SUPPLIER_ID + " INTEGER NOT NULL, " +
+                            COLUMN_FIN_ACCOUNT_TYPE + " INTEGER DEFAULT 0, " +
+                            COLUMN_FIN_ACCOUNT_NAME + " TEXT, " +
+                            COLUMN_FIN_ACCOUNT_NO + " TEXT, " +
+                            COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
+                            COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)");
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_PAYMENT + " ADD COLUMN "
+                                + COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SALARY + " ADD COLUMN "
+                                + COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_WAGE + " ADD COLUMN "
+                                + COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    break;
+                case 8:
+                    // v8 → v9：卖虾单收款账户 + 支付状态（未付计入应收款）
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_INCOME + " ADD COLUMN "
+                                + COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_INCOME + " ADD COLUMN "
+                                + COLUMN_FIN_PAID + " INTEGER DEFAULT 1");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_INCOME + " ADD COLUMN "
+                                + COLUMN_FIN_PAY_DATE + " TEXT");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    break;
+case 9:
+                    // v9 → v10
+                    break;
+                case 10:
+                    // v10 → v11：供应商商品按品类建品（品类/单位/价格）
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " ADD COLUMN "
+                                + COLUMN_FIN_SP_CATEGORY_ID + " INTEGER DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " ADD COLUMN "
+                                + COLUMN_FIN_SP_UNIT + " TEXT");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " ADD COLUMN "
+                                + COLUMN_FIN_SP_PRICE + " REAL DEFAULT 0");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    break;
+                case 11:
+                    // v11 → v12：供应商商品双单位（包装单位 + 换算率，如 24瓶/箱）
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " ADD COLUMN "
+                                + COLUMN_FIN_SP_PACK_UNIT + " TEXT");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    try {
+                        db.execSQL("ALTER TABLE " + TABLE_FIN_SUPPLIER_PRODUCT + " ADD COLUMN "
+                                + COLUMN_FIN_SP_PACK_QTY + " REAL DEFAULT 1");
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+                    break;
+                case 12:
+                case 13:
+                    // v13 → v14：单据式进货（单头 + 明细行）
+                    try {
+                        db.execSQL(CREATE_FIN_PURCHASE_ORDER_TABLE);
+                    } catch (Exception ignored) { /* 已存在则忽略 */ }
+try {
+                    db.execSQL(CREATE_FIN_PURCHASE_ITEM_TABLE);
+                } catch (Exception ignored) { /* 已存在则忽略 */ }
+                break;
+            case 14:
+                // v14 → v15：动保票据增加付款账户
+                try {
+                    db.execSQL("ALTER TABLE " + TABLE_FIN_TICKET + " ADD COLUMN "
+                            + COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                } catch (Exception ignored) { /* 已存在则忽略 */ }
+                break;
             }
         }
+    }
+
+    // ==================== 财务模块建表 ====================
+    private void createFinanceTables(SQLiteDatabase db) {
+        db.execSQL(CREATE_FIN_CATEGORY_TABLE);
+        db.execSQL(CREATE_FIN_PRODUCT_TABLE);
+        db.execSQL(CREATE_FIN_PRODUCT_CATEGORY_TABLE);
+        db.execSQL(CREATE_FIN_SUPPLIER_TABLE);
+        db.execSQL(CREATE_FIN_SUPPLIER_PRODUCT_TABLE);
+        db.execSQL(CREATE_FIN_EXPENSE_TABLE);
+        db.execSQL(CREATE_FIN_PURCHASE_ORDER_TABLE);
+        db.execSQL(CREATE_FIN_PURCHASE_ITEM_TABLE);
+        db.execSQL(CREATE_FIN_TICKET_TABLE);
+        db.execSQL(CREATE_FIN_TICKET_ITEM_TABLE);
+        db.execSQL(CREATE_FIN_INCOME_TABLE);
+        db.execSQL(CREATE_FIN_SEED_TABLE);
+        db.execSQL(CREATE_FIN_WAGE_TABLE);
+        db.execSQL(CREATE_FIN_REST_TABLE);
+        db.execSQL(CREATE_FIN_PAYMENT_ACCOUNT_TABLE);
+        db.execSQL(CREATE_FIN_CONTACT_ACCOUNT_TABLE);
+        db.execSQL(CREATE_FIN_PAYMENT_TABLE);
+        db.execSQL(CREATE_FIN_PAYMENT_TICKET_TABLE);
+        db.execSQL(CREATE_FIN_LEAVE_TABLE);
+        db.execSQL(CREATE_FIN_SALARY_TABLE);
+        db.execSQL(CREATE_FIN_ADVANCE_TABLE);
+        seedBuiltinCategories(db);
+    }
+
+    // ==================== 内置品类初始化（19个，按拼音排序） ====================
+    public static final String[] BUILTIN_CATEGORIES = {
+            "保肝类", "补碱度", "补钙", "补硬度",
+            "防治弧菌", "肥水类", "改底类", "护肠类",
+            "护肝类", "解毒类", "抗应激类", "调pH",
+            "营养类", "诱食", "有益菌类", "藻种",
+            "增氧", "遮光控藻", "中药排毒类"
+    };
+
+    // 内置计量单位（下拉选择用，不做单位管理页）
+    public static final String[] BUILTIN_UNITS = {
+            "瓶", "袋", "箱", "包", "桶", "罐", "扎", "把", "片", "板",
+            "斤", "公斤", "克", "吨", "毫升", "升", "个", "只", "条", "件",
+            "套", "台", "筐", "提", "打"
+    };
+
+    private void seedBuiltinCategories(SQLiteDatabase db) {
+        try {
+            // 品类名加密存储，先解出已有项按名称对齐，避免重复插入并重排顺序。
+            // 早期版本可能写入明文，解密会失败返回空串，这里额外按原始值兜底匹配并原地补加密，
+            // 否则会再插一条同名加密品类，造成重复项。
+            HashMap<String, Long> decrypted = new HashMap<>();
+            HashMap<String, Long> plainRows = new HashMap<>();
+            Cursor c = db.rawQuery("SELECT " + COLUMN_ID + "," + COLUMN_FIN_NAME
+                    + " FROM " + TABLE_FIN_CATEGORY, null);
+            while (c.moveToNext()) {
+                String raw = c.getString(1);
+                if (raw == null || raw.isEmpty()) continue;
+                String n = null;
+                try {
+                    n = EncryptUtils.decrypt(raw);
+                } catch (Exception ignored) { /* 明文等异常情况走兜底 */ }
+                if (n != null && !n.isEmpty()) {
+                    decrypted.put(n, c.getLong(0));
+                } else {
+                    plainRows.put(raw, c.getLong(0));
+                }
+            }
+            c.close();
+
+            for (int i = 0; i < BUILTIN_CATEGORIES.length; i++) {
+                String name = BUILTIN_CATEGORIES[i];
+                Long id = decrypted.get(name);
+                boolean wasPlain = false;
+                if (id == null) {
+                    id = plainRows.get(name);
+                    wasPlain = (id != null);
+                }
+                ContentValues v = new ContentValues();
+                v.put(COLUMN_FIN_NAME, EncryptUtils.encrypt(name));
+                v.put(COLUMN_FIN_IS_CUSTOM, 0);
+                v.put(COLUMN_FIN_ENABLED, 1);
+                v.put(COLUMN_FIN_SORT_ORDER, i);
+                if (id != null) {
+                    // 已是密文则保持原值，避免二次加密；明文行必须覆盖为密文
+                    if (!wasPlain) v.remove(COLUMN_FIN_NAME);
+                    db.update(TABLE_FIN_CATEGORY, v, COLUMN_ID + "=?",
+                            new String[]{String.valueOf(id)});
+                } else {
+                    db.insert(TABLE_FIN_CATEGORY, null, v);
+                }
+            }
+        } catch (Exception ignored) { /* 已存在则忽略 */ }
     }
 
     // ==================== 加密封装 ====================

@@ -104,4 +104,51 @@
         <item name="android:windowBackground">#F5F7FA</item>
     </style>
 
+    <!-- ==================== 财务模块字段样式 ==================== -->
+    <style name="FarmFieldLabel" parent="@android:style/Widget.TextView">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:textColor">#666666</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="FarmFieldInput" parent="@android:style/Widget.EditText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/input_bg</item>
+        <item name="android:padding">8dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">#333333</item>
+    </style>
+
+    <!-- ==================== 单据表格列样式 ==================== -->
+    <!-- 列宽由各使用处覆盖，此处仅给出基准 -->
+    <style name="FarmTableHeadCell" parent="@android:style/Widget.TextView">
+        <item name="android:layout_width">@dimen/po_col_cat</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#1565C0</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="FarmTableCell" parent="@android:style/Widget.TextView">
+        <item name="android:layout_width">@dimen/po_col_cat</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#333333</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="PoEditHeadCell">
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#3A4356</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+    </style>
 </resources>
+

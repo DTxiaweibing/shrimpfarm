@@ -163,5 +163,135 @@
             android:name=".AssetWebViewActivity"
             android:screenOrientation="portrait"
             android:exported="false" />
-    </application>
+        <!-- ==================== 财务模块 ==================== -->
+        <activity
+            android:name=".finance.FinanceActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_title"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.FinanceExpenseActivity"
+            android:label="@string/finance_expense"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.IncomeActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_income"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.IncomeEditActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_income_new"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.TicketEditActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_ticket_new"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.PurchaseActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_purchase"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.PurchaseOrderActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_po_title"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.PurchaseEditActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_purchase_add"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.ProfitActivity"
+            android:label="@string/finance_profit"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.ProductManageActivity"
+            android:label="@string/finance_product_manage"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.SupplierManageActivity"
+            android:label="@string/finance_supplier_manage"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.SupplierProductActivity"
+            android:label="@string/finance_supplier_product_manage"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.ContactAccountActivity"
+            android:label="@string/finance_contact_account_manage"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.PickingFeeActivity"
+            android:label="@string/finance_picking_fee"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.QueryActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_query"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".erp.SettleActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_settle"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".erp.PaymentAccountActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/finance_payment_account_manage"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".erp.WorkLogActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/erp_work_log"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".erp.SalaryActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:label="@string/erp_salary_sheet"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.fileprovider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/file_paths" />
+    </provider>
+</application>
 </manifest>
