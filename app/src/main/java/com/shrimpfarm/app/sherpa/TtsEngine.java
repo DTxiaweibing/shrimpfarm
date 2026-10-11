@@ -87,6 +87,7 @@ public class TtsEngine {
             text = text.replaceAll("(?i)" + java.util.regex.Pattern.quote(term[0]),
                     java.util.regex.Matcher.quoteReplacement(term[1]));
         }
+        text = text.replace("/", "每");
         return text;
     }
 
