@@ -10,7 +10,10 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -23,7 +26,22 @@ public class KnowledgeBaseUpdater {
     private static final String VERSION_URL = "https://dtxiaweibing.github.io/TIMU/knowledge_base_version.json";
     private static final String DB_URL = "https://dtxiaweibing.github.io/TIMU/knowledge_base.db";
 
+    private static final long INITIAL_DELAY_MS = 10_000;
+    private static final long CHECK_PERIOD_HOURS = 6;
+    private static final AtomicBoolean checking = new AtomicBoolean(false);
+    private static final ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "KnowledgeBase-poller");
+        t.setDaemon(true);
+        return t;
+    });
+
+    public static void startBackgroundPolling(Context context) {
+        poller.scheduleWithFixedDelay(() -> checkUpdate(context.getApplicationContext()),
+                INITIAL_DELAY_MS, CHECK_PERIOD_HOURS, TimeUnit.HOURS);
+    }
+
     public static void checkUpdate(Context context) {
+        if (!checking.compareAndSet(false, true)) return;
         Thread t = new Thread(() -> {
             try {
                 int localVersion = getLocalVersion(context);
@@ -36,6 +54,8 @@ public class KnowledgeBaseUpdater {
                 }
             } catch (Exception e) {
                 Log.w(TAG, "KB update check failed: " + e.getMessage());
+            } finally {
+                checking.set(false);
             }
         }, "KnowledgeBase-update");
         t.setDaemon(true);

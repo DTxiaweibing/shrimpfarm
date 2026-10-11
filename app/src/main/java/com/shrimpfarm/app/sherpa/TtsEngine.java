@@ -56,12 +56,48 @@ public class TtsEngine {
 
     private static final String TAG = "TtsEngine";
 
+    /** 水产养殖术语/单位 → 标准中文读法。对任何 TTS 模型都适用。 */
+    private static final String[][] TERMS = {
+            {"NH3-N", "氨氮"},
+            {"NO2-N", "亚硝态氮"},
+            {"NO3-N", "硝态氮"},
+            {"NO2-", "亚硝酸根"},
+            {"NO3-", "硝酸根"},
+            {"TDS", "溶解性总固体"},
+            {"ORP", "氧化还原电位"},
+            {"COD", "化学需氧量"},
+            {"BOD", "生化需氧量"},
+            {"mg/L", "毫克每升"},
+            {"μg/L", "微克每升"},
+            {"ug/L", "微克每升"},
+    };
+
+    /**
+     * 语音文本清洗：去掉 markdown 符号、化学式上下标归一、术语映射为中文读法。
+     * sherpa TTS 与 Android TextToSpeech 共用，避免英文缩写被逐字母读出。
+     */
+    public static String normalizeForSpeech(String text) {
+        if (text == null) return null;
+        text = text.replace("*", "").replace("#", "").replace("`", "").trim();
+        text = text.replace('₂', '2').replace('₃', '3').replace('₄', '4')
+                .replace('⁺', '+').replace('⁻', '-');
+        text = text.replace("pH", "酸碱度").replace("PH", "酸碱度");
+        text = text.replace("DO", "溶解氧");
+        for (String[] term : TERMS) {
+            text = text.replaceAll("(?i)" + java.util.regex.Pattern.quote(term[0]),
+                    java.util.regex.Matcher.quoteReplacement(term[1]));
+        }
+        return text;
+    }
+
     private final File modelDir;
     private final Object lock = new Object();
     private OfflineTts tts;
     private AudioTrack activeTrack;
     private volatile long generation = 0;
     private volatile boolean running = false;
+    /** 正在 native generate() 里执行的任务数，受 lock 保护。 */
+    private int inFlight = 0;
 
     private final LinkedBlockingQueue<SpeechTask> synthQueue = new LinkedBlockingQueue<>();
     private final LinkedBlockingQueue<SpeechAudio> audioQueue = new LinkedBlockingQueue<>(8);
@@ -78,14 +114,20 @@ public class TtsEngine {
             try {
                 System.loadLibrary("onnxruntime");
                 Log.i(TAG, "onnxruntime loaded");
+                File fModel = new File(modelDir, "model.onnx");
+                File fLexicon = new File(modelDir, "lexicon.txt");
+                Log.i(TAG, "TTS loading model_dir=" + modelDir.getAbsolutePath()
+                        + " model.onnx=" + fModel.length()
+                        + " lexicon=" + fLexicon.length()
+                        + " active_model_hint=" + (fModel.length() > 100_000_000 ? "melo" : "xiao_ya"));
                 OfflineTtsVitsModelConfig vits = new OfflineTtsVitsModelConfig();
                 vits.setModel(new File(modelDir, "model.onnx").getAbsolutePath());
                 vits.setLexicon(new File(modelDir, "lexicon.txt").getAbsolutePath());
                 vits.setTokens(new File(modelDir, "tokens.txt").getAbsolutePath());
                 OfflineTtsModelConfig modelConfig = new OfflineTtsModelConfig();
                 modelConfig.setVits(vits);
-                modelConfig.setNumThreads(2);
-                modelConfig.setProvider("xnnpack");
+                modelConfig.setNumThreads(4);
+                modelConfig.setProvider("cpu");
                 OfflineTtsConfig config = new OfflineTtsConfig();
                 config.setModel(modelConfig);
                 config.setRuleFsts(ruleFstsPath());
@@ -136,13 +178,15 @@ public class TtsEngine {
 
     public int numSpeakers() {
         synchronized (lock) {
-            return tts == null ? 5 : tts.numSpeakers();
+            return tts == null ? 1 : tts.numSpeakers();
         }
     }
 
     public void speak(final String text, final int sid, final float speed,
                       final SpeakCallback callback) {
         if (text == null || text.isEmpty()) return;
+        final String clean = normalizeForSpeech(text);
+        if (clean.isEmpty()) return;
         final long gen;
         final int voSid;
         synchronized (lock) {
@@ -153,7 +197,7 @@ public class TtsEngine {
             gen = generation;
             voSid = Math.max(0, Math.min(sid, tts.numSpeakers() - 1));
         }
-        for (String sentence : splitSentences(text)) {
+        for (String sentence : splitSentences(clean)) {
             if (sentence.isEmpty()) continue;
             synthQueue.offer(new SpeechTask(sentence, voSid, speed, callback, gen));
         }
@@ -204,21 +248,29 @@ public class TtsEngine {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 SpeechTask task = synthQueue.take();
-                if (task.gen != generation) continue;
                 OfflineTts ttsRef;
                 synchronized (lock) {
+                    if (task.gen != generation) continue;
                     ttsRef = tts;
+                    if (ttsRef == null) continue;
+                    inFlight++;
                 }
-                if (ttsRef == null || task.gen != generation) continue;
                 long genStart = System.currentTimeMillis();
-                GeneratedAudio audio;
+                GeneratedAudio audio = null;
+                boolean ok = false;
                 try {
                     audio = ttsRef.generate(task.text, task.sid, task.speed);
+                    ok = true;
                 } catch (Throwable t) {
                     Log.e(TAG, "generate error: " + t.getMessage());
                     if (task.callback != null) task.callback.onError(t.getMessage());
-                    continue;
+                } finally {
+                    synchronized (lock) {
+                        inFlight--;
+                        lock.notifyAll();
+                    }
                 }
+                if (!ok) continue;
                 int len = (audio == null || audio.getSamples() == null) ? -1 : audio.getSamples().length;
                 Log.i(TAG, "generate(" + (System.currentTimeMillis() - genStart) + "ms): len="
                         + len + " rate=" + (audio == null ? -1 : audio.getSampleRate()));
@@ -284,10 +336,12 @@ public class TtsEngine {
                     .setSampleRate(sampleRate)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build();
+            int frameSize = 4; // ENCODING_PCM_FLOAT mono = 4 字节/帧
             int minBuf = AudioTrack.getMinBufferSize(sampleRate,
                     AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT);
-            if (minBuf <= 0) minBuf = sampleRate * 2;
-            int bufSize = Math.max(minBuf, sampleRate);
+            if (minBuf <= 0) minBuf = sampleRate * frameSize;
+            int bufSize = Math.max(minBuf, sampleRate * frameSize);
+            bufSize = ((bufSize + frameSize - 1) / frameSize) * frameSize;
             track = new AudioTrack.Builder()
                     .setAudioAttributes(attrs)
                     .setAudioFormat(fmt)
@@ -336,7 +390,8 @@ public class TtsEngine {
                     sleep(30);
                 }
             }
-            Log.i(TAG, "played " + total + "/" + samples.length + " @ " + sampleRate);
+            Log.i(TAG, "played " + total + "/" + samples.length + " @ " + sampleRate
+                    + (total >= samples.length ? " [OK]" : " [TRUNCATED/STOPPED]"));
         } catch (Throwable t) {
             Log.e(TAG, "play error: " + t.getMessage());
         } finally {
@@ -384,12 +439,39 @@ public class TtsEngine {
         synthExecutor.shutdownNow();
         playExecutor.shutdownNow();
         running = false;
+        final OfflineTts victim;
         synchronized (lock) {
-            if (tts != null) {
-                tts.release();
-                tts = null;
-            }
+            victim = tts;
+            tts = null;
             activeTrack = null;
         }
+        if (victim == null) return;
+        // generate() 是不可中断的 native 调用。直接析构 OfflineTts 会让它回头对
+        // 已销毁的 mutex 加锁 → FORTIFY abort（SIGABRT）。这里先在后台等 inFlight
+        // 归零再释放 native 对象，不阻塞 onDestroy 所在的主线程。
+        Thread reaper = new Thread(() -> {
+            synchronized (lock) {
+                long deadline = System.currentTimeMillis() + 10_000L;
+                while (inFlight > 0 && System.currentTimeMillis() < deadline) {
+                    try {
+                        lock.wait(200);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                if (inFlight > 0) {
+                    Log.w(TAG, "release: " + inFlight + " generate() 仍在运行，超时强制释放");
+                }
+            }
+            try {
+                victim.release();
+                Log.i(TAG, "OfflineTts released");
+            } catch (Throwable t) {
+                Log.w(TAG, "OfflineTts release failed: " + t.getMessage());
+            }
+        }, "tts-release");
+        reaper.setDaemon(true);
+        reaper.start();
     }
 }

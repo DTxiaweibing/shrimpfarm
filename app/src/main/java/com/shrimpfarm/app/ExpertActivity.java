@@ -7,7 +7,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
-import android.app.Dialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -19,13 +18,11 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.EditText;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -81,11 +78,13 @@ public class ExpertActivity extends BaseActivity {
     private static final String TAG = "ExpertActivity";
     private static final String SYSTEM_PROMPT =
         "你是一位南美白对虾小棚养殖专家。你的任务是：\n" +
-        "1. 严格基于提供的参考知识回答，绝不使用你预训练中学到的其他知识。\n" +
-        "2. 参考知识中【首要执行规则】优先于【理论背景】。如果规则中有具体操作数值（如100斤/亩、0.3mg/L），必须原样引用。\n" +
-        "3. 绝对禁止展开讲解化学反应机理、水化学基础理论，除非用户明确问\"为什么\"。\n" +
-        "4. 回答必须口语化、简洁、直接，像老师傅在塘口说话，不要像教科书。\n" +
-        "5. 注意用户说\"X度\"时可能指水温（℃）也可能指盐度（格/‰），两者含义完全不同。如果不确定用户指的是水温还是盐度，必须追问澄清。";
+        "1. 优先参考【参考知识】，简洁直接回答，不要复述参考知识本身。\n" +
+        "2. 如果【参考知识】为空、与问题无关或明显不足以回答，允许用你自身的养殖知识补充，并明确告知用户哪部分属于补充建议；" +
+        "不允许因为参考知识不完整而拒绝回答或编造操作数值。\n" +
+        "3. 参考知识中【首要执行规则】优先于【理论背景】；【应急处置要点】在紧急情况下优先执行。\n" +
+        "4. 默认不展开讲解化学反应机理、水化学基础理论，除非用户明确问\"为什么\"。\n" +
+        "5. 回答必须口语化、简洁、直接，像老师傅在塘口说话，不要像教科书。\n" +
+        "6. 注意用户说\"X度\"时可能指水温（℃）也可能指盐度（格/‰），两者含义完全不同。如果不确定用户指的是水温还是盐度，必须追问澄清。";
 
     private RecyclerView chatList;
     private EditText inputMessage;
@@ -244,7 +243,7 @@ public class ExpertActivity extends BaseActivity {
             if (ttsEngine != null && ttsEngine.isReady()) {
                 ttsEngine.speak(text.replace("*", "").replace("#", "").replace("`", "").trim(), speakSid, 1.0f, null);
             } else if (ttsReady) {
-                textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+                textToSpeech.speak(TtsEngine.normalizeForSpeech(text), TextToSpeech.QUEUE_FLUSH, null, null);
             }
         });
 
@@ -275,10 +274,6 @@ public class ExpertActivity extends BaseActivity {
                 stopCurrentSpeech();
                 ttsBuffer.setLength(0);
             }
-        });
-        btnSpeaker.setOnLongClickListener(v -> {
-            showSidPicker();
-            return true;
         });
 
         startAvd(btnToggleInput.getDrawable());
@@ -315,18 +310,31 @@ public class ExpertActivity extends BaseActivity {
     private void initVoiceEngines() {
         VoiceModelManager mgr = VoiceModelManager.getInstance(this);
         mgr.installFromAssets();
+        Log.i(TAG, "voice: asrReady=" + mgr.isAsrReady()
+                + " ttsReady=" + mgr.isTtsReady()
+                + " activeModel=" + mgr.getActiveTtsModel()
+                + " ttsDir=" + mgr.ttsDir().getAbsolutePath());
         if (mgr.isAsrReady()) {
             asrEngine = new AsrEngine(mgr.asrDir());
             if (!asrEngine.init()) asrEngine = null;
         }
         if (mgr.isTtsReady()) {
             ttsEngine = new TtsEngine(mgr.ttsDir());
+            Log.i(TAG, "voice: creating TtsEngine for " + mgr.getActiveTtsModel());
             if (!ttsEngine.init()) ttsEngine = null;
+            Log.i(TAG, "voice: TtsEngine ready=" + (ttsEngine != null));
         }
     }
 
     private void speakAnswer(String text) {
         if (!speakingEnabled || text == null || text.trim().isEmpty()) return;
+        text = TtsEngine.normalizeForSpeech(text);
+        VoiceModelManager mgr = VoiceModelManager.getInstance(this);
+        Log.i(TAG, "speak: sherpaReady=" + (ttsEngine != null && ttsEngine.isReady())
+                + " sysTtsReady=" + ttsReady
+                + " activeModel=" + mgr.getActiveTtsModel()
+                + " sid=" + speakSid
+                + " text=" + (text.length() > 30 ? text.substring(0, 30) + "…" : text));
         if (ttsEngine != null && ttsEngine.isReady()) {
             ttsEngine.speak(text, speakSid, 1.0f, null);
         } else if (ttsReady) {
@@ -500,45 +508,6 @@ public class ExpertActivity extends BaseActivity {
     private void saveSpeakingPref() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
                 .putBoolean(KEY_SPEAKING, speakingEnabled).apply();
-    }
-
-    private void saveSidPref() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                .putInt(KEY_SID, speakSid).apply();
-    }
-
-    private void showSidPicker() {
-        int count = (ttsEngine != null && ttsEngine.isReady()) ? ttsEngine.numSpeakers() : 5;
-        String[] items = new String[count];
-        for (int i = 0; i < count; i++) {
-            items[i] = String.format(Locale.getDefault(), "%s %d", getString(R.string.expert_voice_sid), i + 1);
-        }
-        Dialog dialog = new Dialog(this);
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_sid_picker, null);
-        dialog.setContentView(dialogView);
-        dialog.setCanceledOnTouchOutside(true);
-        dialog.setCancelable(true);
-
-        TextView tvTitle = dialogView.findViewById(R.id.tv_title);
-        tvTitle.setText(R.string.expert_voice_sid_title);
-
-        final int current = Math.max(0, Math.min(speakSid, count - 1));
-        ListView lv = dialogView.findViewById(R.id.lv_sids);
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.item_sid, items);
-        lv.setAdapter(adapter);
-        lv.setItemChecked(current, true);
-        lv.setOnItemClickListener((parent, view, position, id) -> {
-            speakSid = position;
-            saveSidPref();
-            stopCurrentSpeech();
-            dialog.dismiss();
-        });
-
-        dialogView.findViewById(R.id.btn_cancel).setOnClickListener(v -> dialog.dismiss());
-
-        dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        dialog.show();
     }
 
     @Override

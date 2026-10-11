@@ -34,7 +34,28 @@ public class VoiceModelManager {
     private static final String[] ORDERS = {TYPE_TTS, TYPE_ASR};
 
     private static final String ASR_TAR = "sherpa-onnx-paraformer-zh-small-2024-03-09.tar.bz2";
-    private static final String TTS_TAR = "vits-melo-tts-zh_en.tar.bz2";
+
+    /** TTS 模型（tar 名去掉 .tar.bz2 即可作为目录名）。 */
+    public static final String TTS_MODEL_XIAO_YA = "vits-piper-zh_CN-xiao_ya-medium";
+
+    /** 内置 TTS 模型（仅小雅；melo 已下线）。 */
+    public static final String[] TTS_MODEL_KEYS = {TTS_MODEL_XIAO_YA};
+
+    /** 已下线的旧模型目录名，用于清理设备上的残留。 */
+    private static final String LEGACY_TTS_MELO = "vits-melo-tts-zh_en";
+
+    private static final String DEFAULT_TTS_MODEL = TTS_MODEL_XIAO_YA;
+    private static final String PREFS_NAME = "voice_model_prefs";
+    private static final String KEY_ACTIVE_TTS = "active_tts_model";
+
+    /** 内置 melo 的 model.onnx 字节数，用于识别"误拷到其他模型目录"的假就绪。 */
+    private static final long BUNDLED_MELO_ONNX_BYTES = 170_429_550L;
+
+    /** 已知各 TTS 模型的音色数量（加载前即可用来渲染音色列表；加载后以模型实际值为准）。 */
+    public static int knownSpeakers(String modelKey) {
+        if (TTS_MODEL_XIAO_YA.equals(modelKey)) return 1;
+        return 5;
+    }
 
     private static final String BASE_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/%s-models/%s";
@@ -64,11 +85,15 @@ public class VoiceModelManager {
 
     private volatile boolean asrDone;
     private volatile boolean ttsDone;
+    private volatile String activeTtsModel;
 
     private final Object installLock = new Object();
 
     private VoiceModelManager(Context context) {
         this.appContext = context.getApplicationContext();
+        this.activeTtsModel = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_ACTIVE_TTS, DEFAULT_TTS_MODEL);
+        if (!isKnownModel(this.activeTtsModel)) this.activeTtsModel = DEFAULT_TTS_MODEL;
         this.client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
@@ -88,6 +113,38 @@ public class VoiceModelManager {
         return instance;
     }
 
+    public String getActiveTtsModel() {
+        return activeTtsModel;
+    }
+
+    private boolean isKnownModel(String modelKey) {
+        for (String k : TTS_MODEL_KEYS) {
+            if (k.equals(modelKey)) return true;
+        }
+        return false;
+    }
+
+    /** 切换当前 TTS 模型并持久化；不影响其它模型目录，可随时切回。 */
+    public void setActiveTtsModel(String modelKey) {
+        if (modelKey == null) return;
+        if (!isKnownModel(modelKey)) return;
+        if (modelKey.equals(activeTtsModel)) return;
+        activeTtsModel = modelKey;
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_ACTIVE_TTS, modelKey).apply();
+        refresh();
+    }
+
+    /** 指定模型是否已就绪（与当前激活模型无关）。 */
+    public boolean isTtsModelReady(String modelKey) {
+        return dirUsable(ttsDirFor(modelKey), new String[]{
+                "model.onnx", "tokens.txt", "lexicon.txt", "phone.fst", "date.fst", "number.fst"});
+    }
+
+    private File ttsDirFor(String modelKey) {
+        return new File(modelsDir(), TYPE_TTS + File.separator + modelKey);
+    }
+
     private File modelsDir() {
         return new File(appContext.getFilesDir(), "sherpa_models");
     }
@@ -97,7 +154,7 @@ public class VoiceModelManager {
     }
 
     public File ttsDir() {
-        return new File(modelsDir(), TYPE_TTS);
+        return ttsDirFor(activeTtsModel);
     }
 
     public boolean isAsrReady() {
@@ -119,48 +176,108 @@ public class VoiceModelManager {
         return true;
     }
 
+    /** 老版本把模型平铺在 tts/ 根目录，迁移进按模型命名的子目录，避免误判未就绪。 */
+    private void migrateLegacyTtsLayout() {
+        File flat = new File(modelsDir(), TYPE_TTS);
+        if (!new File(flat, "model.onnx").exists()) return;
+        String[] need = {"model.onnx", "tokens.txt", "lexicon.txt", "phone.fst", "date.fst", "number.fst"};
+        File xiaoYaSub = new File(modelsDir(), TYPE_TTS + File.separator + TTS_MODEL_XIAO_YA);
+        if (dirUsable(xiaoYaSub, need)) return;
+        for (String f : need) {
+            File src = new File(flat, f);
+            if (src.exists()) {
+                File dst = new File(xiaoYaSub, f);
+                if (dst.getParentFile() != null) dst.getParentFile().mkdirs();
+                src.renameTo(dst);
+            }
+        }
+    }
+
     private void refresh() {
+        migrateLegacyTtsLayout();
+        repairMiscopiedTts();
+        purgeLegacyMelo();
         String[] asrFiles = {"model.int8.onnx", "tokens.txt"};
         String[] ttsFiles = {"model.onnx", "tokens.txt", "lexicon.txt", "phone.fst", "date.fst", "number.fst"};
         asrDone = dirUsable(asrDir(), asrFiles);
         ttsDone = dirUsable(ttsDir(), ttsFiles);
     }
 
+    /** 自愈：老版本 bug 会把内置 melo 的 model.onnx 拷进"当前激活模型"目录（默认小雅）。
+     * 若小雅目录里 model.onnx 体积与内置 melo 完全一致，说明是误拷，删掉待真实下载。 */
+    private void repairMiscopiedTts() {
+        for (String key : TTS_MODEL_KEYS) {
+            File dir = ttsDirFor(key);
+            File onnx = new File(dir, "model.onnx");
+            if (!onnx.exists() || !onnx.isFile()) continue;
+            if (onnx.length() == BUNDLED_MELO_ONNX_BYTES) {
+                deleteRecursive(dir);
+                Log.i(TAG, "repair: " + key + " dir held bundled melo weights, cleaned for re-download");
+            }
+        }
+    }
+
+    /** 移除已下线的 melo 模型残留（目录与缓存 tar），释放空间。 */
+    private void purgeLegacyMelo() {
+        deleteRecursive(ttsDirFor(LEGACY_TTS_MELO));
+        File cache = new File(appContext.getCacheDir(),
+                "sherpa_download" + File.separator + LEGACY_TTS_MELO + ".tar.bz2");
+        if (cache.exists()) cache.delete();
+    }
+
     public boolean installFromAssets() {
         synchronized (installLock) {
             refresh();
+            Log.i(TAG, "installFromAssets start: asrReady=" + asrDone
+                    + " activeTts=" + activeTtsModel
+                    + " xiaoYaReady=" + isTtsModelReady(TTS_MODEL_XIAO_YA));
             boolean ok = true;
-            if (!asrDone) ok &= copyAssetDir(TYPE_ASR);
-            if (!ttsDone) ok &= copyAssetDir(TYPE_TTS);
+            if (!asrDone) ok &= copyAssetDir(TYPE_ASR, null);
+            // 为每个内置 TTS 模型拷贝到自己的目录（与激活模型无关）。
+            for (String key : TTS_MODEL_KEYS) {
+                boolean before = isTtsModelReady(key);
+                if (!before) {
+                    ok &= copyAssetDir(TYPE_TTS, key);
+                }
+                Log.i(TAG, "installFromAssets model=" + key
+                        + " readyBefore=" + before
+                        + " readyAfter=" + isTtsModelReady(key));
+            }
             refresh();
+            Log.i(TAG, "installFromAssets end: ok=" + ok + " asrDone=" + asrDone
+                    + " ttsDone=" + ttsDone + " activeTts=" + activeTtsModel);
             return ok;
         }
     }
 
-    private boolean copyAssetDir(String type) {
+    private boolean copyAssetDir(String type, String modelKey) {
         String[] need;
         if (TYPE_ASR.equals(type)) {
             need = new String[]{"model.int8.onnx", "tokens.txt"};
         } else {
             need = new String[]{"model.onnx", "tokens.txt", "lexicon.txt", "phone.fst", "date.fst", "number.fst"};
         }
-        File target = TYPE_ASR.equals(type) ? asrDir() : ttsDir();
+        // 每个内置 TTS 模型从 assets 的 tts/<modelKey>/ 子目录拷进自身目录，
+        // 不能拷到当前激活模型的目录（否则激活其他模型时会把权重放错位置且 ttsDone 误判就绪）。
+        File target = TYPE_ASR.equals(type) ? asrDir() : ttsDirFor(modelKey);
         try {
             if (!target.exists() && !target.mkdirs()) return false;
             AssetManager am = appContext.getAssets();
             for (String f : need) {
-                copyAssetFile(am, TYPE_ASR.equals(type) ? "asr" : "tts", f, new File(target, f));
+                copyAssetFile(am, type, modelKey, f, new File(target, f));
             }
             return true;
         } catch (IOException e) {
-            Log.w(TAG, "assets copy failed for " + type + ": " + e.getMessage());
+            Log.w(TAG, "assets copy failed for " + type + (modelKey != null ? "/" + modelKey : "") + ": " + e.getMessage());
             return false;
         }
     }
 
-    private void copyAssetFile(AssetManager am, String type, String name, File out) throws IOException {
+    private void copyAssetFile(AssetManager am, String type, String modelKey, String name, File out) throws IOException {
         if (out.exists() && out.length() > 0) return;
-        try (InputStream in = am.open(ASSETS_ROOT + "/" + type + "/" + name);
+        String assetPath = ASSETS_ROOT + "/" + type
+                + (modelKey == null ? "" : "/" + modelKey) + "/" + name;
+        try (InputStream in = am.open(assetPath);
              OutputStream os = new BufferedOutputStream(new FileOutputStream(out), 64 * 1024)) {
             byte[] buf = new byte[64 * 1024];
             int n;
@@ -193,6 +310,32 @@ public class VoiceModelManager {
         });
     }
 
+    /** 为指定 TTS 模型下载并解压（与当前激活模型无关，未就绪的候选模型也能下载）。 */
+    public void downloadTtsModel(final String modelKey, final ProgressListener listener) {
+        executor.execute(() -> {
+            String[] need = {"model.onnx", "tokens.txt", "lexicon.txt", "phone.fst", "date.fst", "number.fst"};
+            File target = ttsDirFor(modelKey);
+            if (dirUsable(target, need)) {
+                if (listener != null) listener.onFinished("该模型已就绪");
+                return;
+            }
+            File cacheFile = null;
+            try {
+                cacheFile = ensureCached(modelKey + ".tar.bz2", TYPE_TTS, listener);
+                if (!isCancelled() && extract(TYPE_TTS, cacheFile, target)) {
+                    if (modelKey.equals(activeTtsModel)) ttsDone = true;
+                    if (listener != null) listener.onFinished("下载完成");
+                    return;
+                }
+                if (cacheFile != null) cacheFile.delete();
+                if (listener != null) listener.onFinished("下载失败: 解压/校验失败");
+            } catch (IOException e) {
+                if (cacheFile != null) cacheFile.delete();
+                if (listener != null) listener.onFinished("下载失败: " + e.getMessage());
+            }
+        });
+    }
+
     private String checkAndDownload(ProgressListener listener) {
         refresh();
         for (String type : ORDERS) {
@@ -208,7 +351,7 @@ public class VoiceModelManager {
     }
 
     private State downloadOne(String type, ProgressListener listener) {
-        String name = TYPE_ASR.equals(type) ? ASR_TAR : TTS_TAR;
+        String name = TYPE_ASR.equals(type) ? ASR_TAR : activeTtsModel + ".tar.bz2";
         File cacheFile = null;
         try {
             cacheFile = ensureCached(name, type, listener);
@@ -323,6 +466,16 @@ public class VoiceModelManager {
         deleteRecursive(tmp);
         if (!tmp.mkdirs()) throw new IOException("cannot mkdir tmp");
         extractTar(cacheFile, tmp, need);
+        if (TYPE_TTS.equals(type)) {
+            File onnx = new File(tmp, "model.onnx");
+            if (!onnx.exists()) {
+                File[] candidates = tmp.listFiles((d, n) -> n.endsWith(".onnx"));
+                if (candidates != null && candidates.length > 0) {
+                    // piper 系模型 onnx 名带语音名（如 zh_CN-xiao_ya-medium.onnx），统一为 model.onnx
+                    candidates[0].renameTo(onnx);
+                }
+            }
+        }
         for (String f : need) {
             if (!new File(tmp, f).exists()) {
                 throw new IOException("解压缺少文件: " + f);

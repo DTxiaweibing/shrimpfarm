@@ -15,6 +15,7 @@ import com.shrimpfarm.app.analysis.DataAnalysisActivity;
 import com.shrimpfarm.app.backup.BackgroundBackupManager;
 import com.shrimpfarm.app.checkfeed.CheckFeedActivity;
 import com.shrimpfarm.app.mixcalc.MixCalcActivity;
+import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
 
 public class MyApplication extends MultiDexApplication {
 
@@ -61,6 +62,8 @@ public class MyApplication extends MultiDexApplication {
     public void onCreate() {
         super.onCreate();
         Thread.setDefaultUncaughtExceptionHandler(new CrashHandler(this));
+
+        KnowledgeBaseUpdater.startBackgroundPolling(this);
 
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override

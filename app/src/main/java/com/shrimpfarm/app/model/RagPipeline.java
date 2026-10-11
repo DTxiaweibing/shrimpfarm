@@ -44,9 +44,17 @@ public class RagPipeline {
         String userPrompt;
 
         if (!localAdvice.isEmpty()) {
-            userPrompt = "用户问题：" + query + "\n\n【首要执行规则】\n" + localAdvice
-                    + "\n\n请根据上述规则用口语化方式给出具体操作步骤。";
-            return Result.api(userPrompt);
+            StringBuilder sb = new StringBuilder();
+            sb.append("用户问题：").append(query).append("\n\n");
+            sb.append("【首要执行规则】\n").append(localAdvice).append("\n\n");
+            String kbRules = fetchKbRules(query, embedder, kb);
+            if (kbRules.isEmpty()) {
+                sb.append("请根据上述规则用口语化方式给出具体操作步骤。");
+            } else {
+                sb.append("【参考知识】\n").append(kbRules).append("\n\n");
+                sb.append("请优先执行【首要执行规则】，并结合【参考知识】补充具体操作步骤。");
+            }
+            return Result.api(sb.toString());
         }
 
         try {
@@ -62,7 +70,7 @@ public class RagPipeline {
 
             List<Reranker.ScoredDoc> reranked;
             if (reranker != null && !docContents.isEmpty()) {
-                reranked = reranker.rerank(query, docContents, 3);
+                reranked = reranker.rerank(query, docContents, 5);
             } else {
                 reranked = new ArrayList<>();
                 for (String c : docContents) reranked.add(new Reranker.ScoredDoc(c, 0f));
@@ -73,8 +81,10 @@ public class RagPipeline {
             for (Reranker.ScoredDoc doc : reranked) {
                 sb.append("【参考知识】\n").append(doc.content).append("\n\n");
             }
+            String emergency = DecisionRAG.getEmergencyAdvice(query);
+            if (!emergency.isEmpty()) sb.append("【应急处置要点】\n").append(emergency).append("\n\n");
             if (!reranked.isEmpty()) {
-                sb.append("请严格基于以上参考知识回答。如果参考知识有具体操作数值，必须原样引用。");
+                sb.append("综合上述资料，直接回答用户问题，不要复述资料内容。");
             } else {
                 sb.append("请根据你自身的养殖知识回答，确保建议安全可行。");
             }
@@ -85,6 +95,24 @@ public class RagPipeline {
         }
         return Result.api(userPrompt);
     }
+
+    private static String fetchKbRules(String query, TokenEmbedder embedder, KnowledgeBase kb) {
+        try {
+            List<String> docs = DecisionRAG.searchRulesFromKB(query, embedder, kb);
+            StringBuilder sb = new StringBuilder();
+            for (String d : docs) {
+                if (d == null || d.isEmpty()) continue;
+                sb.append(d);
+                if (d.length() > MAX_PROMPT_CHARS) sb.setLength(sb.length() - d.length() + MAX_PROMPT_CHARS);
+                sb.append("\n\n");
+            }
+            return sb.toString().trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static final int MAX_PROMPT_CHARS = 1500;
 
     private static String routeQuery(String query) {
         if (query.contains("怎么") || query.contains("如何") || query.contains("步骤")
