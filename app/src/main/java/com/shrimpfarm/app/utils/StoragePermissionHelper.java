@@ -2,6 +2,7 @@ package com.shrimpfarm.app.utils;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -17,13 +18,17 @@ public class StoragePermissionHelper {
     public static final int REQUEST_CODE_MANAGE = 201;
 
     public static boolean hasStoragePermission(Activity activity) {
+        return hasStoragePermission((Context) activity);
+    }
+
+    public static boolean hasStoragePermission(Context context) {
         if (Build.VERSION.SDK_INT >= 30) {
             return Environment.isExternalStorageManager();
         }
         if (Build.VERSION.SDK_INT >= 29) {
             return true;
         }
-        return ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;
     }
 

@@ -40,6 +40,12 @@ public class BackupActivity extends BaseActivity {
     public static final String ERR_INFO_LOST = "ERR_BACKUP_INFO_LOST";
     public static final String ERR_DB_FILE_MISSING = "ERR_DB_FILE_MISSING";
 
+    private static final int PERMISSION_ACTION_NONE = 0;
+    private static final int PERMISSION_ACTION_BACKUP = 1;
+    private static final int PERMISSION_ACTION_RESTORE = 2;
+
+    private int permissionAction = PERMISSION_ACTION_NONE;
+
     private LocalBackupManager localManager;
     private WebDavManager webDavManager;
     private SupabaseAuthManager authManager;
@@ -81,6 +87,7 @@ public class BackupActivity extends BaseActivity {
                     new String[]{getString(R.string.btn_ok)},
                     new DialogInterface.OnClickListener[]{ (d, w) -> finish() },
                     false);
+            return;
         }
 
         tvStatus = findViewById(R.id.tv_backup_status);
@@ -122,7 +129,11 @@ public class BackupActivity extends BaseActivity {
 
     private void setupButtons() {
         btnLocalBackup.setOnClickListener(v -> {
-            if (checkStoragePermission()) doLocalBackup();
+            permissionAction = PERMISSION_ACTION_BACKUP;
+            if (checkStoragePermission()) {
+                permissionAction = PERMISSION_ACTION_NONE;
+                doLocalBackup();
+            }
         });
 
         btnConnect.setOnClickListener(v -> {
@@ -178,6 +189,7 @@ public class BackupActivity extends BaseActivity {
             BackupEntry entry = historyList.get(position);
             if (entry.isLocal && !StoragePermissionHelper.hasStoragePermission(this)) {
                 pendingRestoreEntry = entry;
+                permissionAction = PERMISSION_ACTION_RESTORE;
                 StoragePermissionHelper.requestIfNeeded(this);
                 return;
             }
@@ -209,12 +221,14 @@ public class BackupActivity extends BaseActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == StoragePermissionHelper.REQUEST_CODE_MANAGE) {
+            int action = permissionAction;
+            permissionAction = PERMISSION_ACTION_NONE;
             if (StoragePermissionHelper.hasStoragePermission(this)) {
-                if (pendingRestoreEntry != null) {
+                if (action == PERMISSION_ACTION_RESTORE && pendingRestoreEntry != null) {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
-                } else {
+                } else if (action == PERMISSION_ACTION_BACKUP) {
                     doLocalBackup();
                 }
                 if (showingLocal) refreshHistory();
@@ -230,12 +244,14 @@ public class BackupActivity extends BaseActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == StoragePermissionHelper.REQUEST_CODE_STORAGE) {
+            int action = permissionAction;
+            permissionAction = PERMISSION_ACTION_NONE;
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (pendingRestoreEntry != null) {
+                if (action == PERMISSION_ACTION_RESTORE && pendingRestoreEntry != null) {
                     BackupEntry entry = pendingRestoreEntry;
                     pendingRestoreEntry = null;
                     showRestoreOptions(entry);
-                } else {
+                } else if (action == PERMISSION_ACTION_BACKUP) {
                     doLocalBackup();
                 }
                 if (showingLocal) refreshHistory();

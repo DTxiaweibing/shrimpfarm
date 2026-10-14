@@ -167,6 +167,11 @@ public class WebDavManager {
         return parsePropfindResponse(xml);
     }
 
+    public long getRemoteFileSize(String fileName) throws Exception {
+        String xml = execPropfind(WEBDAV_URL + BACKUP_DIR + fileName);
+        return parseContentLength(xml);
+    }
+
     public void downloadBackup(String fileName, File localFile) throws Exception {
         String remotePath = WEBDAV_URL + BACKUP_DIR + fileName;
         execGet(remotePath, localFile);
@@ -236,6 +241,37 @@ public class WebDavManager {
             }
         } catch (Exception ignored) { /* ignored */ }
         return names;
+    }
+
+    private long parseContentLength(String xml) {
+        try {
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(true);
+            XmlPullParser parser = factory.newPullParser();
+            parser.setInput(new StringReader(xml));
+
+            int eventType = parser.getEventType();
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                String tag = parser.getName();
+                if (eventType == XmlPullParser.START_TAG) {
+                    String localName = tag != null && tag.contains(":") ? tag.substring(tag.indexOf(":") + 1) : tag;
+                    if ("getcontentlength".equalsIgnoreCase(localName)) {
+                        eventType = parser.next();
+                        if (eventType == XmlPullParser.TEXT) {
+                            String text = parser.getText();
+                            if (text != null) {
+                                try {
+                                    return Long.parseLong(text.trim());
+                                } catch (NumberFormatException ignored) {
+                                }
+                            }
+                        }
+                    }
+                }
+                eventType = parser.next();
+            }
+        } catch (Exception ignored) { }
+        return -1;
     }
 
     private Request.Builder authRequest(String url) {
