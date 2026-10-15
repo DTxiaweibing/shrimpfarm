@@ -18,6 +18,7 @@ public class FeedData {
 
     private int defaultShedCount = 0;
     private boolean isShedCountManuallyModified = false;
+    private boolean isAverageManuallyModified = false;
 
     public FeedData() {
         this.shedNumber = "";
@@ -31,6 +32,7 @@ public class FeedData {
         this.water = 0;
         this.weighedFeed = 0;
         this.isShedCountManuallyModified = false;
+        this.isAverageManuallyModified = false;
     }
 
     public void updateAllCalculations(int waterPercentage) {
@@ -65,6 +67,7 @@ public class FeedData {
             json.put("weighedFeed", weighedFeed);
             json.put("defaultShedCount", defaultShedCount);
             json.put("isShedCountManuallyModified", isShedCountManuallyModified);
+            json.put("isAverageManuallyModified", isAverageManuallyModified);
             return json;
         } catch (JSONException e) {
             Log.e("FeedData", "转换为JSON异常: " + e.getMessage());
@@ -87,6 +90,7 @@ public class FeedData {
                 weighedFeed = json.optDouble("weighedFeed", 0);
                 defaultShedCount = json.optInt("defaultShedCount", 0);
                 isShedCountManuallyModified = json.optBoolean("isShedCountManuallyModified", false);
+                isAverageManuallyModified = json.optBoolean("isAverageManuallyModified", false);
             }
         } catch (Exception e) {
             Log.e("FeedData", "从JSON恢复数据异常: " + e.getMessage());
@@ -201,9 +205,61 @@ public class FeedData {
         if (!isShedCountManuallyModified) {
             calculateShedCount();
         }
-        calculateAverage(fermentedIncludedInAverage);
+        if (isAverageManuallyModified) {
+            if (countNonZeroFeeds() == 1 && shedCount > 0) {
+                applyManualAverageToSingleFeed();
+            } else {
+                isAverageManuallyModified = false;
+            }
+        }
+        if (!isAverageManuallyModified) {
+            calculateAverage(fermentedIncludedInAverage);
+        }
         calculateWater(waterPercentage, fermentedIncludedInWater);
         calculateWeighedFeed(fermentedIncludedInWater);
+    }
+
+    public int countNonZeroFeeds() {
+        int count = 0;
+        if (fermentedFeed > 0) count++;
+        if (powderFeed > 0) count++;
+        if (feed03 > 0) count++;
+        if (feed05 > 0) count++;
+        if (feed10 > 0) count++;
+        return count;
+    }
+
+    public boolean isAverageManuallyModified() {
+        return isAverageManuallyModified;
+    }
+
+    public void setAverageManuallyModified(boolean manuallyModified) {
+        this.isAverageManuallyModified = manuallyModified;
+    }
+
+    public void setAverageManually(double value) {
+        this.average = value;
+        if (value > 0 && shedCount > 0 && countNonZeroFeeds() == 1) {
+            this.isAverageManuallyModified = true;
+            applyManualAverageToSingleFeed();
+        } else {
+            this.isAverageManuallyModified = false;
+        }
+    }
+
+    private void applyManualAverageToSingleFeed() {
+        double amount = average * shedCount;
+        if (fermentedFeed > 0) {
+            fermentedFeed = amount;
+        } else if (powderFeed > 0) {
+            powderFeed = amount;
+        } else if (feed03 > 0) {
+            feed03 = amount;
+        } else if (feed05 > 0) {
+            feed05 = amount;
+        } else if (feed10 > 0) {
+            feed10 = amount;
+        }
     }
 
     public String getShedNumber() {
@@ -235,6 +291,9 @@ public class FeedData {
     }
 
     public double getAverage(boolean fermentedIncludedInAverage) {
+        if (isAverageManuallyModified) {
+            return average;
+        }
         double sum = powderFeed + feed03 + feed05 + feed10;
         if (fermentedIncludedInAverage) {
             sum += fermentedFeed;

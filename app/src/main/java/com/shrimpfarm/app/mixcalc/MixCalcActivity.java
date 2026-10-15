@@ -134,6 +134,9 @@ public class MixCalcActivity extends BaseActivity {
     // 防止递归调用标志
     private boolean isSyncing = false;
 
+    // 防止平均格程序化更新触发监听器（递归）标志
+    private boolean isUpdatingAverageCell = false;
+
     // 触摸事件相关
     private float lastX, lastY;
     private boolean isHorizontalScroll = false;
@@ -712,7 +715,7 @@ public class MixCalcActivity extends BaseActivity {
         // 检查棚号或棚数是否有数据
         if (hasShedData(data)) {
             // 有数据：加载其他列监听器（使用Tag避免重复添加）
-            String[] otherColumns = {"fermented", "powder", "feed03", "feed05", "feed10"};
+            String[] otherColumns = {"fermented", "powder", "feed03", "feed05", "feed10", "average_feed"};
             
             for (String columnId : otherColumns) {
                 int columnIndex = getColumnIndex(columnId);
@@ -730,13 +733,21 @@ public class MixCalcActivity extends BaseActivity {
                         continue; // 已添加过，跳过
                     }
                     
-                    // 启用编辑
-                    editText.setEnabled(true);
+                    if ("average_feed".equals(columnId)) {
+                        editText.setEnabled(isCellEnabled("average_feed", data, rowIndex));
+                    } else {
+                        // 启用编辑
+                        editText.setEnabled(true);
+                    }
                     
                     String initialValue = getCellInitialValue(data, columnId);
                     editText.setText(initialValue);
                     
-                    addOriginalTextWatcher(editText, rowIndex, columnId, columnIndex);
+                    if ("average_feed".equals(columnId)) {
+                        addAverageFeedTextWatcher(editText, rowIndex, columnId, columnIndex);
+                    } else {
+                        addOriginalTextWatcher(editText, rowIndex, columnId, columnIndex);
+                    }
                 }
             }
             
@@ -751,7 +762,7 @@ public class MixCalcActivity extends BaseActivity {
     private void removeOtherColumnListeners(int rowIndex) {
         if (rowIndex < 0 || rowIndex >= dataList.size()) return;
         
-        String[] otherColumns = {"fermented", "powder", "feed03", "feed05", "feed10"};
+        String[] otherColumns = {"fermented", "powder", "feed03", "feed05", "feed10", "average_feed"};
         
         for (String columnId : otherColumns) {
             String key = rowIndex + "_" + columnId;
@@ -776,6 +787,7 @@ public class MixCalcActivity extends BaseActivity {
             data.setWater(0);
             data.setWeighedFeed(0);
             data.setAverage(0);
+            data.setAverageManuallyModified(false);
         }
         
         updateCalculatedCells(rowIndex);
@@ -910,8 +922,12 @@ public class MixCalcActivity extends BaseActivity {
 
                     @Override
                     public void afterTextChanged(Editable s) {
+                        if (isUpdatingAverageCell) {
+                            return;
+                        }
                         String text = s.toString().trim();
                         final FeedData data = dataList.get(rowIndex);
+                        data.setAverageManuallyModified(false);
 
                         double value = 0;
                         if (!text.isEmpty()) {
@@ -942,6 +958,7 @@ public class MixCalcActivity extends BaseActivity {
 
                         data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
                         updateCalculatedCells(rowIndex);
+                        updateAverageCellEnabledState(rowIndex, data);
                         updateFooterRow();
                         saveAllData();
                         checkShedCountLimitAndUpdateInput();
@@ -959,6 +976,112 @@ public class MixCalcActivity extends BaseActivity {
                     return false;
                 }
             });
+    }
+
+    // 为平均列添加TextWatcher（单行仅一种料时可编辑，反向计算料量）
+    private void addAverageFeedTextWatcher(final EditText editText, final int rowIndex, final String columnId, final int columnIndex) {
+        String key = rowIndex + "_" + columnId;
+        if (listenersAddedSet.contains(key)) {
+            return;
+        }
+        listenersAddedSet.add(key);
+
+        editText.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (isUpdatingAverageCell) {
+                        return;
+                    }
+                    String text = s.toString().trim();
+                    final FeedData data = dataList.get(rowIndex);
+
+                    double value = 0;
+                    if (!text.isEmpty()) {
+                        try {
+                            value = Double.parseDouble(text);
+                        } catch (NumberFormatException e) {
+                            value = 0;
+                        }
+                    }
+
+                    data.setAverageManually(value);
+                    data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
+                    syncFeedCellsFromModel(rowIndex, data);
+                    updateCalculatedCells(rowIndex);
+                    updateAverageCellEnabledState(rowIndex, data);
+                    updateFooterRow();
+                    saveAllData();
+                }
+            });
+
+        editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override
+                public void onFocusChange(View v, boolean hasFocus) {
+                    if (!hasFocus) {
+                        FeedData data = dataList.get(rowIndex);
+                        String newValue = getCellInitialValue(data, "average_feed");
+                        EditText et = (EditText) v;
+                        if (!et.getText().toString().trim().equals(newValue)) {
+                            isUpdatingAverageCell = true;
+                            try {
+                                et.setText(newValue);
+                            } finally {
+                                isUpdatingAverageCell = false;
+                            }
+                        }
+                    }
+                }
+            });
+
+        editText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    if (actionId == EditorInfo.IME_ACTION_NEXT) {
+                        moveFocusToNextEditableCell(rowIndex, columnIndex);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+    }
+
+    // 根据模型值同步该行料格文本（反算后调用，避免触发料格监听器）
+    private void syncFeedCellsFromModel(int rowIndex, FeedData data) {
+        String[] feedColumns = {"fermented", "powder", "feed03", "feed05", "feed10"};
+        for (String columnId : feedColumns) {
+            View view = cellViewMap.get(rowIndex + "_" + columnId);
+            if (view instanceof EditText) {
+                EditText editText = (EditText) view;
+                if (editText.hasFocus()) {
+                    continue;
+                }
+                String newValue = getCellInitialValue(data, columnId);
+                if (!editText.getText().toString().trim().equals(newValue)) {
+                    isUpdatingAverageCell = true;
+                    try {
+                        editText.setText(newValue);
+                    } finally {
+                        isUpdatingAverageCell = false;
+                    }
+                }
+            }
+        }
+    }
+
+    // 根据当前状态刷新平均格的可用性（不改变文本、始终保持边框样式）
+    private void updateAverageCellEnabledState(int rowIndex, FeedData data) {
+        View view = cellViewMap.get(rowIndex + "_average_feed");
+        if (view instanceof EditText) {
+            EditText editText = (EditText) view;
+            editText.setEnabled(isCellEnabled("average_feed", data, rowIndex));
+            editText.setBackgroundResource(R.drawable.cell_border);
+        }
     }
 
     @Override
@@ -1539,7 +1662,7 @@ public class MixCalcActivity extends BaseActivity {
                         String currentValue = editText.getText().toString().trim();
                         String newValue = getCellInitialValue(data, columnId);
 
-                        if (!currentValue.equals(newValue)) {
+                        if (!currentValue.equals(newValue) && !editText.hasFocus()) {
                             TextWatcher[] watchers = getTextWatchers(editText);
                             for (TextWatcher watcher : watchers) {
                                 editText.removeTextChangedListener(watcher);
@@ -1555,7 +1678,9 @@ public class MixCalcActivity extends BaseActivity {
                         boolean isEnabled = isCellEnabled(columnId, data, rowIndex);
                         editText.setEnabled(isEnabled);
 
-                        if ("shed_count".equals(columnId)) {
+                        if ("average_feed".equals(columnId)) {
+                            editText.setBackgroundResource(R.drawable.cell_border);
+                        } else if ("shed_count".equals(columnId)) {
                             if (data.getShedCount() > 0 && isShedCountExceeded) {
                                 editText.setBackground(warningShedCountBg);
                             } else {
@@ -2386,6 +2511,7 @@ public class MixCalcActivity extends BaseActivity {
                 data.setWeighedFeed(0);
                 data.setAverage(0);
                 data.setShedCountManuallyModified(false);
+                data.setAverageManuallyModified(false);
             }
 
             rebuildCompleteTable();
@@ -2560,10 +2686,14 @@ public class MixCalcActivity extends BaseActivity {
             String initialValue = getCellInitialValue(data, columnId);
             cellView.setText(initialValue);
 
+            if ("average_feed".equals(columnId)) {
+                cellView.setTextColor(0xFF0000FF);
+            }
+
             boolean isEnabled = isCellEnabled(columnId, data, rowIndex);
             cellView.setEnabled(isEnabled);
 
-            if (!isEnabled) {
+            if (!isEnabled && !"average_feed".equals(columnId)) {
                 cellView.setBackgroundResource(R.drawable.cell_border_disabled);
             }
 
@@ -2645,6 +2775,8 @@ public class MixCalcActivity extends BaseActivity {
                             }
                         }
                     });
+            } else if ("average_feed".equals(columnId)) {
+                addAverageFeedTextWatcher(cellView, rowIndex, columnId, columnIndex);
             } else {
                 cellView.addTextChangedListener(new TextWatcher() {
                         @Override
@@ -2657,8 +2789,12 @@ public class MixCalcActivity extends BaseActivity {
 
                         @Override
                         public void afterTextChanged(Editable s) {
+                            if (isUpdatingAverageCell) {
+                                return;
+                            }
                             String text = s.toString().trim();
                             final FeedData data = dataList.get(rowIndex);
+                            data.setAverageManuallyModified(false);
 
                             double value = 0;
                             if (!text.isEmpty()) {
@@ -2689,6 +2825,7 @@ public class MixCalcActivity extends BaseActivity {
 
                             data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
                             updateCalculatedCells(rowIndex);
+                            updateAverageCellEnabledState(rowIndex, data);
                             updateFooterRow();
                             saveAllData();
                             checkShedCountLimitAndUpdateInput();
@@ -2804,6 +2941,8 @@ public class MixCalcActivity extends BaseActivity {
     private boolean isCellEnabled(String columnId, FeedData data, int rowIndex) {
         if ("shed_number".equals(columnId) || "shed_count".equals(columnId)) {
             return true;
+        } else if ("average_feed".equals(columnId)) {
+            return data.getShedCount() > 0 && data.countNonZeroFeeds() == 1;
         } else {
             return data.getShedCount() > 0;
         }
@@ -2813,7 +2952,7 @@ public class MixCalcActivity extends BaseActivity {
     private void updateRowInputEnabled(int rowIndex) {
         FeedData data = dataList.get(rowIndex);
 
-        String[] editableColumns = {"fermented", "powder", "feed03", "feed05", "feed10", "shed_number", "shed_count"};
+        String[] editableColumns = {"fermented", "powder", "feed03", "feed05", "feed10", "shed_number", "shed_count", "average_feed"};
         for (String columnId : editableColumns) {
             View view = cellViewMap.get(rowIndex + "_" + columnId);
             if (view instanceof EditText) {
@@ -2821,6 +2960,11 @@ public class MixCalcActivity extends BaseActivity {
                 boolean isEnabled = isCellEnabled(columnId, data, rowIndex);
 
                 editText.setEnabled(isEnabled);
+
+                if ("average_feed".equals(columnId)) {
+                    editText.setBackgroundResource(R.drawable.cell_border);
+                    continue;
+                }
 
                 if ("shed_count".equals(columnId)) {
                     if (data.getShedCount() > 0 && isShedCountExceeded) {
@@ -2889,8 +3033,18 @@ public class MixCalcActivity extends BaseActivity {
                 // 使用新的方法获取平均吃料值，考虑是否包含发酵料
                 double averageValue = data.getAverage(fermentedIncludedInAverage);
                 String displayValue = averageValue == 0 ? "" : formatNumber(averageValue);
-                ((TextView)averageFeedView).setText(displayValue);
-                ((TextView)averageFeedView).setTextColor(0xFF0000FF);
+                TextView averageTextView = (TextView) averageFeedView;
+                boolean isEditing = (averageTextView instanceof EditText) && averageTextView.hasFocus();
+                if (!isEditing && !averageTextView.getText().toString().trim().equals(displayValue)) {
+                    boolean previousFlag = isUpdatingAverageCell;
+                    isUpdatingAverageCell = true;
+                    try {
+                        averageTextView.setText(displayValue);
+                    } finally {
+                        isUpdatingAverageCell = previousFlag;
+                    }
+                }
+                averageTextView.setTextColor(0xFF0000FF);
             }
 
             // 更新水单元格
@@ -2918,6 +3072,11 @@ public class MixCalcActivity extends BaseActivity {
                 }
                 ((TextView)weighedFeedView).setText(displayValue);
                 ((TextView)weighedFeedView).setTextColor(0xFF0000FF);
+            }
+
+            // 手动平均模式下，反向计算的料量需要同步到对应料格
+            if (data.isAverageManuallyModified()) {
+                syncFeedCellsFromModel(rowIndex, data);
             }
 
         } catch (Exception e) {
@@ -2957,6 +3116,8 @@ public class MixCalcActivity extends BaseActivity {
                 return data.getShedNumber();
             case "shed_count":
                 return data.getShedCount() == 0 ? "" : String.valueOf(data.getShedCount());
+            case "average_feed":
+                return formatNumber(data.getAverage(fermentedIncludedInAverage));
             case "fermented":
                 return data.getFermentedFeed() == 0 ? "" : formatNumber(data.getFermentedFeed());
             case "powder":
@@ -3017,6 +3178,7 @@ public class MixCalcActivity extends BaseActivity {
     private boolean isEditableColumn(String columnId) {
         return "shed_number".equals(columnId) || 
             "shed_count".equals(columnId) ||
+            "average_feed".equals(columnId) ||
             "fermented".equals(columnId) ||
             "powder".equals(columnId) ||
             "feed03".equals(columnId) ||
