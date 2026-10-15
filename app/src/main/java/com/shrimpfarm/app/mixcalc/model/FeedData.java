@@ -19,6 +19,10 @@ public class FeedData {
     private int defaultShedCount = 0;
     private boolean isShedCountManuallyModified = false;
     private boolean isAverageManuallyModified = false;
+    // 换料比例：粒径较大那一种非发酵料的占比 (0.1~0.9)，0 表示未设置
+    private double switchRatio = 0;
+    // 非发酵料按粒径由小到大：粉料、0.3、0.5、1.0
+    private static final int NF_POWDER = 0, NF_FEED03 = 1, NF_FEED05 = 2, NF_FEED10 = 3;
 
     public FeedData() {
         this.shedNumber = "";
@@ -68,6 +72,7 @@ public class FeedData {
             json.put("defaultShedCount", defaultShedCount);
             json.put("isShedCountManuallyModified", isShedCountManuallyModified);
             json.put("isAverageManuallyModified", isAverageManuallyModified);
+            json.put("switchRatio", switchRatio);
             return json;
         } catch (JSONException e) {
             Log.e("FeedData", "转换为JSON异常: " + e.getMessage());
@@ -91,6 +96,7 @@ public class FeedData {
                 defaultShedCount = json.optInt("defaultShedCount", 0);
                 isShedCountManuallyModified = json.optBoolean("isShedCountManuallyModified", false);
                 isAverageManuallyModified = json.optBoolean("isAverageManuallyModified", false);
+                switchRatio = json.optDouble("switchRatio", 0);
             }
         } catch (Exception e) {
             Log.e("FeedData", "从JSON恢复数据异常: " + e.getMessage());
@@ -202,12 +208,16 @@ public class FeedData {
     }
 
     public void updateAllCalculations(int waterPercentage, boolean fermentedIncludedInWater, boolean fermentedIncludedInAverage) {
+        // 换料比例只在“恰好两种非发酵料”时有效，否则自动作废
+        if (countNonFermentedFeeds() != 2) {
+            switchRatio = 0;
+        }
         if (!isShedCountManuallyModified) {
             calculateShedCount();
         }
         if (isAverageManuallyModified) {
-            if (countNonZeroFeeds() == 1 && shedCount > 0) {
-                applyManualAverageToSingleFeed();
+            if (canEditAverage()) {
+                applyManualAverage(fermentedIncludedInAverage);
             } else {
                 isAverageManuallyModified = false;
             }
@@ -219,14 +229,30 @@ public class FeedData {
         calculateWeighedFeed(fermentedIncludedInWater);
     }
 
-    public int countNonZeroFeeds() {
+    // 非发酵料（粉/0.3/0.5/1.0）中有数据的种类数
+    public int countNonFermentedFeeds() {
         int count = 0;
-        if (fermentedFeed > 0) count++;
-        if (powderFeed > 0) count++;
-        if (feed03 > 0) count++;
-        if (feed05 > 0) count++;
-        if (feed10 > 0) count++;
+        for (int i = 0; i <= NF_FEED10; i++) {
+            if (getNonFermentedValue(i) > 0) {
+                count++;
+            }
+        }
         return count;
+    }
+
+    // 平均列是否可手动编辑：非发酵料 0/1/2 种，且不能整行为空
+    public boolean canEditAverage() {
+        if (shedCount <= 0) {
+            return false;
+        }
+        int nf = countNonFermentedFeeds();
+        if (nf >= 3) {
+            return false;
+        }
+        if (nf == 0 && fermentedFeed <= 0) {
+            return false;
+        }
+        return true;
     }
 
     public boolean isAverageManuallyModified() {
@@ -237,28 +263,102 @@ public class FeedData {
         this.isAverageManuallyModified = manuallyModified;
     }
 
-    public void setAverageManually(double value) {
+    public double getSwitchRatio() {
+        return switchRatio;
+    }
+
+    public void setSwitchRatio(double switchRatio) {
+        this.switchRatio = switchRatio;
+    }
+
+    public void setAverageManually(double value, boolean fermentedIncludedInAverage) {
         this.average = value;
-        if (value > 0 && shedCount > 0 && countNonZeroFeeds() == 1) {
+        if (value > 0 && canEditAverage()) {
             this.isAverageManuallyModified = true;
-            applyManualAverageToSingleFeed();
+            applyManualAverage(fermentedIncludedInAverage);
         } else {
             this.isAverageManuallyModified = false;
         }
     }
 
-    private void applyManualAverageToSingleFeed() {
+    // 手动设定平均后，把总量按规则分回料格
+    //   nf==0：只有发酵料 → 全给发酵料
+    //   nf==1：该非发酵料 = 平均×棚数 - (参与平均?发酵料:0)
+    //   nf==2：两料按比例分 平均×棚数 - (参与平均?发酵料:0)
+    private void applyManualAverage(boolean fermentedIncludedInAverage) {
         double amount = average * shedCount;
-        if (fermentedFeed > 0) {
-            fermentedFeed = amount;
-        } else if (powderFeed > 0) {
-            powderFeed = amount;
-        } else if (feed03 > 0) {
-            feed03 = amount;
-        } else if (feed05 > 0) {
-            feed05 = amount;
-        } else if (feed10 > 0) {
-            feed10 = amount;
+        int nf = countNonFermentedFeeds();
+
+        if (nf == 0) {
+            if (fermentedFeed > 0) {
+                fermentedFeed = amount;
+            }
+            return;
+        }
+
+        double base = amount;
+        if (fermentedIncludedInAverage && fermentedFeed > 0) {
+            base -= fermentedFeed;
+        }
+        if (base < 0) {
+            base = 0;
+        }
+
+        if (nf == 1) {
+            for (int i = 0; i <= NF_FEED10; i++) {
+                if (getNonFermentedValue(i) > 0) {
+                    setNonFermentedValue(i, base);
+                    break;
+                }
+            }
+        } else if (nf == 2) {
+            int small = -1;
+            int large = -1;
+            for (int i = 0; i <= NF_FEED10; i++) {
+                if (getNonFermentedValue(i) > 0) {
+                    if (small < 0) {
+                        small = i;
+                    } else {
+                        large = i;
+                        break;
+                    }
+                }
+            }
+            double ratio = switchRatio;
+            if (ratio <= 0 || ratio >= 1) {
+                double sv = getNonFermentedValue(small);
+                double lv = getNonFermentedValue(large);
+                double sum = sv + lv;
+                ratio = sum > 0 ? lv / sum : 0.5;
+            }
+            if (ratio < 0.1) {
+                ratio = 0.1;
+            }
+            if (ratio > 0.9) {
+                ratio = 0.9;
+            }
+            setNonFermentedValue(large, base * ratio);
+            setNonFermentedValue(small, base * (1 - ratio));
+        }
+    }
+
+    private double getNonFermentedValue(int index) {
+        switch (index) {
+            case NF_POWDER: return powderFeed;
+            case NF_FEED03: return feed03;
+            case NF_FEED05: return feed05;
+            case NF_FEED10: return feed10;
+            default: return 0;
+        }
+    }
+
+    private void setNonFermentedValue(int index, double value) {
+        switch (index) {
+            case NF_POWDER: powderFeed = value; break;
+            case NF_FEED03: feed03 = value; break;
+            case NF_FEED05: feed05 = value; break;
+            case NF_FEED10: feed10 = value; break;
+            default: break;
         }
     }
 

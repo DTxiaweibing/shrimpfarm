@@ -137,6 +137,9 @@ public class MixCalcActivity extends BaseActivity {
     // 防止平均格程序化更新触发监听器（递归）标志
     private boolean isUpdatingAverageCell = false;
 
+    // 非发酵料列（按粒径由小到大），换料比例只在这几种料之间生效
+    private static final String[] NF_FEED_COLUMNS = {"powder", "feed03", "feed05", "feed10"};
+
     // 触摸事件相关
     private float lastX, lastY;
     private boolean isHorizontalScroll = false;
@@ -752,6 +755,7 @@ public class MixCalcActivity extends BaseActivity {
             }
             
             updateCalculatedCells(rowIndex);
+            refreshSwitchRatioIndicator(rowIndex);
         } else {
             // 无数据：移除其他列监听器并禁用
             removeOtherColumnListeners(rowIndex);
@@ -913,6 +917,20 @@ public class MixCalcActivity extends BaseActivity {
                     }
                 });
         } else {
+            if (isNonFermentedFeedColumn(columnId)) {
+                editText.setOnLongClickListener(new View.OnLongClickListener() {
+                        @Override
+                        public boolean onLongClick(View v) {
+                            FeedData d = dataList.get(rowIndex);
+                            String larger = getLargerNonFermentedColumn(d);
+                            if (larger != null && larger.equals(columnId)) {
+                                showSwitchRatioDrawer(d, v);
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+            }
             editText.addTextChangedListener(new TextWatcher() {
                     @Override
                     public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -956,9 +974,15 @@ public class MixCalcActivity extends BaseActivity {
                                 break;
                         }
 
+                        // 手改任意料格：作废已设置的换料比例，回到两料实际比例
+                        if ("fermented".equals(columnId) || isNonFermentedFeedColumn(columnId)) {
+                            data.setSwitchRatio(0);
+                        }
+
                         data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
                         updateCalculatedCells(rowIndex);
                         updateAverageCellEnabledState(rowIndex, data);
+                        refreshSwitchRatioIndicator(rowIndex);
                         updateFooterRow();
                         saveAllData();
                         checkShedCountLimitAndUpdateInput();
@@ -1010,7 +1034,7 @@ public class MixCalcActivity extends BaseActivity {
                         }
                     }
 
-                    data.setAverageManually(value);
+                    data.setAverageManually(value, fermentedIncludedInAverage);
                     data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
                     syncFeedCellsFromModel(rowIndex, data);
                     updateCalculatedCells(rowIndex);
@@ -2512,6 +2536,7 @@ public class MixCalcActivity extends BaseActivity {
                 data.setAverage(0);
                 data.setShedCountManuallyModified(false);
                 data.setAverageManuallyModified(false);
+                data.setSwitchRatio(0);
             }
 
             rebuildCompleteTable();
@@ -2697,6 +2722,11 @@ public class MixCalcActivity extends BaseActivity {
                 cellView.setBackgroundResource(R.drawable.cell_border_disabled);
             }
 
+            // 已设置换料比例时，给粒径较大的非发酵料格加淡绿提示底色
+            if (isEnabled && isSwitchRatioCell(data, columnId)) {
+                cellView.setBackgroundResource(R.drawable.cell_border_ratio);
+            }
+
             cellViewMap.put(rowIndex + "_" + columnId, cellView);
 
             if ("shed_number".equals(columnId)) {
@@ -2778,6 +2808,20 @@ public class MixCalcActivity extends BaseActivity {
             } else if ("average_feed".equals(columnId)) {
                 addAverageFeedTextWatcher(cellView, rowIndex, columnId, columnIndex);
             } else {
+                if (isNonFermentedFeedColumn(columnId)) {
+                    cellView.setOnLongClickListener(new View.OnLongClickListener() {
+                        @Override
+                        public boolean onLongClick(View v) {
+                            FeedData d = dataList.get(rowIndex);
+                            String larger = getLargerNonFermentedColumn(d);
+                            if (larger != null && larger.equals(columnId)) {
+                                showSwitchRatioDrawer(d, v);
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+                }
                 cellView.addTextChangedListener(new TextWatcher() {
                         @Override
                         public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -2823,9 +2867,15 @@ public class MixCalcActivity extends BaseActivity {
                                     break;
                             }
 
+                            // 手改任意料格：以最后一次改动为准，作废已设置的换料比例，回到两料实际比例
+                            if ("fermented".equals(columnId) || isNonFermentedFeedColumn(columnId)) {
+                                data.setSwitchRatio(0);
+                            }
+
                             data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
                             updateCalculatedCells(rowIndex);
                             updateAverageCellEnabledState(rowIndex, data);
+                            refreshSwitchRatioIndicator(rowIndex);
                             updateFooterRow();
                             saveAllData();
                             checkShedCountLimitAndUpdateInput();
@@ -2942,9 +2992,140 @@ public class MixCalcActivity extends BaseActivity {
         if ("shed_number".equals(columnId) || "shed_count".equals(columnId)) {
             return true;
         } else if ("average_feed".equals(columnId)) {
-            return data.getShedCount() > 0 && data.countNonZeroFeeds() == 1;
+            return data.canEditAverage();
         } else {
             return data.getShedCount() > 0;
+        }
+    }
+
+    private boolean isNonFermentedFeedColumn(String columnId) {
+        for (String c : NF_FEED_COLUMNS) {
+            if (c.equals(columnId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private double getFeedValueByColumn(FeedData data, String columnId) {
+        switch (columnId) {
+            case "powder": return data.getPowderFeed();
+            case "feed03": return data.getFeed03();
+            case "feed05": return data.getFeed05();
+            case "feed10": return data.getFeed10();
+            default: return 0;
+        }
+    }
+
+    // 非发酵料恰好两种时，返回粒径较大的那个列的 id；否则返回 null
+    private String getLargerNonFermentedColumn(FeedData data) {
+        int count = 0;
+        String larger = null;
+        for (String c : NF_FEED_COLUMNS) {
+            if (getFeedValueByColumn(data, c) > 0) {
+                count++;
+                larger = c;
+            }
+        }
+        return count == 2 ? larger : null;
+    }
+
+    // 该料格是否为"已设置换料比例"的提示格（粒径较大的那个非发酵料）
+    private boolean isSwitchRatioCell(FeedData data, String columnId) {
+        if (data == null || data.getSwitchRatio() <= 0) {
+            return false;
+        }
+        String larger = getLargerNonFermentedColumn(data);
+        return larger != null && larger.equals(columnId);
+    }
+
+    // 刷新某行四个非发酵料格的背景，用于提示换料比例是否生效
+    private void refreshSwitchRatioIndicator(int rowIndex) {
+        FeedData data = dataList.get(rowIndex);
+        for (String c : NF_FEED_COLUMNS) {
+            View v = cellViewMap.get(rowIndex + "_" + c);
+            if (v instanceof EditText) {
+                EditText et = (EditText) v;
+                if (!et.isEnabled()) {
+                    continue;
+                }
+                et.setBackgroundResource(isSwitchRatioCell(data, c)
+                        ? R.drawable.cell_border_ratio : R.drawable.cell_border);
+            }
+        }
+    }
+
+    // 长按较大料格：竖直抽屉式菜单选择换料比例(10%~90%)，当前比例打勾
+    private void showSwitchRatioDrawer(final FeedData data, View anchor) {
+        try {
+            View popupView = getLayoutInflater().inflate(R.layout.popup_switch_ratio, null);
+            LinearLayout container = popupView.findViewById(R.id.ratio_items_container);
+            container.removeAllViews();
+
+            final PopupWindow popup = new PopupWindow(popupView);
+            popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            popup.setOutsideTouchable(true);
+            popup.setFocusable(true);
+            popup.setElevation(10);
+
+            double current = data.getSwitchRatio();
+
+            for (int p = 10; p <= 90; p += 10) {
+                final double ratio = p / 100.0;
+
+                LinearLayout itemRow = new LinearLayout(this);
+                itemRow.setOrientation(LinearLayout.HORIZONTAL);
+                itemRow.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(40)));
+                itemRow.setGravity(Gravity.CENTER_VERTICAL);
+                itemRow.setPadding(dpToPx(16), 0, dpToPx(16), 0);
+                itemRow.setClickable(true);
+                itemRow.setFocusable(true);
+
+                TextView valueTv = new TextView(this);
+                valueTv.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+                valueTv.setText(p + "%");
+                valueTv.setTextSize(15);
+                valueTv.setTextColor(0xFF333333);
+                valueTv.setGravity(Gravity.CENTER);
+                itemRow.addView(valueTv);
+
+                TextView checkTv = new TextView(this);
+                checkTv.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(24), ViewGroup.LayoutParams.MATCH_PARENT));
+                checkTv.setText(getString(R.string.mix_switch_checked));
+                checkTv.setTextSize(16);
+                checkTv.setTextColor(0xFF2E7D32);
+                checkTv.setGravity(Gravity.CENTER);
+                checkTv.setVisibility(Math.abs(current - ratio) < 0.0001 ? View.VISIBLE : View.INVISIBLE);
+                itemRow.addView(checkTv);
+
+                itemRow.setOnClickListener(v -> {
+                    data.setSwitchRatio(ratio);
+                    int ri = dataList.indexOf(data);
+                    if (ri >= 0) {
+                        refreshSwitchRatioIndicator(ri);
+                    }
+                    saveAllData();
+                    popup.dismiss();
+                });
+
+                container.addView(itemRow);
+
+                if (p < 90) {
+                    View divider = new View(this);
+                    divider.setLayoutParams(new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 1));
+                    divider.setBackgroundColor(0xFFE0E0E0);
+                    container.addView(divider);
+                }
+            }
+
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            popup.setWidth(Math.min(dm.widthPixels, dpToPx(160)));
+            popup.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+            popup.showAsDropDown(anchor, 0, 0);
+        } catch (Exception e) {
+            Log.e(TAG, "showSwitchRatioDrawer: " + e.getMessage(), e);
         }
     }
 
@@ -2974,7 +3155,8 @@ public class MixCalcActivity extends BaseActivity {
                     }
                 } else {
                     if (isEnabled) {
-                        editText.setBackgroundResource(R.drawable.cell_border);
+                        editText.setBackgroundResource(isSwitchRatioCell(data, columnId)
+                                ? R.drawable.cell_border_ratio : R.drawable.cell_border);
                     } else {
                         editText.setBackgroundResource(R.drawable.cell_border_disabled);
                         if (!"shed_number".equals(columnId)) {

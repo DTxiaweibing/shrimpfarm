@@ -751,6 +751,8 @@
     <string name="col_settings_unfix_all">全解固</string>
     <string name="col_settings_show_all">列全显</string>
     <string name="col_settings_confirm_all">全确认</string>
+    <string name="mix_switch_ratio_title">换料比例</string>
+    <string name="mix_switch_checked">✓</string>
     <string name="alert_temp_high">温度超标:加大增氧、遮阳、加深水位</string>
     <string name="alert_temp_low">温度超标:请加温至22℃以上</string>
     <string name="alert_ph_high_severe">pH超标:遮光+芽孢光合+乳酸菌100斤/亩</string>

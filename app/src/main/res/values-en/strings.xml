@@ -750,6 +750,8 @@
     <string name="col_settings_unfix_all">Unfix All</string>
     <string name="col_settings_show_all">Show All</string>
     <string name="col_settings_confirm_all">Confirm</string>
+    <string name="mix_switch_ratio_title">Mixing Ratio</string>
+    <string name="mix_switch_checked">✓</string>
     <string name="alert_temp_high">Temp high: Increase aeration, shade, deepen water</string>
     <string name="alert_temp_low">Temp low: Heat to above 22℃</string>
     <string name="alert_ph_high_severe">pH high: Shade + Bacillus + Lactic acid 100 jin/mu</string>
