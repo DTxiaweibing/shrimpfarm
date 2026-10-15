@@ -20,15 +20,16 @@
             android:gravity="start|center_vertical"
             android:paddingStart="8dp">
 
-            <TextView
+            <ImageView
                 android:id="@+id/btn_column_settings"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:gravity="center"
-                android:text="⚙"
-                android:textSize="22sp"
-                android:textColor="#FFFFFF"
+                android:layout_gravity="center_vertical"
+                android:src="@drawable/ic_settings"
+                android:tint="#FFFFFF"
+                android:scaleType="fitCenter"
                 android:background="@null"
+                android:contentDescription="@string/menu_settings"
                 android:clickable="true"
                 android:focusable="true" />
         </LinearLayout>
