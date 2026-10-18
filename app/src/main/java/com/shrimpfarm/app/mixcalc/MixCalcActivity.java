@@ -1774,14 +1774,19 @@ public class MixCalcActivity extends BaseActivity {
                 verticalScrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
             }
 
-            // 列设置齿轮按钮
-            findViewById(R.id.btn_column_settings).setOnClickListener(v -> {
-                if (columnSettingsPopup != null && columnSettingsPopup.isShowing()) {
-                    columnSettingsPopup.dismiss();
-                } else {
-                    showColumnSettingsPopup();
-                }
-            });
+            // 列设置齿轮按钮（平板模式下隐藏）
+            View settingsBtn = findViewById(R.id.btn_column_settings);
+            if (isTabletDevice(this)) {
+                settingsBtn.setVisibility(View.GONE);
+            } else {
+                settingsBtn.setOnClickListener(v -> {
+                    if (columnSettingsPopup != null && columnSettingsPopup.isShowing()) {
+                        columnSettingsPopup.dismiss();
+                    } else {
+                        showColumnSettingsPopup();
+                    }
+                });
+            }
         } catch (Exception e) {
             Log.e(TAG, "initViews异常: " + e.getMessage());
         }
