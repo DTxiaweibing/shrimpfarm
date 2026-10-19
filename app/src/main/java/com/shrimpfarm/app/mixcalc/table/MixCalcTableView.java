@@ -51,6 +51,14 @@ public class MixCalcTableView extends ViewGroup {
     private final int maxFlingVelocity;
     private final int longPressTimeout;
 
+    /**
+     * fling 使用的边界远大于实际内容范围，避免 OverScroller 触发它的
+     * "startAfterEdge / cubic 落边" 路径 —— 正是那条曲线在快到边界时
+     * 给人「被磁铁吸一下」的手感。越界由 {@link #scrollByTable} 逐帧夹住，
+     * 撞到真实边界立即 forceFinished 硬停，减速曲线本身完全不变。
+     */
+    private static final int FLING_UNBOUNDED = 1 << 28;
+
     private VelocityTracker velocityTracker;
     private int offsetX;
     private int offsetY;
@@ -237,11 +245,64 @@ public class MixCalcTableView extends ViewGroup {
         return r.right > left + 1 && r.left < right - 1;
     }
 
+    /**
+     * 尺寸变化后保住正在编辑的格：先纵向滚动把它带回表体可视区，再判断是否仍然可见。
+     *
+     * @return false 表示该格已彻底不可见，浮层应当收起
+     */
+    boolean keepEditingCellVisible(int row, String columnId) {
+        if (metrics.bodyHeight <= 0 || metrics.rowCount <= 0) {
+            return false;
+        }
+        revealRow(row);
+
+        int vi = metrics.visualIndex(columnId);
+        if (vi < 0) {
+            return false;
+        }
+        TableColumn col = metrics.visual.get(vi);
+
+        int rowTop = row * metrics.rowHeight - offsetY;
+        if (rowTop + metrics.rowHeight <= 0 || rowTop >= metrics.bodyHeight) {
+            return false;
+        }
+        int x = metrics.xOf(vi, offsetX);
+        boolean fixed = vi < metrics.fixedCount;
+        int left = fixed ? 0 : metrics.fixedWidth;
+        int right = fixed ? metrics.fixedWidth : metrics.viewWidth;
+        return x + col.widthPx > left && x < right;
+    }
+
+    /**
+     * 纵向滚动最小距离，让该行完整落在表体内（贴合 ScrollView 原来的
+     * {@code requestChildRectangleOnScreen} 效果）。已可见时不动。
+     */
+    private void revealRow(int row) {
+        if (metrics.bodyHeight <= 0 || metrics.rowHeight <= 0) {
+            return;
+        }
+        int rowTop = row * metrics.rowHeight - offsetY;
+        int rowBottom = rowTop + metrics.rowHeight;
+        int delta = 0;
+        if (rowTop < 0) {
+            delta = rowTop;
+        } else if (rowBottom > metrics.bodyHeight) {
+            delta = rowBottom - metrics.bodyHeight;
+        }
+        if (delta == 0) {
+            return;
+        }
+        int ny = clamp(offsetY + delta, 0, metrics.maxScrollY);
+        if (ny != offsetY) {
+            offsetY = ny;
+            onOffsetChanged();
+        }
+    }
+
     // 以下包内访问，供 CellEditorOverlay 使用
     CellStyle style() {
         return style;
     }
-
     TableMetrics metrics() {
         return metrics;
     }
@@ -302,10 +363,17 @@ public class MixCalcTableView extends ViewGroup {
     @Override
     public void computeScroll() {
         if (scroller.computeScrollOffset()) {
-            offsetX = scroller.getCurrX();
-            offsetY = scroller.getCurrY();
-            onOffsetChanged();
-            postInvalidateOnAnimation();
+            int dx = scroller.getCurrX() - offsetX;
+            int dy = scroller.getCurrY() - offsetY;
+            boolean beyond = offsetX + dx < 0 || offsetX + dx > metrics.maxScrollX
+                    || offsetY + dy < 0 || offsetY + dy > metrics.maxScrollY;
+            scrollByTable(dx, dy);
+            if (beyond) {
+                // 已经顶到真实边界：立即停住，不做任何落边缓冲
+                scroller.forceFinished(true);
+            } else {
+                postInvalidateOnAnimation();
+            }
         }
     }
 
@@ -392,7 +460,8 @@ public class MixCalcTableView extends ViewGroup {
                         int vy = (int) velocityTracker.getYVelocity();
                         if (Math.abs(vx) > minFlingVelocity || Math.abs(vy) > minFlingVelocity) {
                             scroller.fling(offsetX, offsetY, -vx, -vy,
-                                    0, metrics.maxScrollX, 0, metrics.maxScrollY);
+                                    -FLING_UNBOUNDED, FLING_UNBOUNDED,
+                                    -FLING_UNBOUNDED, FLING_UNBOUNDED);
                             postInvalidateOnAnimation();
                         }
                     }
@@ -494,6 +563,30 @@ public class MixCalcTableView extends ViewGroup {
     // ------------------------------------------------------------------
     // 绘制
     // ------------------------------------------------------------------
+
+    /**
+     * 编辑浮层是子 View，天然画在 canvas 绘制的冻结列之上。这里按冻结列边界裁剪，
+     * 让获得焦点的格横滚时滑到序号列<b>下面</b>，而不是浮在它上面。
+     */
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        if (!editor.isEditing() || metrics.visual.isEmpty()) {
+            super.dispatchDraw(canvas);
+            return;
+        }
+        int top = metrics.headerHeight;
+        int bottom = getHeight() - metrics.footerHeight;
+        if (bottom <= top) {
+            super.dispatchDraw(canvas);
+            return;
+        }
+        boolean fixed = editor.isEditingFixedColumn();
+        canvas.save();
+        canvas.clipRect(fixed ? 0 : metrics.fixedWidth, top,
+                fixed ? metrics.fixedWidth : getWidth(), bottom);
+        super.dispatchDraw(canvas);
+        canvas.restore();
+    }
 
     @Override
     protected void onDraw(Canvas canvas) {
