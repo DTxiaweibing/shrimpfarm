@@ -111,6 +111,8 @@ public class MixCalcActivity extends BaseActivity {
 
     // 总数据行数
     private static final int TOTAL_ROWS = 30;
+    // 第 1 行是棚数基数行：棚数 = 基数 − 第 2..N 行棚数之和
+    private static final int FIRST_ROW = 0;
 
     // 批次与数据库相关
     private String currentBatchId;
@@ -172,9 +174,15 @@ public class MixCalcActivity extends BaseActivity {
             if (data == null) {
                 return CellStyle.STATE_NORMAL;
             }
-            if ("shed_count".equals(columnId)
-                    && data.getShedCount() > 0 && isShedCountExceeded) {
-                return CellStyle.STATE_WARNING;
+            if ("shed_count".equals(columnId)) {
+                if (data.getShedCount() > 0 && isShedCountExceeded) {
+                    return CellStyle.STATE_WARNING;
+                }
+                // 第 1 行：基数被后面各行扣光（≤0）时同样标警告色
+                if (row == FIRST_ROW && data.getShedCountBase() > 0
+                        && data.getShedCount() <= 0) {
+                    return CellStyle.STATE_WARNING;
+                }
             }
             if (isEditableColumn(columnId)
                     && !"average_feed".equals(columnId)
@@ -245,9 +253,10 @@ public class MixCalcActivity extends BaseActivity {
             if (!isCellEnabled(columnId, data, row)) {
                 return;
             }
-            String larger = getLargerNonFermentedColumn(data);
-            if (larger != null && larger.equals(columnId)) {
-                showSwitchRatioDrawer(data, cellRect);
+            // 长按“较大那档”：恰好两档时是较大的那档；只有一档时是它的“大一号”（该格可以为空）
+            String target = getSwitchTargetColumn(data);
+            if (target != null && target.equals(columnId)) {
+                showSwitchRatioDrawer(data, row, cellRect);
             }
         }
 
@@ -420,12 +429,18 @@ public class MixCalcActivity extends BaseActivity {
                     }
 
                     data.fromJson(json);
-                    data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
+                    // 第 1 行交给 recomputeFirstRowRemainder() 处理，避免用“基数”把平均算反
+                    if (i != FIRST_ROW) {
+                        data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
+                    }
 
                 } catch (Exception e) {
                     Log.e(TAG, "解析第" + i + "行数据异常", e);
                 }
             }
+
+            // 加载后统一扣第 1 行基数（上面只逐行重算）
+            recomputeFirstRowRemainder();
 
         } catch (Exception e) {
             Log.e(TAG, "后台加载异常", e);
@@ -473,6 +488,10 @@ public class MixCalcActivity extends BaseActivity {
                 }
                 data.setShedCount((int) newValue);
                 data.setShedCountManuallyModified(!(newValue == 0 || value.isEmpty()));
+                if (row == FIRST_ROW) {
+                    // 第 1 行手改：改后的值就是新基数，其后仍继续扣后面各行
+                    data.setShedCountBase((int) newValue);
+                }
                 break;
             }
             case "average_feed": {
@@ -519,7 +538,8 @@ public class MixCalcActivity extends BaseActivity {
             return;
         }
 
-        if (data.getShedCount() <= 0) {
+        // 第 1 行的棚数是“基数 − 后面各行之和”，允许 ≤ 0，故豁免“无棚数即清空料格”
+        if (row != FIRST_ROW && data.getShedCount() <= 0) {
             data.setFermentedFeed(0);
             data.setPowderFeed(0);
             data.setFeed03(0);
@@ -532,13 +552,77 @@ public class MixCalcActivity extends BaseActivity {
             data.setSwitchRatio(0);
         }
 
-        data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
+        if (row == FIRST_ROW) {
+            // 第 1 行：棚数 = 基数 − 后面各行之和，派生值也要用“剩余棚数”算，
+            // 所以不走 updateAllCalculations()（它会先把棚数还原成基数，把平均算反）
+            recomputeFirstRowRemainder();
+        } else {
+            data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
+            recomputeFirstRowRemainder();
+        }
         if (table != null) {
             table.notifyAllChanged();
         }
         updateFooterRow();
         saveAllData();
         checkShedCountLimitAndUpdateInput();
+    }
+
+    /**
+     * 第 1 行棚数 = 基数 − 第 2..N 行棚数之和（允许 0 / 负数）。
+     * 基数：第 1 行棚号自动推出的棚数；若棚数格被手动改过，则以改后的值为基数。
+     * 必须在各行 updateAllCalculations() 之后调用，否则基数会被棚号重算覆盖。
+     */
+    private void recomputeFirstRowRemainder() {
+        if (dataList == null || dataList.size() <= FIRST_ROW + 1) {
+            return;
+        }
+        FeedData first = getData(FIRST_ROW);
+        if (first == null) {
+            return;
+        }
+
+        // 进门前第 1 行的“剩余棚数”和它对应的“每棚平均”——平均是锚点，棚数变了它不变
+        int oldShedCount = first.getShedCount();
+        double oldAverage = first.getAverage(fermentedIncludedInAverage);
+
+        // 未被手改：由棚号重新推出基数（先写进 shedCount）；手改过则基数已在 shedCountBase 里
+        if (!first.isShedCountManuallyModified()) {
+            first.calculateShedCount();
+            first.setShedCountBase(first.getShedCount());
+        } else if (first.getShedCountBase() <= 0) {
+            // 覆盖安装升级上来的旧数据没有 shedCountBase：
+            // 旧棚数 > 0 就当基数迁移；旧棚数为 0（无意义）则放开手改标记，交回棚号推导
+            if (first.getShedCount() > 0) {
+                first.setShedCountBase(first.getShedCount());
+            } else {
+                first.setShedCountManuallyModified(false);
+                first.calculateShedCount();
+                first.setShedCountBase(first.getShedCount());
+            }
+        }
+
+        int sum = 0;
+        for (int i = FIRST_ROW + 1; i < dataList.size(); i++) {
+            FeedData d = dataList.get(i);
+            if (d != null) {
+                sum += d.getShedCount();
+            }
+        }
+
+        int remainder = first.getShedCountBase() - sum;
+        first.setShedCountDirectly(remainder, first.isShedCountManuallyModified());
+
+        // 棚数变了：钉住“每棚平均”，让料量(含称料) / 水量按新棚数重算；
+        // 反过来（料量不变、平均被除出来）是错的
+        if (remainder != oldShedCount && oldAverage > 0
+                && !first.isAverageManuallyModified()) {
+            first.setAverage(oldAverage);
+            first.setAverageManuallyModified(true);
+        }
+
+        first.recalculateDerivedOnly(globalWaterPercentage,
+                fermentedIncludedInWater, fermentedIncludedInAverage);
     }
 
     private double parseDouble(String text) {
@@ -1530,6 +1614,7 @@ public class MixCalcActivity extends BaseActivity {
             for (FeedData data : dataList) {
                 data.setShedNumber("");
                 data.setShedCountDirectly(0, false);
+                data.setShedCountBase(0);
                 data.setFermentedFeed(0);
                 data.setPowderFeed(0);
                 data.setFeed03(0);
@@ -1552,8 +1637,8 @@ public class MixCalcActivity extends BaseActivity {
         }
     }
 
-    // 长按较大料格：竖直抽屉式菜单选择换料比例(10%~90%)，当前比例打勾
-    private void showSwitchRatioDrawer(final FeedData data, final Rect cellRect) {
+    // 长按较大料格（或只有一档时它的“大一号”）：竖直抽屉式菜单选择换料比例(10%~90%)，当前比例打勾
+    private void showSwitchRatioDrawer(final FeedData data, final int row, final Rect cellRect) {
         try {
             View popupView = getLayoutInflater().inflate(R.layout.popup_switch_ratio, null);
             LinearLayout container = popupView.findViewById(R.id.ratio_items_container);
@@ -1598,10 +1683,8 @@ public class MixCalcActivity extends BaseActivity {
 
                 itemRow.setOnClickListener(v -> {
                     data.setSwitchRatio(ratio);
-                    if (table != null) {
-                        table.notifyAllChanged();
-                    }
-                    saveAllData();
+                    // 选完立即重算一次：该行每棚平均不变，料量按新比例分到两档
+                    applySwitchRatioNow(row);
                     popup.dismiss();
                 });
 
@@ -1662,36 +1745,80 @@ public class MixCalcActivity extends BaseActivity {
         }
     }
 
-    // 非发酵料恰好两种时，返回粒径较大的那个列的 id；否则返回 null
-    private String getLargerNonFermentedColumn(FeedData data) {
+    // 长按换料的“较大那档”：
+    //   恰好两档有数据 → 两者中较大的（原行为）
+    //   只有一档有数据 → 它的“大一号”（粉→0.3 / 0.3→0.5 / 0.5→1.0）；只有 1.0 有数据则无处可换
+    //   0 档或 ≥3 档 → null
+    private String getSwitchTargetColumn(FeedData data) {
+        if (data == null) {
+            return null;
+        }
         int count = 0;
-        String larger = null;
-        for (String c : NF_FEED_COLUMNS) {
-            if (getFeedValueByColumn(data, c) > 0) {
+        int lastIdx = -1;
+        for (int i = 0; i < NF_FEED_COLUMNS.length; i++) {
+            if (getFeedValueByColumn(data, NF_FEED_COLUMNS[i]) > 0) {
                 count++;
-                larger = c;
+                lastIdx = i;
             }
         }
-        return count == 2 ? larger : null;
+        if (count == 2) {
+            return NF_FEED_COLUMNS[lastIdx];
+        }
+        if (count == 1) {
+            int next = lastIdx + 1;
+            return next < NF_FEED_COLUMNS.length ? NF_FEED_COLUMNS[next] : null;
+        }
+        return null;
     }
 
-    // 该料格是否为"已设置换料比例"的提示格（粒径较大的那个非发酵料）
+    // 该料格是否为"已设置换料比例"的提示格（“较大那档”）
     private boolean isSwitchRatioCell(FeedData data, String columnId) {
         if (data == null || data.getSwitchRatio() <= 0) {
             return false;
         }
-        String larger = getLargerNonFermentedColumn(data);
-        return larger != null && larger.equals(columnId);
+        String target = getSwitchTargetColumn(data);
+        return target != null && target.equals(columnId);
+    }
+
+    /**
+     * 选完换料比例后立即重算一次：把该行当前“每棚平均”钉住（平均不变），
+     * 再按新比例把总量分给两档（大一号 = 总量×ratio），派生水量/称料。
+     */
+    private void applySwitchRatioNow(int row) {
+        FeedData data = getData(row);
+        if (data == null) {
+            return;
+        }
+        double avg = data.getAverage(fermentedIncludedInAverage);
+        if (!data.isAverageManuallyModified() && avg > 0) {
+            data.setAverage(avg);
+            data.setAverageManuallyModified(true);
+        }
+        if (row == FIRST_ROW) {
+            // 第 1 行由 recomputeFirstRowRemainder() 统一处理（棚数 / 平均 / 料量）
+            recomputeFirstRowRemainder();
+        } else {
+            data.recalculateDerivedOnly(globalWaterPercentage,
+                    fermentedIncludedInWater, fermentedIncludedInAverage);
+            recomputeFirstRowRemainder();
+        }
+        if (table != null) {
+            table.notifyAllChanged();
+        }
+        updateFooterRow();
+        saveAllData();
     }
 
     // 更新所有计算
     private void updateAllCalculations() {
         try {
-            for (int i = 0; i < dataList.size(); i++) {
+            for (int i = FIRST_ROW + 1; i < dataList.size(); i++) {
                 FeedData data = dataList.get(i);
                 // 重新计算所有行，传入两个标志
                 data.updateAllCalculations(globalWaterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
             }
+            // 第 1 行由 recomputeFirstRowRemainder() 统一处理（棚数 / 每棚平均 / 料量一起算）
+            recomputeFirstRowRemainder();
 
             if (table != null) {
                 table.notifyAllChanged();
