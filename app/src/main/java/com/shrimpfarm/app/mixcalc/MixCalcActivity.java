@@ -26,7 +26,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-import android.view.ViewTreeObserver;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
@@ -35,9 +34,9 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.PopupWindow;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -143,9 +142,6 @@ public class MixCalcActivity extends BaseActivity {
     // 触摸事件相关
     private float lastX, lastY;
     private boolean isHorizontalScroll = false;
-
-    // 滚动监听器列表
-    private List<ViewTreeObserver.OnScrollChangedListener> scrollListeners = new ArrayList<>();
 
     // 单元格映射
     private Map<String, View> cellViewMap = new HashMap<>();
@@ -2006,20 +2002,16 @@ public class MixCalcActivity extends BaseActivity {
 
     private void clearAllScrollListeners() {
         try {
-            for (ViewTreeObserver.OnScrollChangedListener listener : scrollListeners) {
-                if (headerScrollView != null) {
-                    headerScrollView.getViewTreeObserver().removeOnScrollChangedListener(listener);
-                }
-                if (footerScrollView != null) {
-                    footerScrollView.getViewTreeObserver().removeOnScrollChangedListener(listener);
-                }
+            if (headerScrollView != null) {
+                headerScrollView.setOnScrollChangeListener(null);
             }
-            scrollListeners.clear();
+            if (footerScrollView != null) {
+                footerScrollView.setOnScrollChangeListener(null);
+            }
 
             for (HorizontalScrollView scrollView : rowScrollViews) {
                 if (scrollView != null) {
-                    ViewTreeObserver observer = scrollView.getViewTreeObserver();
-                    observer.removeOnScrollChangedListener(null);
+                    scrollView.setOnScrollChangeListener(null);
                 }
             }
 
@@ -2639,8 +2631,16 @@ public class MixCalcActivity extends BaseActivity {
                             float deltaX = Math.abs(event.getX() - lastX);
                             float deltaY = Math.abs(event.getY() - lastY);
 
-                            if (deltaX > deltaY && deltaX > 5) {
+                            if (!isHorizontalScroll && deltaX > deltaY && deltaX > 5) {
                                 isHorizontalScroll = true;
+                                View focused = getCurrentFocus();
+                                if (focused != null) {
+                                    focused.clearFocus();
+                                    InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                                    if (imm != null) {
+                                        imm.hideSoftInputFromWindow(focused.getWindowToken(), 0);
+                                    }
+                                }
                                 if (verticalScrollView != null) {
                                     verticalScrollView.requestDisallowInterceptTouchEvent(true);
                                 }
@@ -2648,6 +2648,12 @@ public class MixCalcActivity extends BaseActivity {
                             break;
 
                         case MotionEvent.ACTION_UP:
+                            isHorizontalScroll = false;
+                            if (verticalScrollView != null) {
+                                verticalScrollView.requestDisallowInterceptTouchEvent(false);
+                            }
+                            v.performClick();
+                            break;
                         case MotionEvent.ACTION_CANCEL:
                             isHorizontalScroll = false;
                             if (verticalScrollView != null) {
@@ -2655,7 +2661,6 @@ public class MixCalcActivity extends BaseActivity {
                             }
                             break;
                     }
-                    v.performClick();
                     return false;
                 }
             });
@@ -3509,23 +3514,19 @@ public class MixCalcActivity extends BaseActivity {
     private void setupScrollViewListener(final HorizontalScrollView scrollView) {
         if (scrollView == null) return;
 
-        ViewTreeObserver.OnScrollChangedListener listener = new ViewTreeObserver.OnScrollChangedListener() {
+        scrollView.setOnScrollChangeListener(new View.OnScrollChangeListener() {
             @Override
-            public void onScrollChanged() {
-                if (!isSyncing && scrollView != null) {
+            public void onScrollChange(View v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
+                if (!isSyncing) {
                     isSyncing = true;
-                    int newScrollX = scrollView.getScrollX();
-                    if (newScrollX != currentScrollX) {
-                        currentScrollX = newScrollX;
+                    if (scrollX != currentScrollX) {
+                        currentScrollX = scrollX;
                         syncAllScrollViews(currentScrollX, scrollView);
                     }
                     isSyncing = false;
                 }
             }
-        };
-
-        scrollView.getViewTreeObserver().addOnScrollChangedListener(listener);
-        scrollListeners.add(listener);
+        });
     }
 
     private void syncAllScrollViews(int scrollX, HorizontalScrollView source) {
