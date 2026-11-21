@@ -72,29 +72,23 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (!AppIntegrityChecker.verified) {
-            showPiratedBlockingDialog();
-        }
+        // 签名完整性校验仅做日志记录，不再因环境/市场重签名导致阻塞退出
+        // if (!AppIntegrityChecker.verified) {
+        //     showPiratedBlockingDialog();
+        // }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // 签名完整性校验仅做后台日志记录，不再因环境/市场重签名导致阻塞弹窗或退出
         AppIntegrityChecker.startCheck(this);
-        if (!AppIntegrityChecker.verified && !integrityDialogShown) {
-            showPiratedBlockingDialog();
-            return;
-        }
         integrityHandler = new Handler(Looper.getMainLooper());
         integrityHandler.post(new Runnable() {
             @Override
             public void run() {
-                if (isFinishing() || integrityDialogShown) return;
-                if (!AppIntegrityChecker.verified) {
-                    showPiratedBlockingDialog();
-                } else {
-                    integrityHandler.postDelayed(this, 800);
-                }
+                if (isFinishing()) return;
+                integrityHandler.postDelayed(this, 800);
             }
         });
     }
@@ -140,10 +134,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         btn.setBackgroundResource(android.R.color.transparent);
         btn.setTextColor(0xFFE53935);
         btn.setOnClickListener(v -> {
-            integrityDialogShown = true;
             dialog.dismiss();
-            finishAffinity();
-            System.exit(0);
         });
         layout.addView(divider);
         layout.addView(btn, new LinearLayout.LayoutParams(

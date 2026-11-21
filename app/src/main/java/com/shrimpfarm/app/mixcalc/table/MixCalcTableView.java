@@ -9,27 +9,25 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.OverScroller;
+import android.widget.TextView;
 
+import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.mixcalc.model.FeedData;
+import com.shrimpfarm.app.mixcalc.model.ShedDisplay;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 自绘表格：整张表只有一个坐标系、一个 View。
- *
- * <p>横滚 / 纵滚 / 冻结列 / 吸顶表头 / 吸底表尾 全部由两个偏移量与统一几何决定：</p>
- * <ul>
- *   <li>横向只有一个 {@code offsetX}，表头与表尾复用同一偏移 → 横滚时一起动、天然对齐</li>
- *   <li>表头 y 钉在 0、表尾 y 钉在底部 → 纵滚时都不动</li>
- *   <li>固定列绘制时不加横向偏移 → 冻结</li>
- * </ul>
- *
- * <p>不存在"多个滚动容器互相同步"，因此不存在拖尾、回弹与边界错位。</p>
- */
+// 自绘表格：整张表一个坐标系、一个 View。
+// 横滚、纵滚、冻结列、吸顶表头、吸底表尾都靠两个偏移量加一套统一几何算出来：
+//   横向就一个 offsetX，表头和表尾共用它，所以横滚一起动、天然对齐；
+//   表头 y 钉在 0、表尾钉在底部，纵滚时都不动；
+//   固定列绘制时不加横向偏移，于是冻住。
+// 没有多个滚动容器互相同步，也就没有拖尾、回弹、边界错位。
 public class MixCalcTableView extends ViewGroup {
 
     private final List<FeedData> rows = new ArrayList<>();
@@ -42,6 +40,11 @@ public class MixCalcTableView extends ViewGroup {
     private final CellStyle style;
     private final CellEditorOverlay editor;
 
+    // 编辑时右下角浮出的「下一行 ▾」按钮（同列向下），不编辑时隐藏
+    private PillButtonView nextRowButton;
+    private int nextRowBtn_row = -1;
+    private String nextRowBtn_columnId = null;
+
     private final OverScroller scroller;
     private final int rowHeight;
     private final int headerHeight;
@@ -51,13 +54,16 @@ public class MixCalcTableView extends ViewGroup {
     private final int maxFlingVelocity;
     private final int longPressTimeout;
 
-    /**
-     * fling 使用的边界远大于实际内容范围，避免 OverScroller 触发它的
-     * "startAfterEdge / cubic 落边" 路径 —— 正是那条曲线在快到边界时
-     * 给人「被磁铁吸一下」的手感。越界由 {@link #scrollByTable} 逐帧夹住，
-     * 撞到真实边界立即 forceFinished 硬停，减速曲线本身完全不变。
-     */
+    // fling 时给 OverScroller 一个超大的边界。边界给大了它就不走
+    // startAfterEdge 那套落边曲线，快到头时不会"像被磁铁吸一下"。
+    // 真正的边界在 computeScroll() 里逐轴夹，两边都滑不动就停惯性。
     private static final int FLING_UNBOUNDED = 1 << 28;
+
+    // 反解"滑完剩余距离需要多大速度"要用的 spline 常量，
+    // 数值跟平台 OverScroller 内部的对齐。哪天系统改了这套曲线，这边的封顶就会偏，
+    // 升级 targetSdk 时留意。
+    private static final float SCROLL_FRICTION = ViewConfiguration.getScrollFriction();
+    private static final double DECELERATION_RATE = Math.log(0.78) / Math.log(0.9);
 
     private VelocityTracker velocityTracker;
     private int offsetX;
@@ -70,6 +76,12 @@ public class MixCalcTableView extends ViewGroup {
     private boolean dragging;
     private boolean longPressFired;
     private boolean metricsReady;
+
+    // 表尾钉在右边缘的格（「重置」）：横向滚到哪儿都留在右下角，
+    // 列被隐藏时也照样画——不然用户就找不到重置了
+    private String pinnedFooterColumnId;
+    // 棚号列展示态画笔（字号按档位固定，不跟随系统字体）
+    private final ShedTextPainter shedTextPainter;
 
     private final Runnable longPressRunnable = new Runnable() {
         @Override
@@ -106,6 +118,7 @@ public class MixCalcTableView extends ViewGroup {
         scroller = new OverScroller(context);
         editor = new CellEditorOverlay(this);
         editor.attach();
+        shedTextPainter = new ShedTextPainter(context.getResources().getDisplayMetrics().density);
     }
 
     // ------------------------------------------------------------------
@@ -117,12 +130,51 @@ public class MixCalcTableView extends ViewGroup {
         requestRebuild();
     }
 
+    // 表尾钉在右边缘的格（「重置」）：横向滚到哪儿都留在右下角
+    public void setPinnedFooterColumn(String columnId) {
+        this.pinnedFooterColumnId = columnId;
+        invalidate();
+    }
+
     public void setRows(List<FeedData> rows) {
         this.rows.clear();
         if (rows != null) {
             this.rows.addAll(rows);
         }
         requestRebuild();
+    }
+
+    /**
+     * 行回收后调用：编辑浮层和「下一行」按钮还攥着删除前的行号，
+     * 按删除下标整体上移；正在编辑的行如果自己被删了就收起浮层。
+     * 必须在 setRows() 之前调用（平移完再重灌行数）。
+     */
+    public void onRowsRecycled(List<Integer> removedIndices) {
+        if (removedIndices == null || removedIndices.isEmpty()) {
+            return;
+        }
+        editor.shiftRowsAfterRemoval(removedIndices);
+        if (nextRowBtn_row >= 0) {
+            if (removedIndices.contains(nextRowBtn_row)) {
+                hideNextRowButton();
+            } else {
+                int shift = 0;
+                for (int idx : removedIndices) {
+                    if (idx < nextRowBtn_row) {
+                        shift++;
+                    }
+                }
+                nextRowBtn_row -= shift;
+                layoutNextRowButton();
+            }
+        }
+    }
+    /** 切换批次后把横向/纵向滚动位置复位。 */
+    public void resetScroll() {
+        offsetX = 0;
+        offsetY = 0;
+        scroller.abortAnimation();
+        invalidate();
     }
 
     public void setCellTextProvider(CellTextProvider provider) {
@@ -137,20 +189,20 @@ public class MixCalcTableView extends ViewGroup {
         this.editListener = listener;
     }
 
-    /** 列配置或行数变化后调用：重新测量布局并重绘。 */
+    // 列配置或行数变了，重新测量并重绘
     public void requestRebuild() {
         requestLayout();
         invalidate();
     }
 
-    /** 全部数据变化：重新钳制偏移并整表重绘。 */
+    // 数据整体变了，先夹偏移再整表重绘
     public void notifyAllChanged() {
         clampOffsets();
         editor.onScrolled();
         invalidate();
     }
 
-    /** 单个单元格变化：局部重绘。 */
+    // 单个格变了，只重绘那一块
     public void notifyCellChanged(int row, String columnId) {
         Rect r = getCellRect(row, columnId);
         if (r == null) {
@@ -185,7 +237,57 @@ public class MixCalcTableView extends ViewGroup {
         editor.end();
     }
 
-    /** 单元格在表格视图内的矩形（供弹窗做锚点）。 */
+    // ------------------------------------------------------------------
+    // 编辑态右下角的「下一行 ▾」按钮
+    // ------------------------------------------------------------------
+
+    void showNextRowButton(int row, String columnId) {
+        nextRowBtn_row = row;
+        nextRowBtn_columnId = columnId;
+        if (nextRowButton == null) {
+            float textSizePx = dp(getContext(), 13);
+            nextRowButton = new PillButtonView(getContext(), 0xFF2D8C42, 0xFFFFFFFF, textSizePx);
+            nextRowButton.setLabel(getContext().getString(R.string.mix_btn_next_row));
+            nextRowButton.setOnClickListener(v -> {
+                OnCellEditListener l = editListener;
+                if (l != null && nextRowBtn_row >= 0 && nextRowBtn_columnId != null) {
+                    l.onEditNextRow(nextRowBtn_row, nextRowBtn_columnId);
+                }
+            });
+            addView(nextRowButton);
+        }
+        nextRowButton.setVisibility(View.VISIBLE);
+        layoutNextRowButton();
+    }
+
+    void hideNextRowButton() {
+        nextRowBtn_row = -1;
+        nextRowBtn_columnId = null;
+        if (nextRowButton != null) {
+            nextRowButton.setVisibility(View.GONE);
+        }
+    }
+
+    private void layoutNextRowButton() {
+        if (nextRowButton == null || nextRowButton.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        int w = dp(getContext(), 76);
+        int h = dp(getContext(), 28);
+        int left = getWidth() - w - dp(getContext(), 8);
+        int top = getHeight() - footerHeight - h - dp(getContext(), 6);
+        if (top < headerHeight) {
+            top = headerHeight;
+        }
+        // 先 measure 再 layout：不然 TextView 内部文本布局还是 0 宽高，
+        // Gravity.CENTER 按 0 尺寸算，文字就会贴左上、看起来没居中
+        int wSpec = MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY);
+        int hSpec = MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY);
+        nextRowButton.measure(wSpec, hSpec);
+        nextRowButton.layout(left, top, left + w, top + h);
+    }
+
+    // 格子在表格里的矩形，弹窗拿它当锚点
     public Rect getCellRect(int row, String columnId) {
         if (!metricsReady || metrics.visual.isEmpty()) {
             return null;
@@ -198,6 +300,33 @@ public class MixCalcTableView extends ViewGroup {
         int x = metrics.xOf(vi, offsetX);
         int y = metrics.yOfRow(row, offsetY);
         return new Rect(x, y, x + col.widthPx, y + metrics.rowHeight);
+    }
+
+    // 本地坐标命中的行 / 列，给"点到哪儿了"的判断用（弹窗外点击作废待转池）
+    public int rowAtLocal(float x, float y) {
+        if (!metricsReady || metrics.visual.isEmpty()) {
+            return -1;
+        }
+        if (y < metrics.headerHeight || y >= getHeight() - metrics.footerHeight) {
+            return -1;
+        }
+        return metrics.rowAt(y, offsetY);
+    }
+
+    public String columnIdAtLocal(float x, float y) {
+        if (!metricsReady || metrics.visual.isEmpty()) {
+            return null;
+        }
+        if (y < metrics.headerHeight || y >= getHeight() - metrics.footerHeight) {
+            return null;
+        }
+        int vi = metrics.visualIndexAt(x, offsetX);
+        return vi < 0 ? null : metrics.visual.get(vi).id;
+    }
+
+    // 表尾行高度（px）：弹窗最多长到表尾上沿，再高就内部滚动
+    public int getFooterHeightPx() {
+        return metricsReady ? metrics.footerHeight : 0;
     }
 
     public Rect getHeaderRect(String columnId) {
@@ -217,17 +346,22 @@ public class MixCalcTableView extends ViewGroup {
         if (!metricsReady || metrics.visual.isEmpty()) {
             return null;
         }
+        int top = getHeight() - metrics.footerHeight;
+        TableColumn pinned = pinnedFooterColumn();
+        if (pinned != null && pinned.id.equals(columnId)) {
+            int left = PinnedFooter.left(getWidth(), pinned.widthPx, metrics.fixedWidth);
+            return new Rect(left, top, left + pinned.widthPx, getHeight());
+        }
         int vi = metrics.visualIndex(columnId);
         if (vi < 0) {
             return null;
         }
         TableColumn col = metrics.visual.get(vi);
         int x = metrics.xOf(vi, offsetX);
-        int top = getHeight() - metrics.footerHeight;
         return new Rect(x, top, x + col.widthPx, getHeight());
     }
 
-    /** 该格是否处于可见区（编辑浮层据此决定是否提交并隐藏）。 */
+    // 这格还在可见区吗？浮层靠它决定提交后收不收起
     public boolean isCellVisible(int row, String columnId) {
         Rect r = getCellRect(row, columnId);
         if (r == null) {
@@ -245,11 +379,8 @@ public class MixCalcTableView extends ViewGroup {
         return r.right > left + 1 && r.left < right - 1;
     }
 
-    /**
-     * 尺寸变化后保住正在编辑的格：先纵向滚动把它带回表体可视区，再判断是否仍然可见。
-     *
-     * @return false 表示该格已彻底不可见，浮层应当收起
-     */
+    // 尺寸变了，把正在编辑的格滚回可视区再看看还在不在。
+    // 返回 false 就是彻底看不见了，浮层该收。
     boolean keepEditingCellVisible(int row, String columnId) {
         if (metrics.bodyHeight <= 0 || metrics.rowCount <= 0) {
             return false;
@@ -273,10 +404,34 @@ public class MixCalcTableView extends ViewGroup {
         return x + col.widthPx > left && x < right;
     }
 
-    /**
-     * 纵向滚动最小距离，让该行完整落在表体内（贴合 ScrollView 原来的
-     * {@code requestChildRectangleOnScreen} 效果）。已可见时不动。
-     */
+    // 换格时把新格子滚进可视区（对齐鸿蒙 ensureEditorVisible）：目标格可能在屏幕外，
+    // 不滚过去用户就看不见输入框，还会以为「下一步 / 下一行」没反应。
+    void revealCell(int row, String columnId) {
+        if (!metricsReady || metrics.visual.isEmpty() || metrics.rowHeight <= 0) {
+            return;
+        }
+        int vi = metrics.visualIndex(columnId);
+        if (vi < 0) {
+            return;
+        }
+        int ny = RevealMath.scrollY(row, metrics.rowHeight, metrics.bodyHeight,
+                offsetY, metrics.maxScrollY);
+        int nx = RevealMath.scrollX(metrics.xBase[vi], metrics.width[vi],
+                metrics.fixedWidth, metrics.viewWidth, offsetX, metrics.maxScrollX,
+                vi < metrics.fixedCount);
+        if (nx == offsetX && ny == offsetY) {
+            return;
+        }
+        offsetX = nx;
+        offsetY = ny;
+        // 这是程序滚动，不是用户甩出去的：不走 onOffsetChanged()，
+        // 免得 editor.onScrolled() 把刚打开的浮层当成「滚出可见区」收掉
+        invalidate();
+        editor.layoutChild();
+        layoutNextRowButton();
+    }
+
+    // 纵向滚最小的距离，让这行完整落进表体里。已经看得见就不动。
     private void revealRow(int row) {
         if (metrics.bodyHeight <= 0 || metrics.rowHeight <= 0) {
             return;
@@ -338,6 +493,7 @@ public class MixCalcTableView extends ViewGroup {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         editor.layoutChild();
+        layoutNextRowButton();
     }
 
     @Override
@@ -353,7 +509,50 @@ public class MixCalcTableView extends ViewGroup {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         removeCallbacks(longPressRunnable);
+        stopFling();
         releaseVelocityTracker();
+        if (imeListener != null) {
+            getViewTreeObserver().removeOnGlobalLayoutListener(imeListener);
+        }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (imeListener == null) {
+            imeListener = this::syncNextRowButtonWithIme;
+        }
+        getViewTreeObserver().addOnGlobalLayoutListener(imeListener);
+    }
+
+    // ------------------------------------------------------------------
+    // 「下一行 ▾」按钮跟随输入法：键盘弹了就显示，键盘收了就隐藏
+    // ------------------------------------------------------------------
+
+    private ViewTreeObserver.OnGlobalLayoutListener imeListener;
+    private boolean imeVisible;
+
+    private void syncNextRowButtonWithIme() {
+        if (getRootView() == null || getWidth() == 0) {
+            return;
+        }
+        Rect frame = new Rect();
+        getWindowVisibleDisplayFrame(frame);
+        int screenHeight = getRootView().getHeight();
+        boolean visible = screenHeight - frame.bottom > dp(getContext(), 120);
+        if (visible == imeVisible) {
+            return;
+        }
+        imeVisible = visible;
+        if (nextRowBtn_row < 0 || nextRowButton == null) {
+            return;
+        }
+        if (visible) {
+            nextRowButton.setVisibility(View.VISIBLE);
+            layoutNextRowButton();
+        } else {
+            nextRowButton.setVisibility(View.GONE);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -365,14 +564,11 @@ public class MixCalcTableView extends ViewGroup {
         if (scroller.computeScrollOffset()) {
             int dx = scroller.getCurrX() - offsetX;
             int dy = scroller.getCurrY() - offsetY;
-            boolean beyond = offsetX + dx < 0 || offsetX + dx > metrics.maxScrollX
-                    || offsetY + dy < 0 || offsetY + dy > metrics.maxScrollY;
-            scrollByTable(dx, dy);
-            if (beyond) {
-                // 已经顶到真实边界：立即停住，不做任何落边缓冲
-                scroller.forceFinished(true);
-            } else {
+            if (scrollByTable(dx, dy)) {
                 postInvalidateOnAnimation();
+            } else {
+                // 两个方向都顶到边界、位移也是 0，惯性停这
+                scroller.forceFinished(true);
             }
         }
     }
@@ -394,9 +590,164 @@ public class MixCalcTableView extends ViewGroup {
         invalidate();
     }
 
+    // ------------------------------------------------------------------
+    // 惯性滑动：照鸿蒙版的算法（每帧按指数衰减，不做跑道上限封顶）
+    //   每帧 v *= exp(-4.5 * dt)；offset -= v * dt；|v| < 15dp/s 停
+    // 好处：手速再快也能算，不会像 OverScroller 那样被裁速度或几帧撞边界就停。
+    // ------------------------------------------------------------------
+
+    // 惯性手感参数
+    //   FLING_NATURAL_K：自然减速曲线（总距离 = 初速度 / K），跟鸿蒙同一套手感
+    //   FLING_MAX_VELOCITY：测速上限，别被系统默认 8000px/s 截断（猛甩会丢惯性）
+    private static final float FLING_NATURAL_K = 4.0f;
+    private static final float FLING_MAX_VELOCITY = 25000f;
+
+    private boolean flinging;
+    private float flingVx;
+    private float flingVy;
+    // 每个轴自己的衰减系数：由「初速度 + 要走的距离、末速必须为 0」反解出来 k = v0 / 距离
+    private float flingKx;
+    private float flingKy;
+    private float flingAccX;
+    private float flingAccY;
+    private long flingLastTime;
+
+    private final Runnable flingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!flinging) {
+                return;
+            }
+            long now = android.os.SystemClock.uptimeMillis();
+            float dt = (now - flingLastTime) / 1000f;
+            flingLastTime = now;
+            if (dt <= 0f) {
+                postOnAnimation(this);
+                return;
+            }
+            if (dt > 0.25f) {
+                dt = 0.25f;   // 卡顿/切后台回来时别一步跳太远
+            }
+
+            // 解析积分：v(t)=v0·e^(-k·t)，这一段应该走多远 = (v0/k)·(1-e^(-k·dt))
+            // 用解析解而不是 v*dt，掉帧时距离也不会算少（这是"猛甩滑不远"的元凶之一）
+            float ex = (float) Math.exp(-flingKx * dt);
+            float ey = (float) Math.exp(-flingKy * dt);
+            float moveX = flingKx > 0f ? (flingVx / flingKx) * (1f - ex) : 0f;
+            float moveY = flingKy > 0f ? (flingVy / flingKy) * (1f - ey) : 0f;
+            flingVx *= ex;
+            flingVy *= ey;
+
+            // 用累加器保留小数，避免小步长被 int 截断后"走不动"
+            flingAccX -= moveX;
+            flingAccY -= moveY;
+            int stepX = (int) flingAccX;
+            int stepY = (int) flingAccY;
+            flingAccX -= stepX;
+            flingAccY -= stepY;
+
+            boolean moved = scrollByTable(stepX, stepY);
+
+            // 贴到边界就把那个方向的惯性清掉
+            if (offsetX <= 0 || offsetX >= metrics.maxScrollX) {
+                flingVx = 0;
+                flingAccX = 0;
+            }
+            if (offsetY <= 0 || offsetY >= metrics.maxScrollY) {
+                flingVy = 0;
+                flingAccY = 0;
+            }
+
+            int stopThreshold = dp(getContext(), 15);
+            if (!moved || (Math.abs(flingVx) < stopThreshold && Math.abs(flingVy) < stopThreshold)) {
+                stopFling();
+                return;
+            }
+            postOnAnimation(this);
+        }
+    };
+
+    // 给定初速度 v0 和这个方向还剩多少距离 runway：
+    //   自然距离 = v0 / FLING_NATURAL_K
+    //   实际距离 = min(自然距离, runway)          ← 跑不完就刚好停在边上
+    //   衰减系数 k = v0 / 实际距离                 ← 末速度正好是 0
+    private void startFling(float vx, float vy) {
+        stopFling();
+        int startThreshold = dp(getContext(), 60);
+        if (Math.abs(vx) < startThreshold && Math.abs(vy) < startThreshold) {
+            return;
+        }
+        // vx > 0 表示手指向右甩，内容往左走（offset 减小）
+        int runwayX = vx > 0 ? offsetX : (metrics.maxScrollX - offsetX);
+        int runwayY = vy > 0 ? offsetY : (metrics.maxScrollY - offsetY);
+
+        flingVx = vx;
+        flingVy = vy;
+        flingKx = computeFlingK(vx, runwayX);
+        flingKy = computeFlingK(vy, runwayY);
+        if (flingVx != 0 && flingKx <= 0f) {
+            flingVx = 0f;
+        }
+        if (flingVy != 0 && flingKy <= 0f) {
+            flingVy = 0f;
+        }
+        if (flingVx == 0f && flingVy == 0f) {
+            return;
+        }
+
+        flinging = true;
+        flingAccX = 0f;
+        flingAccY = 0f;
+        flingLastTime = android.os.SystemClock.uptimeMillis();
+        postOnAnimation(flingRunnable);
+    }
+
+    private float computeFlingK(float v, int runway) {
+        float absV = Math.abs(v);
+        if (absV <= 0f || runway <= 0) {
+            return 0f;
+        }
+        float natural = absV / FLING_NATURAL_K;      // 这个速度"自然"该滑多远
+        float distance = Math.min(natural, runway);  // 但不能越过边界
+        if (distance < 1f) {
+            return 0f;
+        }
+        return absV / distance;
+    }
+
+    private void stopFling() {
+        flinging = false;
+        flingVx = 0f;
+        flingVy = 0f;
+        flingKx = 0f;
+        flingKy = 0f;
+        flingAccX = 0f;
+        flingAccY = 0f;
+        removeCallbacks(flingRunnable);
+    }
+
     private void clampOffsets() {
         offsetX = clamp(offsetX, 0, metrics.maxScrollX);
         offsetY = clamp(offsetY, 0, metrics.maxScrollY);
+    }
+
+    // 把手指甩的速度砍到"沿这个方向刚好滑完剩余距离"那么大。
+    // 表格能滚的范围比甩动的 spline 规划距离小得多（6000px/s 能规划近 2000px），
+    // 不砍的话几帧就撞边界，感觉像离手就停。砍完能走完整条减速曲线，到尽头速度刚好降到 0。
+    // 公式是从 OverScroller 的 spline 距离公式反着解出来的：
+    //   distance = ref * exp(K * ln(0.35 * v / ref))
+    private int capFlingVelocity(int velocity, int runwayPx) {
+        if (velocity == 0 || runwayPx <= 0) {
+            return 0;
+        }
+        float ref = SCROLL_FRICTION
+                * 9.80665f * 39.37f * 0.84f
+                * getResources().getDisplayMetrics().density * 160f;
+        double decelerationRate = DECELERATION_RATE;
+        double limit = ref / 0.35 * Math.exp(Math.log(runwayPx / ref)
+                * (decelerationRate - 1.0) / decelerationRate);
+        int capped = (int) Math.min(Math.abs((double) velocity), limit);
+        return velocity > 0 ? capped : -capped;
     }
 
     // ------------------------------------------------------------------
@@ -411,7 +762,7 @@ public class MixCalcTableView extends ViewGroup {
 
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                scroller.forceFinished(true);
+                stopFling();
                 downX = ev.getX();
                 downY = ev.getY();
                 lastX = downX;
@@ -455,15 +806,11 @@ public class MixCalcTableView extends ViewGroup {
                 if (dragging) {
                     if (velocityTracker != null) {
                         velocityTracker.addMovement(ev);
-                        velocityTracker.computeCurrentVelocity(1000, maxFlingVelocity);
-                        int vx = (int) velocityTracker.getXVelocity();
-                        int vy = (int) velocityTracker.getYVelocity();
-                        if (Math.abs(vx) > minFlingVelocity || Math.abs(vy) > minFlingVelocity) {
-                            scroller.fling(offsetX, offsetY, -vx, -vy,
-                                    -FLING_UNBOUNDED, FLING_UNBOUNDED,
-                                    -FLING_UNBOUNDED, FLING_UNBOUNDED);
-                            postInvalidateOnAnimation();
-                        }
+                        // 不要用系统的 maxFlingVelocity（通常 8000px/s），猛甩会被截断；给一个够大的上限
+                        velocityTracker.computeCurrentVelocity(1000, FLING_MAX_VELOCITY);
+                        float vx = velocityTracker.getXVelocity();
+                        float vy = velocityTracker.getYVelocity();
+                        startFling(vx, vy);
                     }
                 } else if (!longPressFired) {
                     performClick();
@@ -491,20 +838,33 @@ public class MixCalcTableView extends ViewGroup {
         return super.performClick();
     }
 
+    // 表尾命中：钉住的「重置」先判，再按横向偏移找
+    private String footerColumnAt(float x) {
+        TableColumn pinned = pinnedFooterColumn();
+        if (pinned != null) {
+            int left = PinnedFooter.left(getWidth(), pinned.widthPx, metrics.fixedWidth);
+            if (PinnedFooter.hit(x, left, pinned.widthPx)) {
+                return pinned.id;
+            }
+        }
+        int vi = metrics.visualIndexAt(x, offsetX);
+        return vi < 0 ? null : metrics.visual.get(vi).id;
+    }
+
     private void handleTap(float x, float y) {
         if (y < metrics.headerHeight) {
             editor.end();
             int vi = metrics.visualIndexAt(x, offsetX);
             if (vi >= 0 && tapListener != null) {
-                tapListener.onHeaderClick(metrics.visual.get(vi).id);
+                tapListener.onHeaderClick(metrics.visual.get(vi).id, getHeaderRect(metrics.visual.get(vi).id));
             }
             return;
         }
         if (y >= getHeight() - metrics.footerHeight) {
             editor.end();
-            int vi = metrics.visualIndexAt(x, offsetX);
-            if (vi >= 0 && tapListener != null) {
-                tapListener.onFooterClick(metrics.visual.get(vi).id);
+            String footerColumnId = footerColumnAt(x);
+            if (footerColumnId != null && tapListener != null) {
+                tapListener.onFooterClick(footerColumnId);
             }
             return;
         }
@@ -564,10 +924,8 @@ public class MixCalcTableView extends ViewGroup {
     // 绘制
     // ------------------------------------------------------------------
 
-    /**
-     * 编辑浮层是子 View，天然画在 canvas 绘制的冻结列之上。这里按冻结列边界裁剪，
-     * 让获得焦点的格横滚时滑到序号列<b>下面</b>，而不是浮在它上面。
-     */
+    // 编辑浮层是个子 View，天然会盖在 canvas 画的冻结列上面。
+    // 这里按冻结列边界裁一刀，让编辑中的格横滚时滑到序号列底下，而不是浮在它上头。
     @Override
     protected void dispatchDraw(Canvas canvas) {
         if (!editor.isEditing() || metrics.visual.isEmpty()) {
@@ -596,23 +954,14 @@ public class MixCalcTableView extends ViewGroup {
         }
 
         int h = getHeight();
-        drawRegionBg(canvas, 0, 0, getWidth(), metrics.headerHeight, style.headerBg);
-        drawRegionBg(canvas, 0, metrics.headerHeight, getWidth(), h - metrics.footerHeight, style.bodyBg);
-        drawRegionBg(canvas, 0, h - metrics.footerHeight, getWidth(), h, style.footerBg);
+        CellPainter.regionBg(canvas, style, 0, 0, getWidth(), metrics.headerHeight, style.headerBg);
+        CellPainter.regionBg(canvas, style, 0, metrics.headerHeight, getWidth(), h - metrics.footerHeight, style.bodyBg);
+        CellPainter.regionBg(canvas, style, 0, h - metrics.footerHeight, getWidth(), h, style.footerBg);
 
         drawBody(canvas);
         drawHeader(canvas);
         drawFooter(canvas);
-        drawFrozenDivider(canvas);
-    }
-
-    private void drawRegionBg(Canvas canvas, int left, int top, int right, int bottom, int color) {
-        if (bottom <= top) {
-            return;
-        }
-        style.fillPaint.setStyle(Paint.Style.FILL);
-        style.fillPaint.setColor(color);
-        canvas.drawRect(left, top, right, bottom, style.fillPaint);
+        CellPainter.frozenDivider(canvas, style, metrics.fixedWidth, h);
     }
 
     private void drawBody(Canvas canvas) {
@@ -629,7 +978,7 @@ public class MixCalcTableView extends ViewGroup {
             return;
         }
 
-        // 1. 非固定列（clip 到固定列右侧，滚动内容不会盖住冻结列）
+        // 先画非固定列，裁到固定列右边，滚动内容别盖住冻结列
         canvas.save();
         canvas.clipRect(metrics.fixedWidth, top, getWidth(), bottom);
         for (int vi = metrics.fixedCount; vi < metrics.visual.size(); vi++) {
@@ -644,7 +993,7 @@ public class MixCalcTableView extends ViewGroup {
         }
         canvas.restore();
 
-        // 2. 固定列
+        // 再画固定列
         canvas.save();
         canvas.clipRect(0, top, metrics.fixedWidth, bottom);
         for (int vi = 0; vi < metrics.fixedCount; vi++) {
@@ -666,11 +1015,28 @@ public class MixCalcTableView extends ViewGroup {
         int right = x + col.widthPx;
         int bottom = y + metrics.rowHeight;
 
-        drawBox(canvas, left, top, right, bottom,
+        CellPainter.box(canvas, style, left, top, right, bottom,
                 style.bodyFill(state), style.bodyStroke(state), style.bodyStrokeWidth(state));
 
         String text = textProvider == null ? "" : textProvider.getCellText(row, col.id);
-        drawCellText(canvas, text, left, top, right, bottom, col.textColor);
+        if ("shed_number".equals(col.id)) {
+            // 棚号列：字号固定不缩，放不下自动换行（画笔见 ShedTextPainter）
+            shedTextPainter.draw(canvas, text, left, top, right, bottom, col.textColor, style.textPaint);
+        } else {
+            CellPainter.text(canvas, text, left, top, right, bottom, col.textColor, style.textPaint);
+        }
+    }
+
+    // 棚号列的字号档位由 Activity 按窗口宽度（isTabletMode）设置；
+    // 字号与字符预算必须取同一个判据，所以统一由 ShedTextPainter 持有。
+
+    /** 棚号列显示档位：true = 11 列铺满（15dp/9 字符），false = 横向滚动（14dp/7 字符）。 */
+    public void setShedAllColumnsVisible(boolean allColumnsVisible) {
+        if (shedTextPainter.isFullMode() == allColumnsVisible) {
+            return;
+        }
+        shedTextPainter.setFullMode(allColumnsVisible);
+        invalidate();
     }
 
     private void drawHeader(Canvas canvas) {
@@ -705,11 +1071,11 @@ public class MixCalcTableView extends ViewGroup {
         int top = 0;
         int right = x + col.widthPx;
 
-        drawBox(canvas, left, top, right, bottom,
+        CellPainter.box(canvas, style, left, top, right, bottom,
                 style.headerFill(state), style.headerStroke(state), style.headerStrokeWidth(state));
 
         String text = textProvider == null ? "" : textProvider.getHeaderText(col.id);
-        drawCellText(canvas, text, left, top, right, bottom, style.textBlack);
+        CellPainter.text(canvas, text, left, top, right, bottom, style.textBlack, style.headerTextPaint);
     }
 
     private void drawFooter(Canvas canvas) {
@@ -720,6 +1086,9 @@ public class MixCalcTableView extends ViewGroup {
         canvas.clipRect(metrics.fixedWidth, top, getWidth(), bottom);
         for (int vi = metrics.fixedCount; vi < metrics.visual.size(); vi++) {
             TableColumn col = metrics.visual.get(vi);
+            if (isPinnedFooter(col.id)) {
+                continue;
+            }
             int x = metrics.xOf(vi, offsetX);
             if (x >= getWidth() || x + col.widthPx <= metrics.fixedWidth) {
                 continue;
@@ -732,9 +1101,32 @@ public class MixCalcTableView extends ViewGroup {
         canvas.clipRect(0, top, metrics.fixedWidth, bottom);
         for (int vi = 0; vi < metrics.fixedCount; vi++) {
             TableColumn col = metrics.visual.get(vi);
+            if (isPinnedFooter(col.id)) {
+                continue;
+            }
             drawFooterCell(canvas, col, metrics.xOf(vi, offsetX), top, bottom);
         }
         canvas.restore();
+
+        // 「重置」钉在最右下角（对齐鸿蒙）：横向滚到哪儿都点得到，最后画所以盖在别人上面
+        TableColumn pinned = pinnedFooterColumn();
+        if (pinned != null) {
+            int left = PinnedFooter.left(getWidth(), pinned.widthPx, metrics.fixedWidth);
+            drawFooterCell(canvas, pinned, left, top, bottom);
+        }
+    }
+
+    // 钉住的表尾格：列被用户隐藏时也要画（配置里还留着这一列），否则重置就没了
+    private TableColumn pinnedFooterColumn() {
+        if (pinnedFooterColumnId == null || config == null || !metricsReady) {
+            return null;
+        }
+        TableColumn col = config.get(pinnedFooterColumnId);
+        return col == null || col.widthPx <= 0 ? null : col;
+    }
+
+    private boolean isPinnedFooter(String columnId) {
+        return pinnedFooterColumnId != null && pinnedFooterColumnId.equals(columnId);
     }
 
     private void drawFooterCell(Canvas canvas, TableColumn col, int x, int top, int bottom) {
@@ -744,54 +1136,12 @@ public class MixCalcTableView extends ViewGroup {
         int left = x;
         int right = x + col.widthPx;
 
-        drawBox(canvas, left, top, right, bottom,
+        CellPainter.box(canvas, style, left, top, right, bottom,
                 style.footerFill(footerStyle), style.cellStroke, style.borderWidth);
 
         String text = textProvider == null ? "" : textProvider.getFooterText(col.id);
-        drawCellText(canvas, text, left, top, right, bottom, style.footerTextColor(footerStyle));
-    }
-
-    private void drawFrozenDivider(Canvas canvas) {
-        if (metrics.fixedCount <= 0 || metrics.fixedWidth <= 0) {
-            return;
-        }
-        style.borderPaint.setStyle(Paint.Style.STROKE);
-        style.borderPaint.setColor(style.frozenDivider);
-        style.borderPaint.setStrokeWidth(1f);
-        canvas.drawLine(metrics.fixedWidth, 0, metrics.fixedWidth, getHeight(), style.borderPaint);
-    }
-
-    private void drawBox(Canvas canvas, int left, int top, int right, int bottom,
-                         int fill, int stroke, float strokeWidth) {
-        style.fillPaint.setStyle(Paint.Style.FILL);
-        style.fillPaint.setColor(fill);
-        canvas.drawRect(left, top, right, bottom, style.fillPaint);
-
-        if (strokeWidth > 0) {
-            style.borderPaint.setStyle(Paint.Style.STROKE);
-            style.borderPaint.setColor(stroke);
-            style.borderPaint.setStrokeWidth(strokeWidth);
-            float inset = strokeWidth / 2f;
-            canvas.drawRect(left + inset, top + inset, right - inset, bottom - inset,
-                    style.borderPaint);
-        }
-    }
-
-    private void drawCellText(Canvas canvas, String text, int left, int top, int right, int bottom,
-                              int color) {
-        if (TextUtils.isEmpty(text)) {
-            return;
-        }
-        Paint paint = style.textPaint;
-        paint.setColor(color);
-        Paint.FontMetrics fm = paint.getFontMetrics();
-        float cx = (left + right) / 2f;
-        float cy = (top + bottom) / 2f - (fm.ascent + fm.descent) / 2f;
-
-        canvas.save();
-        canvas.clipRect(left, top, right, bottom);
-        canvas.drawText(text, cx, cy, paint);
-        canvas.restore();
+        CellPainter.text(canvas, text, left, top, right, bottom,
+                style.footerTextColor(footerStyle), style.textPaint);
     }
 
     // ------------------------------------------------------------------

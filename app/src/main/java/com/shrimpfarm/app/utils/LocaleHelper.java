@@ -11,9 +11,10 @@ import java.util.Locale;
 public class LocaleHelper {
 
     private static final String PREF_LANG = "app_language";
-    private static final String LANG_AUTO = "auto";
-    private static final String LANG_ZH = "zh";
-    private static final String LANG_EN = "en";
+    /** 跟随系统。 */
+    public static final String LANG_AUTO = "auto";
+    public static final String LANG_ZH = "zh";
+    public static final String LANG_EN = "en";
 
     public static Context setLocale(Context context) {
         return updateLocale(context, getSavedLang(context));
@@ -27,6 +28,18 @@ public class LocaleHelper {
     public static String getSavedLang(Context context) {
         return context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                 .getString(PREF_LANG, LANG_AUTO);
+    }
+
+    /** 当前实际生效的语言：用户选过就用选的，跟随系统时按系统语言判断（中文算 zh，其余算 en）。 */
+    public static String getEffectiveLang(Context context) {
+        String saved = getSavedLang(context);
+        if (LANG_ZH.equals(saved) || LANG_EN.equals(saved)) {
+            return saved;
+        }
+        Locale system = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                ? LocaleList.getDefault().get(0)
+                : Locale.getDefault();
+        return system != null && "zh".equals(system.getLanguage()) ? LANG_ZH : LANG_EN;
     }
 
     private static void saveLang(Context context, String lang) {

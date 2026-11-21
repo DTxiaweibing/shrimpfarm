@@ -92,6 +92,10 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <!-- 系统导航栏统一白底深色图标。AppCompat 默认把 navigationBarColor 设成
+             colorPrimaryDark（墨绿），深色页面看着就像“底部导航栏是绿的”。 -->
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <!-- 无主题背景的主题（用于根布局自带背景的 Activity，避免 Overdraw） -->
@@ -102,6 +106,9 @@
     <!-- 数据分析活动主题，减少闪烁 -->
     <style name="DataAnalysisTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">#F5F7FA</item>
+        <!-- 与 AppTheme 保持一致：导航栏白底深色图标，别跟 colorPrimaryDark 一起变绿 -->
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <!-- ==================== 财务模块字段样式 ==================== -->

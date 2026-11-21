@@ -46,7 +46,8 @@ public class PriceItemAdapter extends RecyclerView.Adapter<PriceItemAdapter.VH> 
     public void onBindViewHolder(@NonNull VH holder, int position) {
         PriceItem item = items.get(position);
         holder.tvName.setText(item.name != null ? item.name : "");
-        holder.tvPrice.setText(item.price != null ? "¥" + item.price : "¥--");
+        String price = item.price;
+        holder.tvPrice.setText(price == null || price.isEmpty() ? "¥--" : "¥" + price);
 
         holder.ivChart.setOnClickListener(v -> {
             if (listener != null) listener.onItemClick(item);

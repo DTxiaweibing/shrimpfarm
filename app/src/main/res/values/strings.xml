@@ -87,7 +87,7 @@
     <string name="title_basic_data">基础数据</string>
     <string name="title_data_analysis">数据分析</string>
     <string name="title_mix_calculator">养虾拌料计算器</string>
-    <string name="title_today_market">今日水产行情</string>
+    <string name="title_today_market">无锡水产行情</string>
     <string name="water_ammonia">氨氮 (mg/L)</string>
     <string name="water_chlorine">余氯 (mg/L)</string>
     <string name="water_dissolved_oxygen">溶解氧 (mg/L)</string>
@@ -693,8 +693,24 @@
     <string name="hq_error_network_timeout">网络超时，已重试%d次</string>
     <string name="hq_error_server">服务器响应错误: %d</string>
     <string name="hq_error_no_data">暂无行情数据</string>
+    <string name="hq_error_supabase">行情服务连接失败：%s</string>
     <string name="hq_error_json_parse">JSON解析失败: %s</string>
     <string name="hq_uncategorized">未分类</string>
+    <string name="hq_date_today">今天</string>
+    <string name="hq_date_yesterday">昨天</string>
+    <string name="hq_back_today">回到今天</string>
+    <string name="hq_day_loading">正在加载该日行情…</string>
+    <string name="hq_day_empty_retry">该日暂无行情\n点此重试</string>
+    <string name="hq_day_network_retry">网络异常，加载失败\n点此重试</string>
+    <string name="hq_toast_latest">已是最新行情</string>
+    <string name="hq_toast_earliest">已是最早记录</string>
+    <string name="hq_prev_day">前一天</string>
+    <string name="hq_next_day">后一天</string>
+    <string name="hq_chart_legend_range">价格区间</string>
+    <string name="hq_chart_legend_mid">中值</string>
+    <string name="hq_date_with_suffix" translatable="false">%1$s · %2$s</string>
+    <string name="hq_arrow_prev" translatable="false">‹</string>
+    <string name="hq_arrow_next" translatable="false">›</string>
     <string name="alert_timeout_shed">%d号棚吃料超时，请检查</string>
     <string name="alert_timeout_overall_severe">整体吃料超时20%%以上注意天气大幅变化，请大幅减料，密切关注对虾体质，严防病害爆发！</string>
     <string name="alert_timeout_overall_moderate">整体吃料超时10%%以上，减缓加料幅度，或适度减料！</string>
@@ -1171,6 +1187,50 @@
     <string name="finance_po_estimate_note">带 * 的行未填写当前价，金额按历史价估算</string>
     <string name="finance_po_settled_yes">已结账</string>
     <string name="finance_po_settled_no">未结账</string>
+
+    <!-- MixCalcActivity 棚号区间 / 批次 / 语言 / 主菜单 -->
+    <string name="mix_batch_01">批次01</string>
+    <string name="mix_batch_02">批次02</string>
+    <string name="mix_batch_dialog_title">选择批次</string>
+    <string name="mix_batch_selected">%1$s ✓</string>
+    <string name="mix_btn_got_it">知道了</string>
+    <string name="mix_btn_next_row">下一行 ▾</string>
+    <string name="mix_btn_view_help">查看帮助</string>
+    <string name="mix_dialog_switch_done_msg">细粒径料合并到粗粒径料，换料完成</string>
+    <string name="mix_dialog_switch_done_title">换料完成</string>
+    <string name="mix_lang_dialog_title">选择语言</string>
+    <string name="mix_lang_option_en">English</string>
+    <string name="mix_lang_option_system">跟随系统</string>
+    <string name="mix_lang_option_zh">简体中文</string>
+    <string name="mix_menu_batch">批次切换</string>
+    <string name="mix_menu_col_op_format">列操作 - %1$s</string>
+    <string name="mix_menu_help">使用帮助</string>
+    <string name="mix_menu_language">选择语言</string>
+    <string name="mix_menu_open">打开菜单</string>
+    <string name="mix_menu_privacy_policy">隐私政策</string>
+    <string name="mix_menu_quick_settings">快捷设置</string>
+    <string name="mix_menu_user_agreement">用户协议</string>
+    <string name="mix_menu_version_format">版本:v%1$s</string>
+    <string name="mix_order_message">请先填写第%d行的「棚号」。</string>
+    <string name="mix_order_title">请按顺序录入</string>
+    <string name="mix_shed_delete">删除</string>
+    <string name="mix_shed_delete_msg_fallback">这 %1$d 个棚号上面还有行填着，删掉后会退回那些行继续算料，不会消失。</string>
+    <string name="mix_shed_delete_msg_mixed">这 %1$d 个棚号里，%2$d 个上面还有来路、会退回；另外 %3$d 个没有来路，将被真正删除：%4$s</string>
+    <string name="mix_shed_delete_msg_permanent">这 %1$d 个棚号没有来路可退，删掉后全表都不再有了：%2$s</string>
+    <string name="mix_shed_delete_title">删除棚号</string>
+    <string name="mix_shed_hint_msg">请输入最小棚号和最大棚号，如 1-40（最大 99），或查看帮助。</string>
+    <string name="mix_shed_hint_title">棚号怎么填</string>
+    <string name="mix_shed_list_count">共 %1$d 个</string>
+    <string name="mix_shed_list_empty">本行暂无棚号</string>
+    <string name="mix_shed_list_title">第 %1$d 行棚号</string>
+    <string name="mix_shed_menu_more">棚号操作</string>
+    <string name="mix_shed_menu_title">棚号操作</string>
+    <string name="mix_shed_over_limit">输入超上限值：棚号最大 %1$d</string>
+    <string name="mix_shed_sel_all">全选</string>
+    <string name="mix_shed_sel_invert">反选</string>
+    <string name="mix_shed_transfer_in">转入</string>
+    <string name="mix_shed_transfer_out">转出</string>
+    <string name="mix_shed_transfer_whole_to_blank">整行转到空行等于把整行挪下去，请直接在目标行填写棚号</string>
 </resources>
 
 

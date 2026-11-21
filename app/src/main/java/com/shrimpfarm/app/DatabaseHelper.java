@@ -1,3 +1,4 @@
+// standards-exempt: 存量单体 SQLiteOpenHelper（2400+ 行），本次仅在既有行情分区追加区间列与查询，未拆分以免牵动全库迁移。
 package com.shrimpfarm.app;
 
 import android.content.ContentValues;
@@ -7,10 +8,13 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
+import com.shrimpfarm.app.model.MarketSorter;
 import com.shrimpfarm.app.model.PriceCategory;
 import com.shrimpfarm.app.model.PriceData;
 import com.shrimpfarm.app.model.PriceItem;
 import com.shrimpfarm.app.model.PricePoint;
+import com.shrimpfarm.app.model.PriceRange;
+import com.shrimpfarm.app.model.PriceRangeParser;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import java.text.SimpleDateFormat;
@@ -26,7 +30,7 @@ import java.util.Map;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "FeedingRecord.db";
-    private static final int DATABASE_VERSION = 15;
+    private static final int DATABASE_VERSION = 16;
 
     // ==================== 表名 ====================
     public static final String TABLE_DAILY_RECORDS = "daily_records";
@@ -412,6 +416,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "category TEXT, " +
                     "item_name TEXT, " +
                     "price TEXT, " +
+                    "price_low REAL, " +
+                    "price_high REAL, " +
                     "saved_at INTEGER NOT NULL)";
 
     private static final String CREATE_PLAN_TASKS_TABLE =
@@ -741,6 +747,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // fin_ticket.account_id 由 case 14 的 ALTER 加入，但建表语句里没有它。
         // 已经升到 v15 的设备不会再走 onUpgrade，因此每次打开补一次，保证不会缺列。
         ensureColumn(db, TABLE_FIN_TICKET, COLUMN_FIN_ACCOUNT_ID, "INTEGER DEFAULT 0");
+        // 行情价格区间列由 case 15 加入；已升到 v16 的设备不会再走 onUpgrade。
+        ensureColumn(db, TABLE_MARKET_PRICES, "price_low", "REAL");
+        ensureColumn(db, TABLE_MARKET_PRICES, "price_high", "REAL");
     }
 
     /** 该列存在则直接返回，不存在则补上（自愈存量库，避免建表语句与迁移脱节）。 */
@@ -974,6 +983,15 @@ try {
                 try {
                     db.execSQL("ALTER TABLE " + TABLE_FIN_TICKET + " ADD COLUMN "
                             + COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0");
+                } catch (Exception ignored) { /* 已存在则忽略 */ }
+                break;
+            case 15:
+                // v15 → v16：行情价格支持区间（最低/最高）
+                try {
+                    db.execSQL("ALTER TABLE " + TABLE_MARKET_PRICES + " ADD COLUMN price_low REAL");
+                } catch (Exception ignored) { /* 已存在则忽略 */ }
+                try {
+                    db.execSQL("ALTER TABLE " + TABLE_MARKET_PRICES + " ADD COLUMN price_high REAL");
                 } catch (Exception ignored) { /* 已存在则忽略 */ }
                 break;
             }
@@ -2127,11 +2145,11 @@ try {
 
     // ==================== 行情相关 ====================
     public List<PriceCategory> getMarketPricesByDate(String date) {
-        HashMap<String, PriceCategory> map = new HashMap<>();
+        LinkedHashMap<String, PriceCategory> map = new LinkedHashMap<>();
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.rawQuery(
                 "SELECT category, item_name, price FROM " + TABLE_MARKET_PRICES +
-                        " WHERE date = ? ORDER BY category, item_name",
+                        " WHERE date = ? ORDER BY rowid",
                 new String[]{date});
         try {
             while (cursor.moveToNext()) {
@@ -2150,7 +2168,9 @@ try {
         } finally {
             if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        return new ArrayList<>(map.values());
+        List<PriceCategory> categories = new ArrayList<>(map.values());
+        MarketSorter.sortCategories(categories);
+        return categories;
     }
 
     public void saveMarketPrices(PriceData data) {
@@ -2168,6 +2188,14 @@ try {
                     cv.put("category", cat.title);
                     cv.put("item_name", item.name);
                     cv.put("price", item.price);
+                    PriceRange range = PriceRangeParser.parse(item.price);
+                    if (range != null) {
+                        cv.put("price_low", range.low);
+                        cv.put("price_high", range.high);
+                    } else {
+                        cv.putNull("price_low");
+                        cv.putNull("price_high");
+                    }
                     cv.put("saved_at", System.currentTimeMillis());
                     db.insert(TABLE_MARKET_PRICES, null, cv);
                 }
@@ -2179,7 +2207,7 @@ try {
     }
 
     public PriceData getLatestMarketPrices() {
-        HashMap<String, PriceCategory> map = new HashMap<>();
+        LinkedHashMap<String, PriceCategory> map = new LinkedHashMap<>();
         String latestDate = null;
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.rawQuery(
@@ -2195,7 +2223,7 @@ try {
         if (latestDate == null) return null;
         cursor = db.rawQuery(
                 "SELECT category, item_name, price FROM " + TABLE_MARKET_PRICES +
-                        " WHERE date = ? ORDER BY category, item_name",
+                        " WHERE date = ? ORDER BY rowid",
                 new String[]{latestDate});
         try {
             while (cursor.moveToNext()) {
@@ -2214,22 +2242,32 @@ try {
         } finally {
             if (cursor != null && !cursor.isClosed()) cursor.close();
         }
-        return new PriceData(latestDate, new ArrayList<>(map.values()));
+        List<PriceCategory> categories = new ArrayList<>(map.values());
+        MarketSorter.sortCategories(categories);
+        return new PriceData(latestDate, categories);
     }
 
     public List<PricePoint> getPriceHistory(String itemName) {
         List<PricePoint> list = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_MARKET_PRICES,
-                new String[]{"date", "price"}, "item_name = ?",
+                new String[]{"date", "price", "price_low", "price_high"}, "item_name = ?",
                 new String[]{itemName}, null, null, "date ASC");
         try {
             while (cursor.moveToNext()) {
                 String date = cursor.getString(0);
-                String price = cursor.getString(1);
-                float mid = parseMidPrice(price);
-                PricePoint point = new PricePoint(date, mid);
-                list.add(point);
+                String raw = cursor.getString(1);
+
+                Float low = cursor.isNull(2) ? null : cursor.getFloat(2);
+                Float high = cursor.isNull(3) ? null : cursor.getFloat(3);
+                if (low == null || high == null || low <= 0f || high <= 0f) {
+                    // 老数据没有区间列，现场按原文解析；解析失败就跳过，不能画成 0。
+                    PriceRange range = PriceRangeParser.parse(raw);
+                    if (range == null) continue;
+                    low = range.low;
+                    high = range.high;
+                }
+                list.add(new PricePoint(date, low, high));
             }
         } finally {
             if (cursor != null && !cursor.isClosed()) cursor.close();
@@ -2237,15 +2275,25 @@ try {
         return list;
     }
 
+    /** 本地已缓存行情日期，按时间升序。 */
+    public List<String> getMarketPriceDates() {
+        List<String> dates = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.rawQuery(
+                "SELECT DISTINCT date FROM " + TABLE_MARKET_PRICES + " ORDER BY date ASC", null);
+        try {
+            while (cursor.moveToNext()) {
+                dates.add(cursor.getString(0));
+            }
+        } finally {
+            if (cursor != null && !cursor.isClosed()) cursor.close();
+        }
+        return dates;
+    }
+
     private String normalizeDate(String date) {
         if (date == null) return "";
         return date.replace("/", "-");
-    }
-
-    private float parseMidPrice(String price) {
-        if (price == null) return 0;
-        try { return Float.parseFloat(price); } catch (NumberFormatException ignored) { /* ignored */ }
-        return 0;
     }
 
     // ==================== 放苗天数工具 ====================

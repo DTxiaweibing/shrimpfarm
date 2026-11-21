@@ -7,20 +7,13 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import com.google.gson.Gson;
 import com.shrimpfarm.app.DatabaseHelper;
 import com.shrimpfarm.app.model.PriceData;
 
-import java.io.IOException;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-
+/** 后台定时同步无锡行情到本地缓存，数据源为 Supabase。 */
 public class PriceUpdateWorker extends Worker {
 
     private static final String TAG = "PriceUpdateWorker";
-    private static final String PRICE_URL = "https://dtxiaweibing.github.io/TIMU/price.json";
 
     public PriceUpdateWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -30,29 +23,19 @@ public class PriceUpdateWorker extends Worker {
     @Override
     public Result doWork() {
         try {
-            OkHttpClient client = com.shrimpfarm.app.utils.HttpClientSingleton.getInstance();
-            Request request = new Request.Builder().url(PRICE_URL).build();
-            Response response = client.newCall(request).execute();
-
-            if (!response.isSuccessful()) {
-                return Result.retry();
-            }
-
-            String json = response.body().string();
-            PriceData data = new Gson().fromJson(json, PriceData.class);
-
+            PriceData data = HqSupabaseClient.fetchSync();
             if (data == null || data.date == null || data.categories == null || data.categories.isEmpty()) {
+                Log.w(TAG, "库中暂无行情数据");
                 return Result.failure();
             }
 
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(getApplicationContext());
             dbHelper.saveMarketPrices(data);
-
+            Log.i(TAG, "已同步无锡行情 " + data.date + "，分类数 " + data.categories.size());
             return Result.success();
-        } catch (IOException e) {
-            return Result.retry();
         } catch (Exception e) {
-            return Result.failure();
+            Log.w(TAG, "同步行情失败", e);
+            return Result.retry();
         }
     }
 }

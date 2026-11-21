@@ -1,17 +1,24 @@
 package com.shrimpfarm.app.mixcalc.table;
 
-/**
- * 编辑浮层回调。
- */
+// 编辑浮层的回调。
 public interface OnCellEditListener {
 
-    /**
-     * 编辑提交：失焦、滚动导致格子在可见区之外、或点击其他格子时触发。
-     *
-     * @param text 提交时的原始文本（未 trim、未解析）
-     */
+    // 开始编辑某格，在浮层打开、用户输入之前回调，宿主拿它记该格的原值。
+    // 为什么需要原值：浮层逐字符提交，退格退到最后一位时格里的数早被改小了，
+    // 只有"进入编辑那一刻"的快照才是真正的原值。
+    void onCellEditBegin(int row, String columnId);
+
+    // 提交：失焦、格滚出可见区、点了别的格，都会触发。
+    // text 是提交时的原始文本，没 trim 也没解析
     void onCellCommitted(int row, String columnId, String text);
 
-    /** 输入法"下一个"（IME_ACTION_NEXT），由宿主决定跳到哪个可编辑格。 */
+    // 输入法点"下一个"（IME_ACTION_NEXT），跳到哪个可编辑格由宿主定
     void onEditNext(int row, String columnId);
+
+    // 点了编辑态右下角的「下一行 ▾」按钮：同列向下，跳到哪一行也由宿主定
+    void onEditNextRow(int row, String columnId);
+
+    // 编辑结束：浮层收起，或提交后换到别的格。宿主在这里做「失焦结算」
+    // （棚数仍为 0 的行彻底清空），换格和收起都会回调。
+    void onCellEditEnd(int row, String columnId);
 }

@@ -79,6 +79,14 @@
             android:theme="@style/AppTheme.NoWindowBackground"
             android:label="拌料计算"
             android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboard|keyboardHidden|navigation|uiMode|layoutDirection"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+        <activity
+            android:name=".mixcalc.AssetPageActivity"
+            android:theme="@style/AppTheme.NoWindowBackground"
+            android:screenOrientation="behind"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboard|keyboardHidden|navigation|uiMode|layoutDirection"
             android:exported="false" />
         <activity
             android:name=".analysis.DataAnalysisActivity"

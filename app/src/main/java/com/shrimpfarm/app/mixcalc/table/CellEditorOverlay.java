@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
@@ -13,21 +14,28 @@ import android.widget.EditText;
 
 import com.shrimpfarm.app.R;
 
-/**
- * 单元格编辑浮层：整张表只有一个 {@link EditText}，需要编辑时才显示在命中格上头。
- *
- * <p>它把编辑入口从"每个可编辑格常驻一个 EditText"改成"整表一个浮层"，但用户看到的仍是原生
- * 输入法 / 焦点 / 光标，输入体验不变。</p>
- *
- * <p>职责：</p>
- * <ul>
- *   <li>{@link #begin}：把浮层精确贴到命中格上并唤起输入法</li>
- *   <li>文本变化即实时回调 {@link OnCellEditListener#onCellCommitted}（保留原有"边输边算"）</li>
- *   <li>{@link #onScrolled}：滚动时跟随移动；滚出可见区则提交并收起</li>
- *   <li>输入法"下一个" → 回调 {@link OnCellEditListener#onEditNext}</li>
- * </ul>
- */
+import java.util.List;
+
+// 单元格编辑浮层。整张表就一个 EditText，哪个格要编辑就贴到它上面。
+// 输入法、焦点、光标都是原生的，手感跟以前每个格各带一个 EditText 时一样。
+// begin 打开并弹键盘；文本一变就回调 onCellCommitted（保持边输边算）；
+// onScrolled 跟随滚动，滚出可见区就收起；键盘点"下一个"回调 onEditNext。
 class CellEditorOverlay {
+
+    // 棚号列白名单：数字 + 能解析的分隔/区间符号（到 至 ~ — 、 ， , 空格 号 -）
+    // 与鸿蒙版 inputFilter '[0-9\-到至~—、，, 号]' 一致
+    private static final String SHED_ALLOWED = " -到至~—、，,号";
+    private static final InputFilter SHED_NUMBER_FILTER =
+            (source, start, end, dest, dstart, dend) -> {
+                StringBuilder sb = new StringBuilder();
+                for (int i = start; i < end; i++) {
+                    char c = source.charAt(i);
+                    if ((c >= '0' && c <= '9') || SHED_ALLOWED.indexOf(c) >= 0) {
+                        sb.append(c);
+                    }
+                }
+                return sb.length() == end - start ? null : sb.toString();
+            };
 
     private final MixCalcTableView table;
     private final Context context;
@@ -36,8 +44,10 @@ class CellEditorOverlay {
     private int row = -1;
     private TableColumn column;
     private boolean editing;
-    /** 程序化设置文本期间抑制回调，避免"打开即提交"。 */
+    // 程序化 setText 时压住回调，不然一打开就当提交了
     private boolean suppress;
+    // 用户是否真的动过文本。只是点一下拿到焦点又走开，不该提交
+    private boolean dirty;
 
     CellEditorOverlay(MixCalcTableView table) {
         this.table = table;
@@ -47,7 +57,7 @@ class CellEditorOverlay {
         editText.setVisibility(View.GONE);
         editText.setBackgroundResource(R.drawable.cell_border);
         editText.setGravity(Gravity.CENTER);
-        editText.setTextSize(12);
+        editText.setTextSize(16);
         editText.setTypeface(editText.getTypeface(), Typeface.BOLD);
         editText.setPadding(0, 0, 0, 0);
         editText.setSingleLine(true);
@@ -67,6 +77,7 @@ class CellEditorOverlay {
                 if (suppress || !editing || column == null) {
                     return;
                 }
+                dirty = true;
                 OnCellEditListener listener = table.editListener();
                 if (listener != null) {
                     listener.onCellCommitted(row, column.id, s.toString());
@@ -86,22 +97,19 @@ class CellEditorOverlay {
         });
     }
 
-    /** 把浮层挂到表格里（唯一子 View）。 */
     void attach() {
         table.addView(editText);
     }
 
-    /**
-     * 打开编辑浮层。
-     *
-     * <p>若当前正在编辑另一格，先把旧格提交（不隐藏浮层），再平滑切到新格，输入法不闪断。</p>
-     */
+    // 打开浮层。要是正在编辑另一格，先把旧的提交掉，再切到新格，键盘不闪。
     void begin(int row, TableColumn column) {
         if (column == null || !column.editable) {
             return;
         }
         if (editing && (this.row != row || this.column == null || !this.column.id.equals(column.id))) {
             commitInternal();
+            // 换格 = 上一格失焦：先让宿主结算，再开新格
+            notifyEditEnd();
         }
 
         this.row = row;
@@ -112,6 +120,12 @@ class CellEditorOverlay {
         try {
             editText.setInputType(column.inputType);
             editText.setTextColor(column.textColor);
+            // 按列切换字符过滤：棚号走白名单，其它列清掉过滤器（沿用 inputType 的数字过滤）
+            if ("shed_number".equals(column.id)) {
+                editText.setFilters(new InputFilter[]{SHED_NUMBER_FILTER});
+            } else {
+                editText.setFilters(new InputFilter[0]);
+            }
             String text = table.textProvider() == null
                     ? ""
                     : table.textProvider().getCellText(row, column.id);
@@ -120,18 +134,27 @@ class CellEditorOverlay {
         } finally {
             suppress = false;
         }
+        dirty = false;
 
         if (editText.getVisibility() != View.VISIBLE) {
             editText.setVisibility(View.VISIBLE);
         }
+        // 目标格可能在屏幕外：先滚过去，再摆浮层（对齐鸿蒙 moveEditor → ensureEditorVisible）
+        table.revealCell(row, column.id);
         layoutChild();
         if (!editText.hasFocus()) {
             editText.requestFocus();
         }
+        OnCellEditListener listener = table.editListener();
+        if (listener != null) {
+            listener.onCellEditBegin(row, column.id);
+        }
+        // 编辑态右下角显示「下一行 ▾」
+        table.showNextRowButton(row, column.id);
         showIme();
     }
 
-    /** 提交并收起浮层。 */
+    // 提交并收起
     void end() {
         if (!editing) {
             return;
@@ -139,9 +162,40 @@ class CellEditorOverlay {
         editing = false;
         commitInternal();
         editText.setVisibility(View.GONE);
+        table.hideNextRowButton();
+        // 收起浮层 = 失去焦点：宿主在这里结算棚数为 0 的行
+        notifyEditEnd();
     }
 
-    /** 表格滚动后调用：跟随移动，滚出可见区则结束。 */
+    /**
+     * 行回收后的行号平移：正在编辑的行上面有行被删，就把行号跟着上移；
+     * 自己这行被删了就直接丢弃收起——行都没了，绝不能把浮层里的字
+     * 提交到补位上来的那行去（那会是张冠李戴）。
+     */
+    void shiftRowsAfterRemoval(List<Integer> removedIndices) {
+        if (removedIndices == null || removedIndices.isEmpty() || !editing) {
+            return;
+        }
+        if (removedIndices.contains(row)) {
+            editing = false;
+            dirty = false;
+            editText.setVisibility(View.GONE);
+            table.hideNextRowButton();
+            return;
+        }
+        int shift = 0;
+        for (int idx : removedIndices) {
+            if (idx < row) {
+                shift++;
+            }
+        }
+        if (shift > 0) {
+            row -= shift;
+            layoutChild();
+        }
+    }
+
+    // 表格滚过之后跟着挪，滚出可见区就结束
     void onScrolled() {
         if (!editing || column == null) {
             return;
@@ -153,13 +207,13 @@ class CellEditorOverlay {
         layoutChild();
     }
 
-    /** 列配置/尺寸变化后调用：重定位，必要时结束。 */
+    // 列配置或尺寸变了之后重定位，实在留不住才收起
     void onMetricsChanged() {
         if (!editing || column == null) {
             return;
         }
-        // 尺寸变化（典型是输入法弹出把表挤矮）时先尝试把该行滚回可视区，
-        // 实在留不住才收起 —— 避免"点低位格 → 键盘刚弹就自己收掉"。
+        // 尺寸变化多半是键盘弹出把表挤矮了。先把这行滚回可视区，
+        // 留不住再收，免得"点低位格，键盘刚弹就自己没了"。
         if (!table.keepEditingCellVisible(row, column.id)) {
             end();
             return;
@@ -167,12 +221,12 @@ class CellEditorOverlay {
         layoutChild();
     }
 
-    /** 是否有浮层正在编辑（供表格决定要不要做冻结列裁剪）。 */
+    // 表格靠它判断要不要做冻结列裁剪
     boolean isEditing() {
         return editing && column != null;
     }
 
-    /** 正在编辑的格是否落在固定列中（决定浮层裁剪到哪一侧）。 */
+    // 正在编辑的格是不是固定列，决定浮层往哪边裁
     boolean isEditingFixedColumn() {
         if (!editing || column == null) {
             return false;
@@ -181,7 +235,7 @@ class CellEditorOverlay {
         return vi >= 0 && vi < table.metrics().fixedCount;
     }
 
-    /** 依据命中格矩形摆放浮层（表格 onLayout 与滚动时都会调用）。 */
+    // 按命中格的矩形摆浮层，onLayout 和滚动时都会调
     void layoutChild() {
         if (!editing || column == null) {
             return;
@@ -199,11 +253,22 @@ class CellEditorOverlay {
     }
 
     private void commitInternal() {
+        if (!dirty) {
+            return;
+        }
         OnCellEditListener listener = table.editListener();
         if (listener == null || column == null || row < 0) {
             return;
         }
+        dirty = false;
         listener.onCellCommitted(row, column.id, editText.getText().toString());
+    }
+
+    private void notifyEditEnd() {
+        OnCellEditListener listener = table.editListener();
+        if (listener != null && column != null && row >= 0) {
+            listener.onCellEditEnd(row, column.id);
+        }
     }
 
     private void showIme() {

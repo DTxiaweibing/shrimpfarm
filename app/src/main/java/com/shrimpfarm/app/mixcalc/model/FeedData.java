@@ -5,10 +5,18 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class FeedData {
+    // 用户填的棚号原文 = 这行的“声明”。打点覆盖不会改写它，所以后面的行缩小/清空时，
+    // 被占走的号还能原样退回这行。落盘存的就是它。
     private String shedNumber;
+    // 显示文本 = 打点覆盖后这行“实际拥有”的号码。纯派生，不落盘，每次覆盖计算刷新；
+    // 为 null 表示还没算过，显示回落到 shedNumber。
+    private String shedDisplay;
     private int shedCount;
-    // 第 1 行专用：未扣减的基数（第 2..N 行棚数之和要从这里扣掉）
+    // 第 1 行专用：锚点值，手改后的显示值。
+    // 第一行显示值 = shedCountBase - (后面各行之和 - shedCountBaseSum)
     private int shedCountBase;
+    // 第 1 行专用：设锚点那一刻，后面各行棚数之和。用来只扣“增量”，不重复扣
+    private int shedCountBaseSum;
     private double average;
     private double fermentedFeed;
     private double powderFeed;
@@ -30,6 +38,7 @@ public class FeedData {
         this.shedNumber = "";
         this.shedCount = 0;
         this.shedCountBase = 0;
+        this.shedCountBaseSum = 0;
         this.average = 0;
         this.fermentedFeed = 0;
         this.powderFeed = 0;
@@ -40,14 +49,6 @@ public class FeedData {
         this.weighedFeed = 0;
         this.isShedCountManuallyModified = false;
         this.isAverageManuallyModified = false;
-    }
-
-    public void updateAllCalculations(int waterPercentage) {
-        updateAllCalculations(waterPercentage, false, false);
-    }
-    
-    public void updateAllCalculations(int waterPercentage, boolean fermentedIncludedInWater) {
-        updateAllCalculations(waterPercentage, fermentedIncludedInWater, false);
     }
 
     public void setShedCount(double value) {
@@ -65,6 +66,7 @@ public class FeedData {
             json.put("shedNumber", shedNumber != null ? shedNumber : "");
             json.put("shedCount", shedCount);
             json.put("shedCountBase", shedCountBase);
+            json.put("shedCountBaseSum", shedCountBaseSum);
             json.put("average", average);
             json.put("fermentedFeed", fermentedFeed);
             json.put("powderFeed", powderFeed);
@@ -90,6 +92,7 @@ public class FeedData {
                 shedNumber = json.optString("shedNumber", "");
                 shedCount = json.optInt("shedCount", 0);
                 shedCountBase = json.optInt("shedCountBase", 0);
+                shedCountBaseSum = json.optInt("shedCountBaseSum", 0);
                 average = json.optDouble("average", 0);
                 fermentedFeed = json.optDouble("fermentedFeed", 0);
                 powderFeed = json.optDouble("powderFeed", 0);
@@ -109,79 +112,14 @@ public class FeedData {
     }
 
     public void calculateShedCount() {
-        if (isShedCountManuallyModified) {
-            return;
-        }
         if (shedNumber == null || shedNumber.trim().isEmpty()) {
             this.shedCount = 0;
             this.defaultShedCount = 0;
             return;
         }
-        String cleanNumber = shedNumber.trim();
-        this.shedCount = 0;
-        this.defaultShedCount = 0;
-        cleanNumber = cleanNumber.replace("，", ",")
-            .replace("、", ",")
-            .replace(" ", ",")
-            .replace(",,", ",")
-            .replace(",,", ",");
-        String[] parts = cleanNumber.split(",");
-        int totalCount = 0;
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i].trim();
-            if (part.isEmpty()) {
-                continue;
-            }
-            int partCount = parsePartCount(part);
-            totalCount += partCount;
-        }
-        this.shedCount = Math.max(0, totalCount);
+        // 行内重复棚号只算一次；跨行重叠由 Activity 的打点覆盖处理
+        this.shedCount = ShedCoverage.parseShedNumbers(shedNumber).size();
         this.defaultShedCount = this.shedCount;
-    }
-
-    private int parsePartCount(String part) {
-        if (part == null || part.trim().isEmpty()) {
-            return 0;
-        }
-        if (part.contains("-") || part.contains("到") || part.contains("至") || part.contains("~") || part.contains("—")) {
-            String rangePart = part.replace("到", "-")
-                .replace("至", "-")
-                .replace("~", "-")
-                .replace("—", "-")
-                .replace("号到", "-")
-                .replace("号至", "-");
-            String[] rangeParts = rangePart.split("-", 2);
-            if (rangeParts.length == 2) {
-                try {
-                    String startStr = rangeParts[0].replaceAll("[^0-9]", "");
-                    String endStr = rangeParts[1].replaceAll("[^0-9]", "");
-                    if (!startStr.isEmpty() && !endStr.isEmpty()) {
-                        int start = Integer.parseInt(startStr);
-                        int end = Integer.parseInt(endStr);
-                        if (start > 0 && end > 0) {
-                            int result = (start <= end) ? (end - start + 1) : (start - end + 1);
-                            return result;
-                        }
-                    }
-                } catch (NumberFormatException e) { /* ignored */ }
-            }
-        }
-        if (isValidNumber(part)) {
-            return 1;
-        }
-        return 0;
-    }
-
-    private boolean isValidNumber(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return false;
-        }
-        try {
-            String numStr = str.replaceAll("[^0-9]", "");
-            return !numStr.isEmpty();
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     public void calculateAverage(boolean fermentedIncludedInAverage) {
@@ -213,20 +151,19 @@ public class FeedData {
     }
 
     public void updateAllCalculations(int waterPercentage, boolean fermentedIncludedInWater, boolean fermentedIncludedInAverage) {
-        // 换料比例只在“恰好两种非发酵料”时有效，否则自动作废
+        // 换料比例只有恰好两种非发酵料时才算数，不然直接作废
         if (countNonFermentedFeeds() != 2) {
             switchRatio = 0;
         }
-        if (!isShedCountManuallyModified) {
-            calculateShedCount();
-        }
+        // 不要在这里重算棚数：shedNumber 解析出来的是“本行自己数的个数”，
+        // 跨行重叠时生效的是 Activity 打点覆盖后的棚数。若这里先改掉 shedCount，
+        // 覆盖逻辑会误判“棚数变了”，把用户刚输入的料量按错误棚数重算一遍。
+        // shedNumber 变更统一走 setShedNumber()。
         recalculateDerivedOnly(waterPercentage, fermentedIncludedInWater, fermentedIncludedInAverage);
     }
 
-    /**
-     * 只重算依赖棚数的派生值（平均吃料 / 水量 / 称料），不动棚数本身。
-     * 供第 1 行扣完基数后刷新使用。
-     */
+    // 只重算跟棚数有关的派生值（平均吃料、水量、称料），棚数本身不动。
+    // 第一行扣完基数后刷一下就用它。
     public void recalculateDerivedOnly(int waterPercentage, boolean fermentedIncludedInWater, boolean fermentedIncludedInAverage) {
         if (isAverageManuallyModified) {
             if (canEditAverage()) {
@@ -248,6 +185,14 @@ public class FeedData {
 
     public void setShedCountBase(int shedCountBase) {
         this.shedCountBase = shedCountBase;
+    }
+
+    public int getShedCountBaseSum() {
+        return shedCountBaseSum;
+    }
+
+    public void setShedCountBaseSum(int shedCountBaseSum) {
+        this.shedCountBaseSum = shedCountBaseSum;
     }
 
     // 非发酵料（粉/0.3/0.5/1.0）中有数据的种类数
@@ -302,10 +247,10 @@ public class FeedData {
         }
     }
 
-    // 手动设定平均后，把总量按规则分回料格
-    //   nf==0：只有发酵料 → 全给发酵料
-    //   nf==1：该非发酵料 = 平均×棚数 - (参与平均?发酵料:0)
-    //   nf==2：两料按比例分 平均×棚数 - (参与平均?发酵料:0)
+    // 手动填了平均之后，把总量按下面的规则拆回各料格
+    //   nf==0：只有发酵料，全给发酵料
+    //   nf==1：该非发酵料 = 平均×棚数 - (算平均的话扣掉发酵料)
+    //   nf==2：两料按比例分
     private void applyManualAverage(boolean fermentedIncludedInAverage) {
         double amount = average * shedCount;
         int nf = countNonFermentedFeeds();
@@ -333,7 +278,7 @@ public class FeedData {
                     break;
                 }
             }
-            // 已选换料比例且还有“大一号”可换：把总量按比例拆成两档（大一号 = 总量×ratio）
+            // 选了换料比例、后面还有大一号的料可换，就把总量按比例拆成两档（大一号 = 总量×ratio）
             if (small >= 0 && switchRatio > 0 && small + 1 <= NF_FEED10) {
                 double ratio = switchRatio;
                 if (ratio < 0.1) {
@@ -398,15 +343,60 @@ public class FeedData {
         }
     }
 
+    // 换料完成：恰好两档非发酵料、清空的是细的那档时，把这格编辑前的值
+    // (amount) 并进粗的那档，本档清零，返回并入的值；不满足条件返回 0。
+    // 为什么用调用方传的原值、不用当前值：浮层是逐字符提交的，退格退到最后一位时
+    // 格里的数早被改小了，只有编辑前的快照才是真正的"细粒径料数值"。
+    // 合完只剩一档，换料比例作废，也就是"除发酵料外只剩一种料"的完成态，总量守恒。
+    // clearedIndex 被清空的非发酵料下标：0=粉 1=0.3 2=0.5 3=1.0
+    public double mergeSmallerWhenCleared(int clearedIndex, double amount) {
+        if (clearedIndex < NF_POWDER || clearedIndex > NF_FEED10 || amount <= 0) {
+            return 0;
+        }
+        int coarserIndex = -1;
+        int coarserCount = 0;
+        for (int i = 0; i <= NF_FEED10; i++) {
+            if (i == clearedIndex || getNonFermentedValue(i) <= 0) {
+                continue;
+            }
+            if (i < clearedIndex) {
+                // 前面还有更细的一档有料，不算"细粒径退场→换料完成"
+                return 0;
+            }
+            coarserIndex = i;
+            coarserCount++;
+        }
+        if (coarserCount != 1) {
+            return 0;
+        }
+        setNonFermentedValue(coarserIndex, getNonFermentedValue(coarserIndex) + amount);
+        setNonFermentedValue(clearedIndex, 0);
+        switchRatio = 0;
+        return amount;
+    }
+
     public String getShedNumber() {
         return shedNumber != null ? shedNumber : "";
     }
 
+    /**
+     * 用户声明/落盘的棚号原文。打点覆盖不会动它——被后行占走的号只是“暂时不归你”，
+     * 后行改小之后还会退回来。
+     */
     public void setShedNumber(String shedNumber) {
         this.shedNumber = shedNumber != null ? shedNumber : "";
-        if (!isShedCountManuallyModified) {
-            calculateShedCount();
-        }
+        // 申明变了，派生显示就失效，等下一次打点覆盖重新算；不清会留下旧文本对不上新声明
+        this.shedDisplay = null;
+        calculateShedCount();
+    }
+
+    /** 实际拥有的棚号文本（派生值）；没算过时回落到声明原文。 */
+    public String getShedDisplay() {
+        return shedDisplay != null ? shedDisplay : getShedNumber();
+    }
+
+    public void setShedDisplay(String shedDisplay) {
+        this.shedDisplay = shedDisplay;
     }
 
     public int getShedCount() {
@@ -503,56 +493,5 @@ public class FeedData {
 
     public void setShedCountManuallyModified(boolean manuallyModified) {
         this.isShedCountManuallyModified = manuallyModified;
-    }
-
-    public boolean isShedCountValid() {
-        return shedCount > 0;
-    }
-
-    public String getShedCountDisplay() {
-        return shedCount == 0 ? "" : String.valueOf(shedCount);
-    }
-
-    public String getAverageDisplay() {
-        return average == 0 ? "" : formatDisplayNumber(average);
-    }
-
-    public String getFermentedFeedDisplay() {
-        return fermentedFeed == 0 ? "" : formatDisplayNumber(fermentedFeed);
-    }
-
-    public String getPowderFeedDisplay() {
-        return powderFeed == 0 ? "" : formatDisplayNumber(powderFeed);
-    }
-
-    public String getFeed03Display() {
-        return feed03 == 0 ? "" : formatDisplayNumber(feed03);
-    }
-
-    public String getFeed05Display() {
-        return feed05 == 0 ? "" : formatDisplayNumber(feed05);
-    }
-
-    public String getFeed10Display() {
-        return feed10 == 0 ? "" : formatDisplayNumber(feed10);
-    }
-
-    public String getWaterDisplay() {
-        return water == 0 ? "" : formatDisplayNumber(water);
-    }
-
-    public String getWeighedFeedDisplay() {
-        if (weighedFeed == 0 || shedCount == 0) {
-            return "";
-        }
-        return formatDisplayNumber(weighedFeed) + "×" + shedCount;
-    }
-
-    private String formatDisplayNumber(double value) {
-        if (value == (int) value) {
-            return String.valueOf((int) value);
-        } else {
-            return String.format(java.util.Locale.ROOT, "%.2f", value);
-        }
     }
 }
