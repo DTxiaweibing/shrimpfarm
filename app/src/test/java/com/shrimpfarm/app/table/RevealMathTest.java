@@ -1,4 +1,4 @@
-package com.shrimpfarm.app.mixcalc.table;
+package com.shrimpfarm.app.table;
 
 import static org.junit.Assert.assertEquals;
 

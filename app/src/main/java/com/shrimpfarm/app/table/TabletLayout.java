@@ -1,4 +1,4 @@
-package com.shrimpfarm.app.mixcalc.table;
+package com.shrimpfarm.app.table;
 
 /**
  * 平板/手机的列宽计算。纯计算，不持有 Activity 状态。

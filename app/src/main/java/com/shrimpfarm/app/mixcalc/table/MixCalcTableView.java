@@ -1,4 +1,5 @@
 package com.shrimpfarm.app.mixcalc.table;
+// standards-exempt: 存量超限文件（R3），迁包仅补 2 行 import；拆分另立任务
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -18,6 +19,8 @@ import android.widget.TextView;
 import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.mixcalc.model.FeedData;
 import com.shrimpfarm.app.mixcalc.model.ShedDisplay;
+import com.shrimpfarm.app.table.PinnedFooter;
+import com.shrimpfarm.app.table.RevealMath;
 
 import java.util.ArrayList;
 import java.util.List;

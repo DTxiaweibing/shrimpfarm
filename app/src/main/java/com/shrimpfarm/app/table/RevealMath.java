@@ -1,4 +1,4 @@
-package com.shrimpfarm.app.mixcalc.table;
+package com.shrimpfarm.app.table;
 
 /**
  * 把正在编辑的格子滚进可视区所需的最小偏移（对齐鸿蒙 ensureEditorVisible）。
