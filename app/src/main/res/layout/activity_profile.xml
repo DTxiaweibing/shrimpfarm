@@ -213,11 +213,11 @@
     <!-- 底部导航栏 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="50dp"
+        android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center"
         android:background="#FFFFFFFF"
-        android:elevation="4dp">
+        android:elevation="8dp">
 
         <TextView android:id="@+id/nav_home" style="@style/BottomNavItem" android:text="@string/nav_home" />
         <TextView android:id="@+id/nav_record" style="@style/BottomNavItem" android:text="@string/nav_record" />
