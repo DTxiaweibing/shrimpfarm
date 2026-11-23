@@ -76,7 +76,7 @@
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
-        android:background="#FCFCFC"
+        android:background="#FFFFFF"
         android:elevation="8dp">
 
         <TextView
