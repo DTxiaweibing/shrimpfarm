@@ -42,6 +42,17 @@
             android:textSize="14sp" />
 
         <TextView
+            android:id="@+id/btn_pick_date"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/hq_pick_date"
+            android:gravity="center"
+            android:text="@string/icon_calendar"
+            android:textColor="#0A7E8C"
+            android:textSize="18sp" />
+
+        <TextView
             android:id="@+id/btn_next"
             android:layout_width="48dp"
             android:layout_height="48dp"

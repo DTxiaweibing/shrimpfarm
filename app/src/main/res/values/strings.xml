@@ -706,8 +706,12 @@
     <string name="hq_toast_earliest">已是最早记录</string>
     <string name="hq_prev_day">前一天</string>
     <string name="hq_next_day">后一天</string>
+    <string name="hq_pick_date">选择行情日期</string>
+    <string name="hq_toast_date_unavailable">该日期暂无行情页</string>
     <string name="hq_chart_legend_range">价格区间</string>
     <string name="hq_chart_legend_mid">中值</string>
+    <string name="hq_chart_legend_bar">价格</string>
+    <string name="hq_chart_toggle_hint">点击图表切换折线图/柱状图</string>
     <string name="hq_date_with_suffix" translatable="false">%1$s · %2$s</string>
     <string name="hq_arrow_prev" translatable="false">‹</string>
     <string name="hq_arrow_next" translatable="false">›</string>

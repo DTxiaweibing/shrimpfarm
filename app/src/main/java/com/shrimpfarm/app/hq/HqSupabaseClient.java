@@ -21,10 +21,13 @@ import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Dns;
@@ -177,6 +180,26 @@ public final class HqSupabaseClient {
         if (dateRows.size() == 0) return null;
         String date = getStr(dateRows.get(0).getAsJsonObject(), "record_date");
         return (date == null || date.isEmpty()) ? null : date;
+    }
+
+    /**
+     * 查询指定区间内有行情记录的日期（升序、去重），供本地补缺使用。
+     * 只取日期列，不拉价格详情，网络开销很小。
+     */
+    public static List<String> fetchRemoteDates(String fromDate, String toDate) throws IOException {
+        if (fromDate == null || fromDate.isEmpty() || toDate == null || toDate.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String path = "price_records?select=record_date&region_id=eq." + REGION_ID
+                + "&record_date=gte." + encode(fromDate)
+                + "&record_date=lte." + encode(toDate)
+                + "&order=record_date.asc&limit=1000";
+        Set<String> dates = new TreeSet<>();
+        for (JsonElement el : queryArray(path)) {
+            String date = getStr(el.getAsJsonObject(), "record_date");
+            if (!date.isEmpty()) dates.add(date);
+        }
+        return new ArrayList<>(dates);
     }
 
     /** 同步获取指定日期的无锡行情；该日没有记录时返回 null。 */
