@@ -302,6 +302,12 @@ public class RecordTableView extends ViewGroup {
                 sizing.remarkWidth,
                 RecordTableStyle.subRowHeightPx(getContext()),
                 RecordTableStyle.headerHeightPx(getContext()));
+        if (columns != null) {
+            int productWidth = columns.widths[columns.indexOf(RecordTableColumns.WATER_MIX1)];
+            int size = RecordCellFit.productTextSizePx(style.productBaseTextSizePx(),
+                    productWidth, columns.subRowHeight, RecordCellFit.NO_INSET_PX);
+            style.applyProductTextSize(size);
+        }
         headers = columns == null ? null : columns.headers();
         metrics.rebuild(columns, dayCount, getWidth(), getHeight());
         // 尺寸变化多半是键盘弹出把表挤矮了：先把正在编辑的格滚回可视区，
@@ -358,8 +364,8 @@ public class RecordTableView extends ViewGroup {
         canvas.clipRect(0, 0, width, headerHeight);
         canvas.drawRect(0, 0, width, headerHeight, style.fillPaint);
         cellRect.set(0, 0, columns.dateWidth, headerHeight);
-        drawCellFrame(canvas, cellRect, 1, style.headerText,
-                headerText(RecordTableColumns.DATE));
+        drawCellFrame(canvas, cellRect, 1, RecordTableStyle.TEXT_INSET_PX,
+                style.headerText, headerText(RecordTableColumns.DATE));
 
         canvas.save();
         canvas.clipRect(columns.dateWidth, 0, width, headerHeight);
@@ -370,8 +376,8 @@ public class RecordTableView extends ViewGroup {
                 continue;
             }
             cellRect.set(left, 0, left + w, headerHeight);
-            drawCellFrame(canvas, cellRect, 1, style.headerText,
-                    headerText(headers[i].textKey));
+            drawCellFrame(canvas, cellRect, 1, RecordTableStyle.TEXT_INSET_PX,
+                    style.headerText, headerText(headers[i].textKey));
         }
         canvas.restore();
         canvas.restore();
@@ -431,10 +437,15 @@ public class RecordTableView extends ViewGroup {
         String id = columns.ids[column];
         boolean grayed = textProvider != null && textProvider.isCellGrayed(day, id);
         int kind = columns.kinds[column];
-        int maxLines = kind == RecordTableColumns.KIND_NUMBER ? 1 : RecordCellText.MAX_LINES;
+        int maxLines = kind == RecordTableColumns.KIND_NUMBER ? 1
+                : kind == RecordTableColumns.KIND_REMARK
+                        ? RecordCellFit.maxLinesForHeight(h, style.remarkTextSizePx())
+                        : RecordCellFit.PRODUCT_LINE_COUNT;
+        float inset = RecordCellFit.insetPxForKind(kind, RecordTableStyle.TEXT_INSET_PX);
         style.fillPaint.setColor(grayed ? RecordTableStyle.GRAY_BG : RecordTableStyle.CELL_BG);
         cellRect.set(left, top, left + w, top + h);
-        drawCellFrame(canvas, cellRect, maxLines, style.textFor(kind, grayed), cellTextOf(day, id));
+        drawCellFrame(canvas, cellRect, maxLines, inset,
+                style.textFor(kind, grayed), cellTextOf(day, id));
     }
 
     private void drawDateCell(Canvas canvas, int day, int height, int scrollY) {
@@ -446,23 +457,25 @@ public class RecordTableView extends ViewGroup {
         style.fillPaint.setColor(RecordTableStyle.DATE_BG);
         cellRect.set(0, top, columns.dateWidth, top + h);
         String text = textProvider == null ? null : textProvider.getDateText(day);
-        drawCellFrame(canvas, cellRect, 1, style.dateText, text);
+        int maxLines = RecordCellFit.maxLinesForHeight(h, style.dateTextSizePx());
+        drawCellFrame(canvas, cellRect, maxLines, RecordTableStyle.TEXT_INSET_PX,
+                style.dateText, text);
     }
 
     /** 底色（调用方已设好 fillPaint 颜色）→ 文本 → 2px 边框 */
-    private void drawCellFrame(Canvas canvas, RectF rect, int maxLines,
+    private void drawCellFrame(Canvas canvas, RectF rect, int maxLines, float inset,
                                RecordTableStyle.TextSpec spec, String text) {
         canvas.drawRect(rect, style.fillPaint);
-        drawText(canvas, rect, spec, maxLines, text);
+        drawText(canvas, rect, spec, maxLines, inset, text);
         drawBorder(canvas, rect);
     }
 
     private void drawText(Canvas canvas, RectF rect, RecordTableStyle.TextSpec spec,
-                          int maxLines, String text) {
+                          int maxLines, float inset, String text) {
         if (text == null || text.isEmpty()) {
             return;
         }
-        float maxWidth = rect.width() - 2f * RecordTableStyle.TEXT_INSET_PX;
+        float maxWidth = rect.width() - 2f * inset;
         if (maxWidth <= 0f) {
             return;
         }
@@ -471,9 +484,11 @@ public class RecordTableView extends ViewGroup {
         if (lines == 0) {
             return;
         }
-        float inset = RecordTableStyle.GRID_STROKE_PX / 2f;
+        // 备注 / 产品 inset=0：文字可排到边框；数字格仍按半根网格线裁，避免压线
+        float clipInset = inset == 0f ? 0f : RecordTableStyle.GRID_STROKE_PX / 2f;
         canvas.save();
-        canvas.clipRect(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset);
+        canvas.clipRect(rect.left + clipInset, rect.top + clipInset,
+                rect.right - clipInset, rect.bottom - clipInset);
         cellText.draw(canvas, text, spec.paint, rect.centerX(),
                 spec.blockBaselineFor(rect.top, rect.height(), lines), spec.lineHeight());
         canvas.restore();

@@ -63,6 +63,13 @@ multiDexEnabled true
         }
     }
     buildTypes {
+        debug {
+            // 调试包也用发布密钥签名：与 mixcalc-lab 一致，避免同一台设备安装时签名校验不通过。
+            // 没有 keystore.properties 的机器自动回退默认调试签名。
+            if (hasSigningConfig) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

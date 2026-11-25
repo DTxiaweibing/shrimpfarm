@@ -96,6 +96,7 @@ public final class RecordCellEditor {
         editText.setTextColor(TEXT_COLOR);
         editText.setTypeface(Typeface.DEFAULT_BOLD);
         editText.setGravity(Gravity.CENTER);
+        editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
         editText.setPadding(0, 0, 0, 0);
         editText.setOverScrollMode(View.OVER_SCROLL_NEVER);
         editText.setBackground(buildCellBackground());
@@ -104,9 +105,11 @@ public final class RecordCellEditor {
 
     /** 按列类型重配输入：数字单行 + NEXT，备注多行 + DONE；换格时调用，不留上一格状态 */
     private void applyKindConfig(int kind) {
+        editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
         if (RecordCellRules.multiLine(kind)) {
             editText.setSingleLine(false);
-            editText.setMaxLines(2);
+            editText.setMaxLines(
+                    RecordCellFit.maxLinesForHeight(cellBounds.height(), editText.getTextSize()));
             editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
             editText.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());

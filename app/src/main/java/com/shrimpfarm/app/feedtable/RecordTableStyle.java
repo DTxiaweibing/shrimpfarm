@@ -77,6 +77,8 @@ public final class RecordTableStyle {
     private final TextSpec numberGrayText;
     private final TextSpec productGrayText;
     private final TextSpec remarkGrayText;
+    /** 产品格原始字号；每次 rebuild 都从它重算，避免多次缩小后无法恢复 */
+    private final float productBaseTextSizePx;
 
     public RecordTableStyle(Context context) {
         fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -96,6 +98,7 @@ public final class RecordTableStyle {
         numberGrayText = text(context, NUMBER_TEXT_SP, GRAY_TEXT_COLOR, true);
         productGrayText = text(context, PRODUCT_TEXT_SP, GRAY_TEXT_COLOR, false);
         remarkGrayText = text(context, REMARK_TEXT_SP, GRAY_TEXT_COLOR, false);
+        productBaseTextSizePx = productText.paint.getTextSize();
     }
 
     /** dp 转 px；与现版 {@code (int)(v * density)} 一样截断 */
@@ -111,6 +114,26 @@ public final class RecordTableStyle {
     /** 子行高度 = 40dp（现版每行 40dp） */
     public static int subRowHeightPx(Context context) {
         return dp(context, ROW_HEIGHT_DP);
+    }
+
+    /** 产品格原始字号（px）：绘制层按列宽缩小时从这里起算 */
+    public float productBaseTextSizePx() {
+        return productBaseTextSizePx;
+    }
+
+    /** 日期 / 备注格原始字号（px）：绘制层据此按格高算行数 */
+    public float dateTextSizePx() {
+        return dateText.paint.getTextSize();
+    }
+
+    public float remarkTextSizePx() {
+        return remarkText.paint.getTextSize();
+    }
+
+    /** 产品格按当前列宽统一缩字号；普通 / 灰显两份 Paint 一起更新 */
+    public void applyProductTextSize(int sizePx) {
+        productText.setTextSizePx(sizePx);
+        productGrayText.setTextSizePx(sizePx);
     }
 
     /** 按格类型与灰显状态取文本样式，绘制期只做字段选择 */
@@ -168,6 +191,12 @@ public final class RecordTableStyle {
         /** 行高 = descent - ascent */
         public float lineHeight() {
             return fontMetrics.descent - fontMetrics.ascent;
+        }
+
+        /** 改字号后必须重取 FontMetrics，否则基线会按旧字号算 */
+        public void setTextSizePx(float sizePx) {
+            paint.setTextSize(sizePx);
+            paint.getFontMetrics(fontMetrics);
         }
     }
 }

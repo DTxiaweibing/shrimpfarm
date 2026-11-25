@@ -14,8 +14,8 @@ import android.graphics.Paint;
  */
 public final class RecordCellText {
 
-    /** 产品格 / 备注格最多 2 行 */
-    public static final int MAX_LINES = 2;
+    /** 断行缓冲上限；实际行数由 {@link RecordCellFit#maxLinesForHeight} 按格高决定 */
+    public static final int MAX_LINES = RecordCellFit.MAX_TEXT_LINES;
 
     private static final String ELLIPSIS = "\u2026";
 
@@ -35,7 +35,7 @@ public final class RecordCellText {
      * @param text     文本，null / 空串时 lineCount 为 0
      * @param paint    已设好字号的文本 Paint
      * @param maxWidth 单行可用宽度（px）
-     * @param maxLines 1（数字格）或 {@link #MAX_LINES}（产品格 / 备注格）
+     * @param maxLines 1（数字 / 产品格）或按格高算出的行数（日期 / 备注格）
      */
     public void layout(CharSequence text, Paint paint, float maxWidth, int maxLines) {
         lineCount = 0;
