@@ -1,11 +1,12 @@
 package com.shrimpfarm.app.feedtable;
 
 /**
- * 记录表的几何度量与命中判定：把屏幕坐标换成「第几天 / 哪个子行 / 哪一列」。
+ * 记录表的几何度量与命中判定：把屏幕坐标换成「第几天 / 哪个子行 / 哪个槽位 → 哪个列」。
  *
  * <p>坐标约定（单位 px，原点在表体左上角）：</p>
  * <pre>
- * x：日期列固定 [0, dateWidth)；滚动列 x = dateWidth + Σ(前面的列宽) - scrollX
+ * x：日期列固定 [0, dateWidth)；槽位 x = dateWidth + Σ(前面的槽宽) - scrollX
+ *    （上下子行共用槽 0..5，备注独占槽 6）
  * y：表头固定 [0, headerHeight)；第 day 天顶部 y = headerHeight + day*dayHeight - scrollY
  * 一天 = 2 子行，子行高 subRowHeight
  * </pre>
@@ -25,7 +26,7 @@ public final class RecordTableMetrics {
         public final int day;
         /** {@link RecordTableColumns#SUB_TOP} / {@link RecordTableColumns#SUB_BOTTOM} / {@link RecordTableColumns#SUB_SPAN} */
         public final int subRow;
-        /** 滚动列下标（不含冻结日期列） */
+        /** 逻辑列下标（不含冻结日期列） */
         public final int column;
 
         public Hit(int day, int subRow, int column) {
@@ -72,7 +73,23 @@ public final class RecordTableMetrics {
     }
 
     /**
-     * 列的左边界（已含 dateWidth 偏移与 scrollX）。
+     * 槽位的左边界（已含 dateWidth 偏移与 scrollX）。
+     *
+     * @return 越界（{@code slot < 0} 或 {@code slot >= SLOT_COUNT}）返回 -1
+     */
+    public int xOfSlot(int slot, int scrollX) {
+        if (slot < 0 || slot >= RecordTableColumns.SLOT_COUNT) {
+            return -1;
+        }
+        int x = columns.dateWidth - scrollX;
+        for (int i = 0; i < slot; i++) {
+            x += columns.slotWidths[i];
+        }
+        return x;
+    }
+
+    /**
+     * 逻辑列的左边界（含 dateWidth 偏移与 scrollX）；同槽的上下两列 x 相同。
      *
      * @return 越界（{@code column < 0} 或 {@code column >= count()}）返回 -1
      */
@@ -80,11 +97,7 @@ public final class RecordTableMetrics {
         if (column < 0 || column >= columns.count()) {
             return -1;
         }
-        int x = columns.dateWidth - scrollX;
-        for (int i = 0; i < column; i++) {
-            x += columns.widths[i];
-        }
-        return x;
+        return xOfSlot(columns.slots[column], scrollX);
     }
 
     /**
@@ -130,20 +143,20 @@ public final class RecordTableMetrics {
     }
 
     /**
-     * 命中的滚动列下标。
+     * x 落在哪个横向槽位。
      *
-     * @return 日期列内（{@code x < dateWidth}）、超出最后一列、行宽退化时返回 -1
+     * @return 日期列内（{@code x < dateWidth}，被冻结列盖住）、超出最后一个槽、槽宽退化时返回 -1
      */
-    public int columnAt(float x, int scrollX) {
+    public int slotAt(float x, int scrollX) {
         int dateWidth = columns.dateWidth;
         if (x < dateWidth) {
             return -1;
         }
         int left = dateWidth - scrollX;
-        for (int i = 0; i < columns.count(); i++) {
-            int width = columns.widths[i];
+        for (int slot = 0; slot < RecordTableColumns.SLOT_COUNT; slot++) {
+            int width = columns.slotWidths[slot];
             if (x >= left && x < left + width) {
-                return i;
+                return slot;
             }
             left += width;
         }
@@ -151,16 +164,17 @@ public final class RecordTableMetrics {
     }
 
     /**
-     * 命中判定：列、天、子行三者都对上才算命中。
+     * 命中判定：先定槽位，再由「槽位 + 物理子行」定列。
      *
-     * <p>备注列纵跨两子行，上下子行都返回 {@link RecordTableColumns#SUB_SPAN}；
-     * 其余列只能命中它自己所在的子行（例如点上子行的 {@code mix1} 位置不算命中）。</p>
+     * <p>上下子行共用槽 0..5，所以同一 x 在上子行命中 {@code breakfast}、在下子行命中
+     * {@code mix1}；备注槽纵跨两子行，上下都命中 {@code remark} 且 subRow 为
+     * {@link RecordTableColumns#SUB_SPAN}。</p>
      *
      * @return 不命中返回 null
      */
     public Hit cellAt(float x, float y, int scrollX, int scrollY) {
-        int column = columnAt(x, scrollX);
-        if (column < 0) {
+        int slot = slotAt(x, scrollX);
+        if (slot < 0) {
             return null;
         }
         int day = dayAt(y, scrollY);
@@ -171,14 +185,11 @@ public final class RecordTableMetrics {
         if (subRow < 0) {
             return null;
         }
-        int columnSubRow = columns.subRows[column];
-        if (columnSubRow == RecordTableColumns.SUB_SPAN) {
-            return new Hit(day, RecordTableColumns.SUB_SPAN, column);
-        }
-        if (columnSubRow != subRow) {
+        int column = columns.columnAtSlot(slot, subRow);
+        if (column < 0) {
             return null;
         }
-        return new Hit(day, subRow, column);
+        return new Hit(day, columns.subRows[column], column);
     }
 
     public int clampScrollX(int scrollX) {

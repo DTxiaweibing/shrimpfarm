@@ -180,7 +180,7 @@ public class RecordTableView extends ViewGroup {
         canvas.save();
         canvas.clipRect(columns.dateWidth, 0, width, headerHeight);
         for (int i = 0; i < headers.length; i++) {
-            int left = metrics.xOf(headers[i].startColumn, scrollX);
+            int left = metrics.xOfSlot(headers[i].startSlot, scrollX);
             int w = spanWidth(headers[i]);
             if (left >= width || left + w <= columns.dateWidth) {
                 continue;
@@ -312,12 +312,12 @@ public class RecordTableView extends ViewGroup {
         return textProvider == null ? null : textProvider.getCellText(day, columnId);
     }
 
-    /** 表头一格横跨的宽度 = 覆盖的各列宽之和 */
+    /** 表头一格横跨的宽度 = 覆盖的各槽宽之和 */
     private int spanWidth(RecordTableColumns.Header header) {
-        int end = Math.min(header.startColumn + header.span, columns.count());
+        int end = Math.min(header.startSlot + header.span, RecordTableColumns.SLOT_COUNT);
         int w = 0;
-        for (int i = header.startColumn; i < end; i++) {
-            w += columns.widths[i];
+        for (int slot = header.startSlot; slot < end; slot++) {
+            w += columns.slotWidths[slot];
         }
         return w;
     }

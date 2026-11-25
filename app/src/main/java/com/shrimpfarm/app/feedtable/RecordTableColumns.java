@@ -1,15 +1,19 @@
 package com.shrimpfarm.app.feedtable;
 
 /**
- * 记录表的列模型：13 个横向滚动列 + 1 个冻结日期列 + 6 格表头。
+ * 记录表的列模型：13 个逻辑列分布在 7 个横向槽位上，外加 1 个冻结日期列。
+ *
+ * <p><b>槽位制</b>：一天 = 2 个等高子行，上下子行共用同一段 x 范围。横向共 7 个槽
+ * （{@link #SLOT_COUNT}）：槽 0..5 宽 {@code cellWidth}，槽 6 是备注槽（{@link #REMARK_SLOT}），
+ * 宽 {@code remarkWidth}。每个槽上下各放一个列——例如槽 0 上半是 {@code breakfast}、下半是
+ * {@code mix1}；备注列纵跨两子行，独占槽 6。这与现版「上排 6 格 / 下排 6 格同 x 区间 +
+ * 备注跨行」的视觉一致。</p>
  *
  * <p>横向坐标约定：日期列冻结在最左，永远占 {@code [0, dateWidth)}，不随 scrollX 移动；
- * 其余 13 列按 {@link #ids} 顺序从左到右排，未滚动时的左边界是
- * {@code dateWidth + Σ(前面各列宽度)}。本类只描述「有哪些列、多宽、属于哪个子行」，
- * 滚动换算与命中判定归 {@link RecordTableMetrics}。</p>
+ * 槽 s 的左边界是 {@code dateWidth + Σ_{i < s} slotWidths[i] - scrollX}。滚动换算与命中判定
+ * 归 {@link RecordTableMetrics}。</p>
  *
- * <p>纵向约定：一天 = 2 个等高子行（上子行 {@link #SUB_TOP} / 下子行 {@link #SUB_BOTTOM}），
- * 备注列纵跨两子行（{@link #SUB_SPAN}）。</p>
+ * <p>纵向约定：上子行 {@link #SUB_TOP} / 下子行 {@link #SUB_BOTTOM}，备注列 {@link #SUB_SPAN}。</p>
  *
  * <p>纯逻辑，不引用任何 Android 类型，可在普通 JVM 单测里直接构造。</p>
  */
@@ -29,6 +33,11 @@ public final class RecordTableColumns {
     /** 备注格：多行文本，纵跨两子行 */
     public static final int KIND_REMARK = 2;
 
+    /** 横向槽位数：6 个普通槽 + 1 个备注槽 */
+    public static final int SLOT_COUNT = 7;
+    /** 备注槽下标（纵跨两子行） */
+    public static final int REMARK_SLOT = 6;
+
     /** 冻结日期列的 id，不在 {@link #ids} 里（日期列不可编辑） */
     public static final String DATE = "date";
     public static final String BREAKFAST = "breakfast";
@@ -45,7 +54,7 @@ public final class RecordTableColumns {
     public static final String WATER_MIX4 = "waterMix4";
     public static final String REMARK = "remark";
 
-    /** 滚动列的固定顺序，同时决定横向先后。id 与 DayRecord 字段名一一对应。 */
+    /** 滚动列的固定顺序；id 与 DayRecord 字段名一一对应 */
     private static final String[] ID_TEMPLATE = {
             BREAKFAST, LUNCH, DINNER, NIGHT_SNACK,
             WATER_MIX1, WATER_MIX2,
@@ -61,6 +70,13 @@ public final class RecordTableColumns {
             SUB_SPAN,
     };
 
+    /** 与 {@link #ID_TEMPLATE} 平行：列所在的横向槽位（上下子行共用槽 0..5） */
+    private static final int[] SLOT_TEMPLATE = {
+            0, 1, 2, 3, 4, 5,
+            0, 1, 2, 3, 4, 5,
+            REMARK_SLOT,
+    };
+
     /** 与 {@link #ID_TEMPLATE} 平行 */
     private static final int[] KIND_TEMPLATE = {
             KIND_NUMBER, KIND_NUMBER, KIND_NUMBER, KIND_NUMBER,
@@ -70,14 +86,19 @@ public final class RecordTableColumns {
             KIND_REMARK,
     };
 
-    /** 13 个滚动列的 id，下标即横向列下标 */
+    /** 13 个逻辑列的 id，下标即列下标 */
     public final String[] ids;
     /** 与 {@link #ids} 平行：0 / 1 / {@link #SUB_SPAN} */
     public final int[] subRows;
-    /** 与 {@link #ids} 平行：各列宽度（px） */
+    /** 与 {@link #ids} 平行：列所在的横向槽位（{@code {0,1,2,3,4,5, 0,1,2,3,4,5, 6}}） */
+    public final int[] slots;
+    /** 与 {@link #ids} 平行：各列宽度（px）；普通列 = cellWidth，备注列 = remarkWidth */
     public final int[] widths;
     /** 与 {@link #ids} 平行：{@link #KIND_NUMBER} / {@link #KIND_PRODUCT} / {@link #KIND_REMARK} */
     public final int[] kinds;
+
+    /** 槽位宽度，下标即槽位：前 6 个 = cellWidth，最后一个 = remarkWidth */
+    public final int[] slotWidths;
 
     /** 冻结日期列宽度（= cellWidth，与现版日期格等宽） */
     public final int dateWidth;
@@ -95,17 +116,22 @@ public final class RecordTableColumns {
         this.headerHeight = headerHeight;
         this.ids = ID_TEMPLATE.clone();
         this.subRows = SUB_ROW_TEMPLATE.clone();
+        this.slots = SLOT_TEMPLATE.clone();
         this.kinds = KIND_TEMPLATE.clone();
         this.widths = new int[ID_TEMPLATE.length];
         for (int i = 0; i < widths.length; i++) {
             widths[i] = i == widths.length - 1 ? remarkWidth : cellWidth;
         }
+        this.slotWidths = new int[SLOT_COUNT];
+        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+            slotWidths[slot] = slot == REMARK_SLOT ? remarkWidth : cellWidth;
+        }
         this.headers = buildHeaders();
     }
 
     /**
-     * @param cellWidth    普通格宽度；日期列也用它
-     * @param remarkWidth  备注列宽度（纵跨两子行）
+     * @param cellWidth    普通槽宽度；日期列也用它
+     * @param remarkWidth  备注槽宽度（纵跨两子行）
      * @param subRowHeight 子行高度
      * @param headerHeight 表头高度
      */
@@ -114,7 +140,7 @@ public final class RecordTableColumns {
         return new RecordTableColumns(cellWidth, remarkWidth, subRowHeight, headerHeight);
     }
 
-    /** 滚动列数量（13，不含日期列） */
+    /** 逻辑列数量（13，不含日期列） */
     public int count() {
         return ids.length;
     }
@@ -139,13 +165,47 @@ public final class RecordTableColumns {
         return subRowHeight * 2;
     }
 
-    /** 13 个滚动列的宽度之和，不含冻结日期列 */
+    /** 横向滚动总宽度 = Σ 槽宽（不含冻结日期列） */
     public int totalWidth() {
         int sum = 0;
-        for (int width : widths) {
+        for (int width : slotWidths) {
             sum += width;
         }
         return sum;
+    }
+
+    /**
+     * @return 槽位宽度；越界返回 -1
+     */
+    public int slotWidth(int slot) {
+        if (slot < 0 || slot >= slotWidths.length) {
+            return -1;
+        }
+        return slotWidths[slot];
+    }
+
+    /**
+     * 槽位 + 物理子行 → 列下标。
+     *
+     * <p>备注列（{@link #SUB_SPAN}）对 {@link #SUB_TOP} / {@link #SUB_BOTTOM} 都返回它自己；
+     * 槽位或子行越界返回 -1。</p>
+     */
+    public int columnAtSlot(int slot, int subRow) {
+        if (slot < 0 || slot >= SLOT_COUNT) {
+            return -1;
+        }
+        if (subRow != SUB_TOP && subRow != SUB_BOTTOM) {
+            return -1;
+        }
+        for (int i = 0; i < ids.length; i++) {
+            if (slots[i] != slot) {
+                continue;
+            }
+            if (subRows[i] == SUB_SPAN || subRows[i] == subRow) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -161,29 +221,29 @@ public final class RecordTableColumns {
                 new Header("feeding_header_lunch", 1, 1),
                 new Header("feeding_header_dinner", 2, 1),
                 new Header("feeding_header_night_snack", 3, 1),
-                // 「调水」横跨 waterMix1 + waterMix2
+                // 「调水」横跨槽 4 + 槽 5
                 new Header("feeding_header_water", 4, 2),
-                new Header("feeding_header_remark", 12, 1),
+                new Header("feeding_header_remark", REMARK_SLOT, 1),
         };
     }
 
     /**
-     * 表头一格：文本资源名 + 起始列 + 跨列数。
+     * 表头一格：文本资源名 + 起始槽位 + 跨几个槽。
      *
-     * <p>日期列的表头不在这里，绘制方直接用 {@code R.string.header_date}。</p>
+     * <p>日期列的表头不在这里，绘制方直接用 {@code provider.getHeaderText(RecordTableColumns.DATE)}。</p>
      */
     public static final class Header {
 
         /** 字符串资源名，不含 {@code "R.string."} 前缀 */
         public final String textKey;
-        /** 起始列下标（滚动列下标） */
-        public final int startColumn;
-        /** 跨几列 */
+        /** 起始槽位下标（0..6） */
+        public final int startSlot;
+        /** 跨几个槽 */
         public final int span;
 
-        public Header(String textKey, int startColumn, int span) {
+        public Header(String textKey, int startSlot, int span) {
             this.textKey = textKey;
-            this.startColumn = startColumn;
+            this.startSlot = startSlot;
             this.span = span;
         }
     }

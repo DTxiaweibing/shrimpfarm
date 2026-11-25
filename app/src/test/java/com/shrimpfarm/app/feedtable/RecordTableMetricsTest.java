@@ -8,10 +8,11 @@ import static org.junit.Assert.assertNull;
 import org.junit.Test;
 
 /**
- * 记录表几何度量的回归测试。
+ * 记录表几何度量的回归测试（槽位制）。
  *
  * <p>基准布局：cellWidth=100、remarkWidth=300、dateWidth=100、subRowHeight=40、headerHeight=40，
- * 因此 dayHeight=80、totalWidth=1500。列 x 的基准：col0 左 100、col1 左 200、col12 左 1300。</p>
+ * 因此 dayHeight=80、totalWidth=6*100+300=900。槽位 x 的基准：槽 0 左 100、槽 1 左 200、
+ * 槽 5 左 600、槽 6（备注）左 700；上子行 {@code breakfast} 与下子行 {@code mix1} 同在槽 0。</p>
  */
 public class RecordTableMetricsTest {
 
@@ -39,15 +40,32 @@ public class RecordTableMetricsTest {
     }
 
     @Test
-    public void columnXAccumulatesFromDateWidth() {
+    public void columnXAccumulatesBySlot() {
         RecordTableMetrics m = metrics(1, 400, 200);
         assertEquals(100, m.xOf(0, 0));
         assertEquals(200, m.xOf(1, 0));
-        // 前 12 列各 100 宽：100 + 1200
-        assertEquals(1300, m.xOf(12, 0));
+        assertEquals(600, m.xOf(5, 0));
+        // mix1（下子行列 6）与 breakfast 同在槽 0，x 相同
+        assertEquals(100, m.xOf(6, 0));
+        // 备注列独占槽 6：100 + 6*100
+        assertEquals(700, m.xOf(12, 0));
         // 越界列
         assertEquals(-1, m.xOf(13, 0));
         assertEquals(-1, m.xOf(-1, 0));
+    }
+
+    @Test
+    public void xOfSlotFollowsSlotWidths() {
+        RecordTableMetrics m = metrics(1, 400, 200);
+        assertEquals(100, m.xOfSlot(0, 0));
+        assertEquals(200, m.xOfSlot(1, 0));
+        assertEquals(600, m.xOfSlot(5, 0));
+        assertEquals(700, m.xOfSlot(6, 0));
+        assertEquals(-1, m.xOfSlot(7, 0));
+        assertEquals(-1, m.xOfSlot(-1, 0));
+        // 随 scrollX 左移
+        assertEquals(50, m.xOfSlot(0, 50));
+        assertEquals(650, m.xOfSlot(6, 50));
     }
 
     @Test
@@ -55,7 +73,7 @@ public class RecordTableMetricsTest {
         RecordTableMetrics m = metrics(1, 400, 200);
         assertEquals(0, m.dateX());
         assertEquals(100, m.dateWidth());
-        // 滚动列随 scrollX 左移，日期列宽度不变
+        // 槽位随 scrollX 左移，日期列宽度不变
         assertEquals(50, m.xOf(0, 50));
         assertEquals(100, m.dateWidth());
         assertEquals(0, m.dateX());
@@ -84,14 +102,13 @@ public class RecordTableMetricsTest {
     }
 
     @Test
-    public void rejectsColumnOnWrongSubRow() {
+    public void sameSlotResolvesColumnBySubRow() {
         RecordTableMetrics m = metrics(2, 400, 200);
-        // breakfast 只在上子行，下子行同一 x 不算命中
-        assertNull("breakfast 下子行", m.cellAt(150, 100, 0, 0));
-        // mix1 只在下子行
-        assertHit("mix1 下子行", m.cellAt(750, 100, 0, 0),
+        // 同一个 x（槽 0）：上子行是 breakfast、下子行是 mix1
+        assertHit("槽0 上子行", m.cellAt(150, 60, 0, 0),
+                0, RecordTableColumns.SUB_TOP, 0);
+        assertHit("槽0 下子行", m.cellAt(150, 100, 0, 0),
                 0, RecordTableColumns.SUB_BOTTOM, 6);
-        assertNull("mix1 上子行", m.cellAt(750, 60, 0, 0));
     }
 
     @Test
@@ -106,9 +123,9 @@ public class RecordTableMetricsTest {
     @Test
     public void remarkHitsBothSubRowsAsSpan() {
         RecordTableMetrics m = metrics(2, 400, 200);
-        assertHit("备注上子行", m.cellAt(1350, 60, 0, 0),
+        assertHit("备注上子行", m.cellAt(750, 60, 0, 0),
                 0, RecordTableColumns.SUB_SPAN, 12);
-        assertHit("备注下子行", m.cellAt(1350, 100, 0, 0),
+        assertHit("备注下子行", m.cellAt(750, 100, 0, 0),
                 0, RecordTableColumns.SUB_SPAN, 12);
     }
 
@@ -117,21 +134,24 @@ public class RecordTableMetricsTest {
         RecordTableMetrics m = metrics(2, 400, 200);
         // 第 3 天位置：只有 2 天
         assertNull("第 3 天", m.cellAt(150, 200, 0, 0));
-        assertEquals(-1, m.columnAt(5000, 0));
-        // 最后一列右边界 1600 是开区间
-        assertEquals(12, m.columnAt(1599, 0));
-        assertEquals(-1, m.columnAt(1600, 0));
+        assertEquals(-1, m.slotAt(5000, 0));
+        // 最后一个槽右边界 1000 是开区间
+        assertEquals(6, m.slotAt(999, 0));
+        assertEquals(-1, m.slotAt(1000, 0));
     }
 
     @Test
-    public void columnBoundariesAreHalfOpen() {
+    public void slotBoundariesAreHalfOpen() {
         RecordTableMetrics m = metrics(2, 400, 200);
-        assertEquals(-1, m.columnAt(99, 0));
-        assertEquals(0, m.columnAt(100, 0));
-        assertEquals(0, m.columnAt(199, 0));
-        assertEquals(1, m.columnAt(200, 0));
-        assertEquals(11, m.columnAt(1299, 0));
-        assertEquals(12, m.columnAt(1300, 0));
+        assertEquals(-1, m.slotAt(99, 0));
+        assertEquals(0, m.slotAt(100, 0));
+        assertEquals(0, m.slotAt(199, 0));
+        assertEquals(1, m.slotAt(200, 0));
+        assertEquals(4, m.slotAt(599, 0));
+        assertEquals(5, m.slotAt(600, 0));
+        assertEquals(5, m.slotAt(699, 0));
+        assertEquals(6, m.slotAt(700, 0));
+        assertEquals(6, m.slotAt(999, 0));
     }
 
     @Test
@@ -140,10 +160,10 @@ public class RecordTableMetricsTest {
         assertEquals(160, m.bodyHeight);
         // 3*80 - 160
         assertEquals(80, m.maxScrollY);
-        // 1500 - (400 - 100)
-        assertEquals(1200, m.maxScrollX);
+        // totalWidth 900 - (400 - 100) = 600
+        assertEquals(600, m.maxScrollX);
         assertEquals(0, m.clampScrollX(-5));
-        assertEquals(1200, m.clampScrollX(99999));
+        assertEquals(600, m.clampScrollX(99999));
         assertEquals(0, m.clampScrollY(-1));
         assertEquals(80, m.clampScrollY(999));
     }
@@ -158,9 +178,9 @@ public class RecordTableMetricsTest {
     @Test
     public void hitsFollowScrollOffsets() {
         RecordTableMetrics m = metrics(2, 400, 200);
-        // scrollX=100 后 col0 左边界落到 0，整列被日期列盖住，不可命中
+        // scrollX=100 后槽 0 左边界落到 0，整槽被日期列盖住，不可命中
         assertEquals(0, m.xOf(0, 100));
-        assertEquals(-1, m.columnAt(50, 100));
+        assertEquals(-1, m.slotAt(50, 100));
         assertHit("滚动后命中 lunch", m.cellAt(150, 60, 100, 0),
                 0, RecordTableColumns.SUB_TOP, 1);
         // scrollY=80 后第 0 天整体上移一天高
@@ -199,7 +219,7 @@ public class RecordTableMetricsTest {
         assertEquals(160, m.bodyHeight);
         // 1*80 - 160 < 0 → 夹到 0，不残留上一次的 240
         assertEquals(0, m.maxScrollY);
-        assertEquals(1200, m.maxScrollX);
+        assertEquals(600, m.maxScrollX);
     }
 
     @Test
@@ -222,7 +242,7 @@ public class RecordTableMetricsTest {
         assertEquals(RecordTableColumns.KIND_NUMBER, c.kinds[3]);
         assertEquals(RecordTableColumns.KIND_PRODUCT, c.kinds[4]);
         assertEquals(RecordTableColumns.KIND_REMARK, c.kinds[12]);
-        assertEquals(12 * CELL_W + REMARK_W, c.totalWidth());
+        assertEquals(6 * CELL_W + REMARK_W, c.totalWidth());
         assertEquals(2 * SUB_ROW_H, c.dayHeight());
         assertEquals(100, c.dateWidth);
         assertEquals(40, c.subRowHeight);
@@ -230,19 +250,68 @@ public class RecordTableMetricsTest {
     }
 
     @Test
+    public void slotsMapColumnsToSixPlusRemarkSlot() {
+        RecordTableColumns c = columns();
+        assertEquals(7, RecordTableColumns.SLOT_COUNT);
+        assertEquals(6, RecordTableColumns.REMARK_SLOT);
+        assertArrayEquals(new int[]{0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 6}, c.slots);
+        assertArrayEquals(new int[]{CELL_W, CELL_W, CELL_W, CELL_W, CELL_W, CELL_W, REMARK_W},
+                c.slotWidths);
+        // 列宽与所在槽宽一致
+        assertEquals(CELL_W, c.widths[0]);
+        assertEquals(CELL_W, c.widths[6]);
+        assertEquals(REMARK_W, c.widths[12]);
+    }
+
+    @Test
+    public void slotWidthRejectsOutOfRange() {
+        RecordTableColumns c = columns();
+        assertEquals(100, c.slotWidth(0));
+        assertEquals(100, c.slotWidth(5));
+        assertEquals(300, c.slotWidth(RecordTableColumns.REMARK_SLOT));
+        assertEquals(-1, c.slotWidth(-1));
+        assertEquals(-1, c.slotWidth(RecordTableColumns.SLOT_COUNT));
+    }
+
+    @Test
+    public void columnAtSlotMapsBothSubRows() {
+        RecordTableColumns c = columns();
+        assertEquals(0, c.columnAtSlot(0, RecordTableColumns.SUB_TOP));
+        assertEquals(6, c.columnAtSlot(0, RecordTableColumns.SUB_BOTTOM));
+        assertEquals(1, c.columnAtSlot(1, RecordTableColumns.SUB_TOP));
+        assertEquals(7, c.columnAtSlot(1, RecordTableColumns.SUB_BOTTOM));
+        assertEquals(5, c.columnAtSlot(5, RecordTableColumns.SUB_TOP));
+        assertEquals(11, c.columnAtSlot(5, RecordTableColumns.SUB_BOTTOM));
+        // 备注槽纵跨两子行
+        assertEquals(12, c.columnAtSlot(RecordTableColumns.REMARK_SLOT, RecordTableColumns.SUB_TOP));
+        assertEquals(12, c.columnAtSlot(RecordTableColumns.REMARK_SLOT, RecordTableColumns.SUB_BOTTOM));
+        // 越界槽 / 非法子行
+        assertEquals(-1, c.columnAtSlot(7, RecordTableColumns.SUB_TOP));
+        assertEquals(-1, c.columnAtSlot(-1, RecordTableColumns.SUB_TOP));
+        assertEquals(-1, c.columnAtSlot(0, RecordTableColumns.SUB_SPAN));
+    }
+
+    @Test
+    public void totalWidthCountsSlotsNotColumns() {
+        // 6 个普通槽 + 1 个备注槽；不是 12 个 cellWidth 并排
+        assertEquals(900, columns().totalWidth());
+        assertEquals(6 * CELL_W + REMARK_W, columns().totalWidth());
+    }
+
+    @Test
     public void headersDescribeFixedLayout() {
         RecordTableColumns.Header[] headers = columns().headers();
         assertEquals(6, headers.length);
         assertEquals("feeding_header_breakfast", headers[0].textKey);
-        assertEquals(0, headers[0].startColumn);
+        assertEquals(0, headers[0].startSlot);
         assertEquals(1, headers[0].span);
         assertEquals("feeding_header_night_snack", headers[3].textKey);
-        assertEquals(3, headers[3].startColumn);
+        assertEquals(3, headers[3].startSlot);
         assertEquals("feeding_header_water", headers[4].textKey);
-        assertEquals(4, headers[4].startColumn);
+        assertEquals(4, headers[4].startSlot);
         assertEquals(2, headers[4].span);
         assertEquals("feeding_header_remark", headers[5].textKey);
-        assertEquals(12, headers[5].startColumn);
+        assertEquals(RecordTableColumns.REMARK_SLOT, headers[5].startSlot);
         assertEquals(1, headers[5].span);
     }
 
