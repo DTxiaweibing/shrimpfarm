@@ -187,7 +187,8 @@ public class RecordTableMetricsTest {
     }
 
     @Test
-    public void hitsFollowScrollOffsets() {        RecordTableMetrics m = metrics(2, 400, 200);
+    public void hitsFollowScrollOffsets() {
+        RecordTableMetrics m = metrics(2, 400, 200);
         // scrollX=100 后槽 0 左边界落到 0，整槽被日期列盖住，不可命中
         assertEquals(0, m.xOf(0, 100));
         assertEquals(-1, m.slotAt(50, 100));
