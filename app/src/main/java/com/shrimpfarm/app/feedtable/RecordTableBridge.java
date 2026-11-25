@@ -33,10 +33,11 @@ final class RecordTableBridge implements OnRecordCellTapListener {
         RecordTableColumns columns = table.getColumns();
         if (columns != null) {
             int column = columns.indexOf(columnId);
-            if (column >= 0 && columns.kinds[column] == RecordTableColumns.KIND_NUMBER) {
+            if (column >= 0 && RecordCellRules.opensEditor(columns.kinds[column])) {
+                // 数字格 / 备注格：进共用编辑器（备注走多行配置）
                 editor.begin(day, column);
             } else {
-                // 产品格 / 备注格 / 只读格：先结算并收起当前编辑（产品弹窗由 R6/R7 接）
+                // 产品格 / 只读格：先结算收起，转给外部弹产品框（R7 接线）
                 editor.dismiss();
             }
         }
@@ -87,6 +88,8 @@ final class RecordTableBridge implements OnRecordCellTapListener {
             return;
         }
         editListener.onCellCommitted(day, columns.ids[column], text);
+        // 提交后宿主已更新数据：只重绘这一格，不做整表 rebuild
+        table.invalidateCell(day, column);
     }
 
     void notifyEditEnd(int day, int column) {

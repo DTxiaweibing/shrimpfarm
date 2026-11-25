@@ -39,6 +39,8 @@ public final class RecordCellEditor {
 
     private int day = -1;
     private int column = -1;
+    /** 当前格的列类型（数字 / 备注），决定输入配置与提交方式 */
+    private int kind = RecordTableColumns.KIND_NUMBER;
     private boolean editing;
     /** 程序化 setText 期间压住文本回调 */
     private boolean suppress;
@@ -72,12 +74,17 @@ public final class RecordCellEditor {
                 end();
             }
         });
-        // IME「下一项」：换格 / 表尾收起都交给 bridge（含 120ms 节流）
+        // 数字格「下一项」换格 / 备注格「完成」提交收起
         editText.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_NEXT && editing) {
-                int currentDay = day;
-                int currentColumn = column;
-                table.editBridge().handleEditNext(currentDay, currentColumn);
+            if (!editing) {
+                return false;
+            }
+            if (actionId == EditorInfo.IME_ACTION_NEXT) {
+                table.editBridge().handleEditNext(day, column);
+                return true;
+            }
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                dismiss();
                 return true;
             }
             return false;
@@ -91,12 +98,31 @@ public final class RecordCellEditor {
         editText.setGravity(Gravity.CENTER);
         editText.setPadding(0, 0, 0, 0);
         editText.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        editText.setSingleLine(true);
-        editText.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        // R5：软键盘右下角显示「下一项」，换格由 bridge.handleEditNext 负责
-        editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
         editText.setBackground(buildCellBackground());
         editText.setVisibility(View.GONE);
+    }
+
+    /** 按列类型重配输入：数字单行 + NEXT，备注多行 + DONE；换格时调用，不留上一格状态 */
+    private void applyKindConfig(int kind) {
+        if (RecordCellRules.multiLine(kind)) {
+            editText.setSingleLine(false);
+            editText.setMaxLines(2);
+            editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
+            editText.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
+        } else {
+            editText.setMovementMethod(null);
+            editText.setSingleLine(true);
+            editText.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            // R5：软键盘右下角显示「下一项」，换格由 bridge.handleEditNext 负责
+            editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
+        }
+    }
+
+    private InputFilter[] filtersFor(int kind) {
+        return RecordCellRules.filtersNumber(kind)
+                ? new InputFilter[]{CellInputRules::filterNumber}
+                : NO_FILTERS;
     }
 
     /** 与自绘网格一致：白底 + 2px 黑描边，不新增 drawable 资源 */
@@ -120,14 +146,14 @@ public final class RecordCellEditor {
     // ==================== 打开 / 收起 ====================
 
     /**
-     * 打开某格的编辑器。只接受可编辑的数字格；正在编辑别的格时先提交再切换（不收起键盘）。
+     * 打开某格的编辑器。只接受可编辑的数字格 / 备注格；正在编辑别的格时先提交再切换（不收起键盘）。
      */
     void begin(int day, int column) {
         RecordTableColumns columns = table.getColumns();
         RecordTextProvider provider = table.getTextProvider();
         if (columns == null || provider == null
                 || column < 0 || column >= columns.count()
-                || columns.kinds[column] != RecordTableColumns.KIND_NUMBER) {
+                || !RecordCellRules.opensEditor(columns.kinds[column])) {
             return;
         }
         String columnId = columns.ids[column];
@@ -146,6 +172,8 @@ public final class RecordCellEditor {
         }
         this.day = day;
         this.column = column;
+        this.kind = columns.kinds[column];
+        applyKindConfig(kind);
         editing = true;
         dirty = false;
 
@@ -156,7 +184,7 @@ public final class RecordCellEditor {
             String text = provider.getCellText(day, columnId);
             editText.setText(text == null ? "" : text);
             editText.setSelection(editText.getText().length());
-            editText.setFilters(new InputFilter[]{CellInputRules::filterNumber});
+            editText.setFilters(filtersFor(kind));
         } finally {
             suppress = false;
         }
@@ -205,7 +233,7 @@ public final class RecordCellEditor {
             return;
         }
         dirty = false;
-        String text = CellInputRules.normalizeNumber(editText.getText().toString());
+        String text = RecordCellRules.commitText(kind, editText.getText().toString());
         table.editBridge().notifyEditCommitted(day, column, text);
     }
 

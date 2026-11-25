@@ -181,6 +181,16 @@ public class RecordTableView extends ViewGroup {
         return out.width() > 0 && out.height() > 0;
     }
 
+    /** 提交后只重绘这一格；越界 / 不可见时整屏兜底 */
+    void invalidateCell(int day, int column) {
+        Rect r = new Rect();
+        if (cellRect(day, column, r)) {
+            invalidate(r.left - 1, r.top - 1, r.right + 1, r.bottom + 1);
+        } else {
+            invalidate();
+        }
+    }
+
     /** 编辑器读取单元格文本用；不对外暴露 */
     RecordTextProvider getTextProvider() {
         return textProvider;
