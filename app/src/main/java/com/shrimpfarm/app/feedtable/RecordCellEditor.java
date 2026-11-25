@@ -3,16 +3,22 @@ package com.shrimpfarm.app.feedtable;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextWatcher;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+
+import com.shrimpfarm.app.R;
 
 /**
  * 全表唯一的单元格编辑器：一个 {@link EditText} 贴到当前命中的数字格上。
@@ -50,7 +56,8 @@ public final class RecordCellEditor {
     RecordCellEditor(RecordTableView table) {
         this.table = table;
         this.context = table.getContext();
-        this.editText = new EditText(context);
+        // 主题里显式给 cursor drawable：minSdk 28 也能拿到橘红光标，不用反射私有字段
+        this.editText = new EditText(new ContextThemeWrapper(context, R.style.RecordCellCursor));
         configure();
         editText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -70,6 +77,11 @@ public final class RecordCellEditor {
             }
         });
         editText.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && editing) {
+                // 重新置一次才会重启闪烁，否则部分机型焦点到了也不画光标
+                editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
+                return;
+            }
             if (!hasFocus && editing) {
                 end();
             }
@@ -92,20 +104,38 @@ public final class RecordCellEditor {
     }
 
     private void configure() {
-        editText.setTextSize(16);
+        editText.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                table.editorTextSizePx(RecordTableColumns.KIND_NUMBER));
         editText.setTextColor(TEXT_COLOR);
         editText.setTypeface(Typeface.DEFAULT_BOLD);
         editText.setGravity(Gravity.CENTER);
-        editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
         editText.setPadding(0, 0, 0, 0);
         editText.setOverScrollMode(View.OVER_SCROLL_NEVER);
         editText.setBackground(buildCellBackground());
         editText.setVisibility(View.GONE);
     }
 
+    /** 主题兜底已在构造时生效；29+ 用策略常量再显式钉一次，确保不被外部样式覆盖 */
+    private void applyCursorDrawable() {
+        if (RecordCellFit.usesPublicCursorApi(Build.VERSION.SDK_INT)) {
+            editText.setTextCursorDrawable(buildCursorDrawable());
+        }
+    }
+
+    /** 颜色 / 宽度取自 {@link RecordCellFit}，与 XML 兜底资源同值 */
+    private Drawable buildCursorDrawable() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(RecordCellFit.CURSOR_COLOR);
+        int widthPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                RecordCellFit.CURSOR_WIDTH_DP, context.getResources().getDisplayMetrics());
+        drawable.setSize(widthPx, -1);
+        return drawable;
+    }
+
     /** 按列类型重配输入：数字单行 + NEXT，备注多行 + DONE；换格时调用，不留上一格状态 */
     private void applyKindConfig(int kind) {
-        editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
+        editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, table.editorTextSizePx(kind));
         if (RecordCellRules.multiLine(kind)) {
             editText.setSingleLine(false);
             editText.setMaxLines(
@@ -120,6 +150,8 @@ public final class RecordCellEditor {
             // R5：软键盘右下角显示「下一项」，换格由 bridge.handleEditNext 负责
             editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
         }
+        applyCursorDrawable();
+        editText.setCursorVisible(RecordCellFit.SHOW_CURSOR);
     }
 
     private InputFilter[] filtersFor(int kind) {

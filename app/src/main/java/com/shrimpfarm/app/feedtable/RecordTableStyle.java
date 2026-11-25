@@ -79,6 +79,8 @@ public final class RecordTableStyle {
     private final TextSpec remarkGrayText;
     /** 产品格原始字号；每次 rebuild 都从它重算，避免多次缩小后无法恢复 */
     private final float productBaseTextSizePx;
+    /** 最近一次 rebuild 应用的字号：产品与备注共用，编辑器也照这个值设 */
+    private float appliedTextSizePx;
 
     public RecordTableStyle(Context context) {
         fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -99,6 +101,7 @@ public final class RecordTableStyle {
         productGrayText = text(context, PRODUCT_TEXT_SP, GRAY_TEXT_COLOR, false);
         remarkGrayText = text(context, REMARK_TEXT_SP, GRAY_TEXT_COLOR, false);
         productBaseTextSizePx = productText.paint.getTextSize();
+        appliedTextSizePx = productBaseTextSizePx;
     }
 
     /** dp 转 px；与现版 {@code (int)(v * density)} 一样截断 */
@@ -130,10 +133,26 @@ public final class RecordTableStyle {
         return remarkText.paint.getTextSize();
     }
 
-    /** 产品格按当前列宽统一缩字号；普通 / 灰显两份 Paint 一起更新 */
-    public void applyProductTextSize(int sizePx) {
+    /** 数字格字号（px）：编辑器按 px 设置，避免 sp 缩放 */
+    public float numberTextSizePx() {
+        return numberText.paint.getTextSize();
+    }
+
+    /** 产品格当前字号（px）；备注显示与编辑都跟随它 */
+    public float productTextSizePx() {
+        return appliedTextSizePx;
+    }
+
+    /**
+     * 按当前列宽统一缩字号；产品与备注的普通 / 灰显四份 Paint 一起更新，
+     * 保证「调水动保/拌料动宝」和备注显示、编辑时字号一致。
+     */
+    public void applyShrunkTextSize(int sizePx) {
         productText.setTextSizePx(sizePx);
         productGrayText.setTextSizePx(sizePx);
+        remarkText.setTextSizePx(sizePx);
+        remarkGrayText.setTextSizePx(sizePx);
+        appliedTextSizePx = sizePx;
     }
 
     /** 按格类型与灰显状态取文本样式，绘制期只做字段选择 */

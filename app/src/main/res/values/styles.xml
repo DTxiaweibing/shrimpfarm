@@ -111,6 +111,12 @@
         <item name="android:windowLightNavigationBar">true</item>
     </style>
 
+    <!-- 记录表单元格编辑器的光标主题：用 ContextThemeWrapper 套在唯一 EditText 上，
+         minSdk 28 也能拿到显式橘红光标，不必反射 TextView 私有字段。 -->
+    <style name="RecordCellCursor">
+        <item name="android:textCursorDrawable">@drawable/record_cursor_orange</item>
+    </style>
+
     <!-- ==================== 财务模块字段样式 ==================== -->
     <style name="FarmFieldLabel" parent="@android:style/Widget.TextView">
         <item name="android:layout_width">wrap_content</item>

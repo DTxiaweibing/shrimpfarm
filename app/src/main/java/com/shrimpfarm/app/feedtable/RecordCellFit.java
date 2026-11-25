@@ -19,8 +19,35 @@ public final class RecordCellFit {
     public static final float NO_INSET_PX = 0f;
     /** 可编辑格必须显式显示光标，避免部分软键盘 / 主题下光标不可见 */
     public static final boolean SHOW_CURSOR = true;
+    /** 光标橘红色：白底上对比足够，不依赖主题的 colorAccent */
+    public static final int CURSOR_COLOR = 0xFFFF5722;
+    /** 光标宽度 dp：与网格线同量级，粗到能看见 */
+    public static final float CURSOR_WIDTH_DP = 2f;
+    /** {@link android.widget.TextView#setTextCursorDrawable(int)} 的起始 API */
+    public static final int CURSOR_PUBLIC_API = 29;
+    /** 备注格的显示与编辑字号都跟随产品格自适应结果 */
+    public static final boolean REMARK_FOLLOWS_PRODUCT_TEXT_SIZE = true;
 
     private RecordCellFit() {
+    }
+
+    /** minSdk 28 走主题兜底；29 起可再显式调用公开 API 钉住 drawable */
+    public static boolean usesPublicCursorApi(int sdkInt) {
+        return sdkInt >= CURSOR_PUBLIC_API;
+    }
+
+    /**
+     * 编辑器字号策略：备注 / 产品跟随产品格自适应字号，数字格保留自身字号。
+     *
+     * <p>返回值单位 px，调用方用 {@code COMPLEX_UNIT_PX} 设置，避免 sp 缩放把字号又放大。</p>
+     */
+    public static float editorTextSizePx(int kind, float numberTextSizePx, float productTextSizePx) {
+        if (REMARK_FOLLOWS_PRODUCT_TEXT_SIZE
+                && (kind == RecordTableColumns.KIND_REMARK
+                    || kind == RecordTableColumns.KIND_PRODUCT)) {
+            return productTextSizePx;
+        }
+        return numberTextSizePx;
     }
 
     /**

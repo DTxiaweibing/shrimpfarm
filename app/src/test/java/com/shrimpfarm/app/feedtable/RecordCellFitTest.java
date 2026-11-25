@@ -1,6 +1,7 @@
 package com.shrimpfarm.app.feedtable;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -61,5 +62,29 @@ public class RecordCellFitTest {
     @Test
     public void editableCellCursorIsExplicitlyVisible() {
         assertTrue(RecordCellFit.SHOW_CURSOR);
+    }
+
+    @Test
+    public void cursorIsOrangeRedAndWideEnoughToSee() {
+        assertEquals(0xFFFF5722, RecordCellFit.CURSOR_COLOR);
+        assertEquals(2f, RecordCellFit.CURSOR_WIDTH_DP, 0.001f);
+    }
+
+    @Test
+    public void cursorDrawableUsesPublicApiFrom29Only() {
+        assertFalse(RecordCellFit.usesPublicCursorApi(28));
+        assertTrue(RecordCellFit.usesPublicCursorApi(29));
+        assertTrue(RecordCellFit.usesPublicCursorApi(36));
+    }
+
+    @Test
+    public void remarkEditorFontFollowsProductButNumberKeepsItsOwn() {
+        assertTrue(RecordCellFit.REMARK_FOLLOWS_PRODUCT_TEXT_SIZE);
+        assertEquals(18f, RecordCellFit.editorTextSizePx(
+                RecordTableColumns.KIND_REMARK, 24f, 18f), 0.001f);
+        assertEquals(18f, RecordCellFit.editorTextSizePx(
+                RecordTableColumns.KIND_PRODUCT, 24f, 18f), 0.001f);
+        assertEquals(24f, RecordCellFit.editorTextSizePx(
+                RecordTableColumns.KIND_NUMBER, 24f, 18f), 0.001f);
     }
 }

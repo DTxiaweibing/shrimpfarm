@@ -306,7 +306,7 @@ public class RecordTableView extends ViewGroup {
             int productWidth = columns.widths[columns.indexOf(RecordTableColumns.WATER_MIX1)];
             int size = RecordCellFit.productTextSizePx(style.productBaseTextSizePx(),
                     productWidth, columns.subRowHeight, RecordCellFit.NO_INSET_PX);
-            style.applyProductTextSize(size);
+            style.applyShrunkTextSize(size);
         }
         headers = columns == null ? null : columns.headers();
         metrics.rebuild(columns, dayCount, getWidth(), getHeight());
@@ -316,6 +316,12 @@ public class RecordTableView extends ViewGroup {
         // 早先设置的滚动值在这里按新度量重新夹一次；请求值本身保留，尺寸变大后能恢复
         applyScrollClamp();
         invalidate();
+    }
+
+    /** 编辑器按列类型取字号：数字用自己的，备注跟随产品自适应结果（单位 px） */
+    float editorTextSizePx(int kind) {
+        return RecordCellFit.editorTextSizePx(kind,
+                style.numberTextSizePx(), style.productTextSizePx());
     }
 
     /** 用当前度量把请求值夹成可画值；无变化时不重复重绘 */
