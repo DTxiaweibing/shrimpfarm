@@ -35,6 +35,8 @@ public final class FeedingRecordTableHost implements RecordTextProvider,
     private final String stockingDate;
     private final List<FeedingRecordActivity.DayRecord> records;
     private final ProductTapCallback productCallback;
+    /** 批次结束状态只查一次（与现版 loadData 一致），避免每条可见格绘制时都查库+解密 */
+    private final boolean batchFinished;
     private final Handler debounceHandler = new Handler();
     private final Map<String, Runnable> pendingSaves = new HashMap<>();
 
@@ -47,6 +49,7 @@ public final class FeedingRecordTableHost implements RecordTextProvider,
         this.stockingDate = stockingDate;
         this.records = records;
         this.productCallback = productCallback;
+        this.batchFinished = dbHelper.isBatchFinished(batchId);
     }
 
     // ==================== RecordTextProvider ====================
@@ -79,14 +82,14 @@ public final class FeedingRecordTableHost implements RecordTextProvider,
     public boolean isCellGrayed(int day, String columnId) {
         FeedingRecordActivity.DayRecord record = recordAt(day);
         return record != null && FeedingRecordTableRules.isGrayed(
-                isDateAfterStocking(record.date), dbHelper.isBatchFinished(batchId));
+                isDateAfterStocking(record.date), batchFinished, columnId);
     }
 
     @Override
     public boolean isCellEditable(int day, String columnId) {
         FeedingRecordActivity.DayRecord record = recordAt(day);
         return record != null && FeedingRecordTableRules.isEditable(
-                isDateAfterStocking(record.date), dbHelper.isBatchFinished(batchId));
+                isDateAfterStocking(record.date), batchFinished, columnId);
     }
 
     // ==================== 点击 / 编辑回调 ====================

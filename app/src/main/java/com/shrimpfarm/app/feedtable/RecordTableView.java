@@ -215,6 +215,19 @@ public class RecordTableView extends ViewGroup {
         return true;
     }
 
+    /**
+     * 尺寸变化（多半是键盘弹出把视图挤矮）后把正在编辑的格滚回可视区；
+     * 返回 false 表示格子彻底留不住，编辑器该收起。对齐计算器 keepEditingCellVisible。
+     */
+    boolean keepEditingCellVisible(int day, int column) {
+        if (columns == null || day < 0 || day >= dayCount
+                || column < 0 || column >= columns.count()) {
+            return false;
+        }
+        revealCell(day, column);
+        return cellRect(day, column, new Rect());
+    }
+
     /** 换格后把目标格滚进可视区（对齐计算器的 ensureEditorVisible） */
     void revealCell(int day, int column) {
         if (columns == null || day < 0 || day >= dayCount
@@ -291,6 +304,9 @@ public class RecordTableView extends ViewGroup {
                 RecordTableStyle.headerHeightPx(getContext()));
         headers = columns == null ? null : columns.headers();
         metrics.rebuild(columns, dayCount, getWidth(), getHeight());
+        // 尺寸变化多半是键盘弹出把表挤矮了：先把正在编辑的格滚回可视区，
+        // 否则紧接着的 applyScrollClamp → syncBounds 会把它判为不可见而直接收起（对齐计算器 onMetricsChanged）
+        editor.onMetricsChanged();
         // 早先设置的滚动值在这里按新度量重新夹一次；请求值本身保留，尺寸变大后能恢复
         applyScrollClamp();
         invalidate();

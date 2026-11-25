@@ -239,6 +239,21 @@ public final class RecordCellEditor {
 
     // ==================== 定位 ====================
 
+    /**
+     * 尺寸变化（键盘弹出挤矮视图）后先把编辑格滚回可视区再重新贴；
+     * 留不住才收起。对齐计算器 CellEditorOverlay.onMetricsChanged。
+     */
+    void onMetricsChanged() {
+        if (!editing || day < 0 || column < 0) {
+            return;
+        }
+        if (!table.keepEditingCellVisible(day, column)) {
+            dismiss();
+            return;
+        }
+        syncBounds();
+    }
+
     /** 滚动 / 尺寸变化后重新贴到该格；格被裁没了就收起并收键盘 */
     void syncBounds() {
         if (!editing || column < 0) {
