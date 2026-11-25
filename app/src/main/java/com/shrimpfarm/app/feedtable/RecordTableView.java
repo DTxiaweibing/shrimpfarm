@@ -2,6 +2,7 @@ package com.shrimpfarm.app.feedtable;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -34,8 +35,24 @@ public class RecordTableView extends ViewGroup {
     private final RectF cellRect = new RectF();
     /** 拖动 / 惯性 / 点击长按全部在这里 */
     private final RecordTableGesture gesture;
+    /** 全表唯一的 EditText（唯一子 View） */
+    private final RecordCellEditor editor;
+    /** 命中分流：数字格开编辑器，其余交给外部 listener */
+    private final OnRecordCellTapListener internalTapListener = new OnRecordCellTapListener() {
+        @Override
+        public void onCellTap(int day, String columnId) {
+            handleCellTap(day, columnId);
+        }
+
+        @Override
+        public void onCellLongPress(int day, String columnId) {
+            handleCellLongPress(day, columnId);
+        }
+    };
 
     private RecordTextProvider textProvider;
+    private OnRecordCellEditListener editListener;
+    private OnRecordCellTapListener externalTapListener;
     private RecordTableSizing sizing;
     private RecordTableColumns columns;
     /** 表头 6 格；rebuild 时缓存，避免 onDraw 里调 headers() 的拷贝分配 */
@@ -64,6 +81,9 @@ public class RecordTableView extends ViewGroup {
         // 撞边即停，不要 EdgeEffect 的拉伸/回弹
         setOverScrollMode(OVER_SCROLL_NEVER);
         gesture = new RecordTableGesture(this);
+        gesture.setListener(internalTapListener);
+        editor = new RecordCellEditor(this);
+        addView(editor.view());
     }
 
     // ==================== 外部接口 ====================
@@ -116,19 +136,119 @@ public class RecordTableView extends ViewGroup {
 
     /** R4 / R6 挂编辑器与产品选择器 */
     public void setOnCellTapListener(OnRecordCellTapListener listener) {
-        gesture.setListener(listener);
+        this.externalTapListener = listener;
+    }
+
+    /** 编辑事件（提交 / 开始 / 结束）；产品格点击仍走 {@link #setOnCellTapListener} */
+    public void setEditListener(OnRecordCellEditListener listener) {
+        this.editListener = listener;
+    }
+
+    /** 提交并收起编辑器；Activity 的返回键 / onPause 会调用 */
+    public void endEditing() {
+        editor.dismiss();
+    }
+
+    public boolean isEditing() {
+        return editor.isEditing();
+    }
+
+    /**
+     * 命中格的屏幕矩形，裁到日期列右侧、表头下方、视图范围内。
+     *
+     * @return 格完全不可见（或参数越界）时返回 false，{@code out} 不保证有意义
+     */
+    public boolean cellRect(int day, int column, Rect out) {
+        if (columns == null || day < 0 || day >= dayCount
+                || column < 0 || column >= columns.count()) {
+            return false;
+        }
+        int scrollX = metrics.clampScrollX(tableScrollX);
+        int scrollY = metrics.clampScrollY(tableScrollY);
+        int left = metrics.xOf(column, scrollX);
+        int right = left + columns.widths[column];
+        int subRow = columns.subRows[column];
+        int top = metrics.yOfDay(day, scrollY);
+        int height = subRow == RecordTableColumns.SUB_SPAN
+                ? columns.dayHeight() : columns.subRowHeight;
+        if (subRow == RecordTableColumns.SUB_BOTTOM) {
+            top += columns.subRowHeight;
+        }
+        int bottom = top + height;
+        int clipLeft = columns.dateWidth;
+        int clipTop = columns.headerHeight;
+        if (right <= clipLeft || bottom <= clipTop || left >= getWidth() || top >= getHeight()) {
+            return false;
+        }
+        out.set(Math.max(left, clipLeft), Math.max(top, clipTop),
+                Math.min(right, getWidth()), Math.min(bottom, getHeight()));
+        return out.width() > 0 && out.height() > 0;
+    }
+
+    /** 编辑器读取单元格文本用；不对外暴露 */
+    RecordTextProvider getTextProvider() {
+        return textProvider;
+    }
+
+    void notifyEditBegin(int day, String columnId) {
+        if (editListener != null) {
+            editListener.onCellEditBegin(day, columnId);
+        }
+    }
+
+    void notifyEditCommitted(int day, int column, String text) {
+        if (editListener == null || columns == null
+                || column < 0 || column >= columns.count()) {
+            return;
+        }
+        editListener.onCellCommitted(day, columns.ids[column], text);
+    }
+
+    void notifyEditEnd(int day, int column) {
+        if (editListener == null || columns == null
+                || column < 0 || column >= columns.count()) {
+            return;
+        }
+        editListener.onCellEditEnd(day, columns.ids[column]);
+    }
+
+    private void handleCellTap(int day, String columnId) {
+        if (columns != null) {
+            int column = columns.indexOf(columnId);
+            if (column >= 0 && columns.kinds[column] == RecordTableColumns.KIND_NUMBER) {
+                editor.begin(day, column);
+            } else {
+                // 产品格 / 备注格 / 只读格：先结算并收起当前编辑
+                editor.dismiss();
+            }
+        }
+        if (externalTapListener != null) {
+            externalTapListener.onCellTap(day, columnId);
+        }
+    }
+
+    private void handleCellLongPress(int day, String columnId) {
+        editor.commitNow();
+        if (externalTapListener != null) {
+            externalTapListener.onCellLongPress(day, columnId);
+        }
     }
 
     // ==================== 手势委托 ====================
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
+        // A4 #6：手指按下先把当前编辑提交掉，拖动/换格都不会丢字
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            editor.commitNow();
+        }
         return gesture.onTouchEvent(ev);
     }
 
     @Override
     protected void onDetachedFromWindow() {
-        // 视图离开窗口：停掉帧回调，别让惯性在后台继续跑
+        // 视图离开窗口：提交未落库的编辑，并停掉帧回调
+        editor.dismiss();
         gesture.stopFling();
         super.onDetachedFromWindow();
     }
@@ -155,7 +275,8 @@ public class RecordTableView extends ViewGroup {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        // 本卡没有子 View；R4 的编辑器会在这里自己摆位置
+        // 唯一子 View 是编辑器：由它自己贴到命中格上（不在这里 add 任何东西）
+        editor.syncBounds();
     }
 
     @Override
@@ -188,6 +309,8 @@ public class RecordTableView extends ViewGroup {
         tableScrollX = clampedX;
         tableScrollY = clampedY;
         invalidate();
+        // 编辑器跟着滚动走；格滚没了它会自己收起
+        editor.syncBounds();
     }
 
     // ==================== 绘制 ====================
