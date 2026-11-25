@@ -83,16 +83,25 @@ public final class RecordCellText {
         }
     }
 
-    private void layoutLastLine(CharSequence text, Paint paint, int start, int segmentEnd,
+    private void layoutLastLine(CharSequence text, Paint paint, int start, int end,
                                 int length, float maxWidth) {
-        int fit = paint.breakText(text, start, segmentEnd, true, maxWidth, null);
-        if (fit >= segmentEnd - start && segmentEnd >= length) {
-            addLine(start, segmentEnd, false);
+        // 空段（连续 '\n'）不占可见行：跳到下一段，把最后一行让给真正的内容，
+        // 否则 "abc\n\ndef" 会渲染成 "abc" + 一个只有 "…" 的第二行
+        while (start == end && end < length) {
+            start++;
+            end = segmentEnd(text, start, length);
+        }
+        if (start >= length) {
+            return;
+        }
+        int fit = paint.breakText(text, start, end, true, maxWidth, null);
+        if (fit >= end - start && end >= length) {
+            addLine(start, end, false);
             return;
         }
         // 还有下一段（换行后的内容）或这一行就放不下：末尾补省略号
         float ellipsisWidth = paint.measureText(ELLIPSIS);
-        int fitWithEllipsis = paint.breakText(text, start, segmentEnd, true,
+        int fitWithEllipsis = paint.breakText(text, start, end, true,
                 Math.max(0f, maxWidth - ellipsisWidth), null);
         addLine(start, start + Math.max(0, fitWithEllipsis), true);
     }

@@ -176,8 +176,18 @@ public class RecordTableMetricsTest {
     }
 
     @Test
-    public void hitsFollowScrollOffsets() {
+    public void slotUnderFrozenDateColumnIsNotHittable() {
         RecordTableMetrics m = metrics(2, 400, 200);
+        // scrollX = dateWidth + 1 → 槽 0 完全落到冻结日期列下面
+        int scrollX = m.dateWidth() + 1;
+        assertEquals(-1, m.slotAt(50, scrollX));
+        assertNull("被日期列盖住的槽", m.cellAt(50, 60, scrollX, 0));
+        // 日期列右侧第一个像素已经属于槽 1
+        assertEquals(1, m.slotAt(m.dateWidth(), scrollX));
+    }
+
+    @Test
+    public void hitsFollowScrollOffsets() {        RecordTableMetrics m = metrics(2, 400, 200);
         // scrollX=100 后槽 0 左边界落到 0，整槽被日期列盖住，不可命中
         assertEquals(0, m.xOf(0, 100));
         assertEquals(-1, m.slotAt(50, 100));

@@ -38,8 +38,12 @@ public class RecordTableView extends ViewGroup {
     /** 表头 6 格；rebuild 时缓存，避免 onDraw 里调 headers() 的拷贝分配 */
     private RecordTableColumns.Header[] headers;
     private int dayCount;
+    /** 实际绘制用的滚动值（已按当前度量夹住） */
     private int tableScrollX;
     private int tableScrollY;
+    /** 最近一次 setTableScroll 的原始请求值；rebuild 后据此重新夹，避免尺寸变化前设置的值被丢弃 */
+    private int requestedScrollX;
+    private int requestedScrollY;
 
     public RecordTableView(Context context) {
         this(context, null);
@@ -79,16 +83,11 @@ public class RecordTableView extends ViewGroup {
         rebuild();
     }
 
-    /** R3 会用它驱动滚动；越界值先夹住再存 */
+    /** R3 会用它驱动滚动；先原样存下请求值，再按当前度量夹一次 */
     public void setTableScroll(int x, int y) {
-        int clampedX = metrics.clampScrollX(x);
-        int clampedY = metrics.clampScrollY(y);
-        if (clampedX == tableScrollX && clampedY == tableScrollY) {
-            return;
-        }
-        tableScrollX = clampedX;
-        tableScrollY = clampedY;
-        invalidate();
+        requestedScrollX = x;
+        requestedScrollY = y;
+        applyScrollClamp();
     }
 
     public int getTableScrollX() {
@@ -114,8 +113,19 @@ public class RecordTableView extends ViewGroup {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         setMeasuredDimension(
-                resolveSize(getSuggestedMinimumWidth(), widthMeasureSpec),
-                resolveSize(getSuggestedMinimumHeight(), heightMeasureSpec));
+                measureSize(widthMeasureSpec, getSuggestedMinimumWidth()),
+                measureSize(heightMeasureSpec, getSuggestedMinimumHeight()));
+    }
+
+    /**
+     * EXACTLY / AT_MOST 都用 spec 给的尺寸（AT_MOST 填满可用空间，不能退化成 0）；
+     * UNSPECIFIED 才回落到 suggestedMinimum。
+     */
+    private static int measureSize(int measureSpec, int suggestedMinimum) {
+        if (MeasureSpec.getMode(measureSpec) == MeasureSpec.UNSPECIFIED) {
+            return suggestedMinimum;
+        }
+        return MeasureSpec.getSize(measureSpec);
     }
 
     @Override
@@ -138,8 +148,20 @@ public class RecordTableView extends ViewGroup {
                 RecordTableStyle.headerHeightPx(getContext()));
         headers = columns == null ? null : columns.headers();
         metrics.rebuild(columns, dayCount, getWidth(), getHeight());
-        tableScrollX = metrics.clampScrollX(tableScrollX);
-        tableScrollY = metrics.clampScrollY(tableScrollY);
+        // 早先设置的滚动值在这里按新度量重新夹一次；请求值本身保留，尺寸变大后能恢复
+        applyScrollClamp();
+        invalidate();
+    }
+
+    /** 用当前度量把请求值夹成可画值；无变化时不重复重绘 */
+    private void applyScrollClamp() {
+        int clampedX = metrics.clampScrollX(requestedScrollX);
+        int clampedY = metrics.clampScrollY(requestedScrollY);
+        if (clampedX == tableScrollX && clampedY == tableScrollY) {
+            return;
+        }
+        tableScrollX = clampedX;
+        tableScrollY = clampedY;
         invalidate();
     }
 
@@ -150,7 +172,8 @@ public class RecordTableView extends ViewGroup {
         super.onDraw(canvas);
         int width = getWidth();
         int height = getHeight();
-        if (columns == null || headers == null || width <= 0 || height <= 0) {
+        if (columns == null || headers == null || width <= 0 || height <= 0
+                || columns.totalWidth() <= 0) {
             return;
         }
         // 1. 整块填白
