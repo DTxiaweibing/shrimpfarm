@@ -63,6 +63,7 @@
             android:name=".FeedingRecordActivity"
             android:label="投喂记录"
             android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
         <activity
             android:name=".water.WaterQualityActivity"

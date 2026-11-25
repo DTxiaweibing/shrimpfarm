@@ -2,36 +2,20 @@ package com.shrimpfarm.app;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
-import android.content.Context;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.Handler;
-import android.widget.EdgeEffect;
-import android.text.Editable;
-import android.text.InputFilter;
-import android.text.TextWatcher;
-import android.view.Gravity;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
-import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -40,17 +24,17 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+
+import com.shrimpfarm.app.feedtable.RecordTableSizing;
+import com.shrimpfarm.app.feedtable.RecordTableStyle;
+import com.shrimpfarm.app.feedtable.RecordTableView;
 
 public class FeedingRecordActivity extends BaseActivity {
 
-    private RecyclerView recordRecyclerView;
-    private HorizontalScrollView headerScrollContainer;
+    private RecordTableView recordTableView;
+    private FeedingRecordTableHost tableHost;
     private FrameLayout loadingOverlay;
     private DatabaseHelper dbHelper;
     private String currentBatchId;
@@ -58,24 +42,9 @@ public class FeedingRecordActivity extends BaseActivity {
 
     private boolean isTabletMode = false;
     private boolean batchFinished = false;
-    private int cellWidth;
-    private int remarkWidth;
-    private int rowHeight;
 
-    private int masterScrollX = 0;
-    private boolean isSyncingScroll = false;
-
-    private RecordAdapter adapter;
+    /** 全量日记录：绘制层只通过 tableHost 读，不认识本类 */
     private final List<DayRecord> allRecords = new ArrayList<>();
-    private final Handler debounceHandler = new Handler();
-    private final Map<String, Runnable> pendingSaves = new HashMap<>();
-
-    private volatile boolean isLoadingMore = false;
-    private volatile boolean hasMoreData = true;
-    private static final int PAGE_SIZE = 50;
-
-    private android.graphics.drawable.GradientDrawable headerBorderCache;
-    private android.graphics.drawable.GradientDrawable cellBorderCache;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,53 +52,16 @@ public class FeedingRecordActivity extends BaseActivity {
         setContentView(R.layout.activity_feeding_record);
 
         dbHelper = DatabaseHelper.getInstance(this);
-
-        TextView headerFixedDate = findViewById(R.id.header_fixed_date);
-        headerScrollContainer = findViewById(R.id.header_scroll_container);
-        recordRecyclerView = findViewById(R.id.record_recycler_view);
-        headerScrollContainer.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        recordRecyclerView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        recordRecyclerView.setEdgeEffectFactory(new RecyclerView.EdgeEffectFactory() {
-            @NonNull
-            @Override
-            protected EdgeEffect createEdgeEffect(@NonNull RecyclerView view, int direction) {
-                return new EdgeEffect(view.getContext()) {
-                    @Override
-                    public boolean isFinished() { return true; }
-                };
-            }
-        });
+        recordTableView = findViewById(R.id.record_table_view);
         loadingOverlay = findViewById(R.id.loading_overlay);
-
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        int screenWidth = dm.widthPixels;
-        cellWidth = (int) (screenWidth / 6.5);
-        remarkWidth = (int) (screenWidth / 3.5);
-        rowHeight = (int) (40 * dm.density);
-        // 平板检测（与计算器一致）：对角线 >= 7 英寸时自动调整列宽填满屏幕
-        double diagonalInches = Math.sqrt(
-                Math.pow(screenWidth / dm.xdpi, 2)
-                        + Math.pow(dm.heightPixels / dm.ydpi, 2));
-        isTabletMode = diagonalInches >= 7.0;
-        if (isTabletMode) {
-            cellWidth = screenWidth / 9;
-            remarkWidth = cellWidth * 2;
-        }
-
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) headerFixedDate.getLayoutParams();
-        params.width = cellWidth;
-        headerFixedDate.setLayoutParams(params);
-        headerFixedDate.setBackground(createCellBorder(0xFF2D84C2));
-        headerFixedDate.setTextColor(0xFFFFFFFF);
+        applySizing();
 
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         currentBatchId = prefs.getString("current_batch_id", "");
-
         if (currentBatchId.isEmpty()) {
             showNoBatchDialog();
             return;
         }
-
         if (!isBasicDataComplete()) {
             showBasicDataIncompleteDialog();
             return;
@@ -138,20 +70,64 @@ public class FeedingRecordActivity extends BaseActivity {
         stockingDate = dbHelper.getBasicData(currentBatchId, "stocking_date");
         batchFinished = dbHelper.isBatchFinished(currentBatchId);
 
-        setupHeader();
-        setupRecyclerView();
-        loadInitialData();
+        tableHost = new FeedingRecordTableHost(this, dbHelper, currentBatchId, stockingDate,
+                allRecords, this::showProductSelector);
+        recordTableView.setTextProvider(tableHost);
+        recordTableView.setOnCellTapListener(tableHost);
+        recordTableView.setEditListener(tableHost);
 
+        loadInitialData();
         setupBottomNavigation();
         if (isTabletMode) {
             enableSwipeNavigation();
         }
     }
 
+    /** 列宽沿用现版公式（A-3 冻结），交给 RecordTableSizing 算，视图只接收结果 */
+    private void applySizing() {
+        DisplayMetrics dm = getResources().getDisplayMetrics();
+        double diagonalInches = Math.sqrt(
+                Math.pow(dm.widthPixels / dm.xdpi, 2)
+                        + Math.pow(dm.heightPixels / dm.ydpi, 2));
+        isTabletMode = diagonalInches >= RecordTableSizing.TABLET_MIN_DIAGONAL_INCHES;
+        recordTableView.setSizing(RecordTableSizing.compute(dm.widthPixels, diagonalInches));
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        scrollToYesterday();
+        if (tableHost != null) {
+            scrollToYesterday();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        // A4 #12：先提交编辑器，再把未落库的防抖任务一次性 flush，避免丢最后一次输入
+        if (recordTableView != null) {
+            recordTableView.endEditing();
+        }
+        if (tableHost != null) {
+            tableHost.flushPendingSaves();
+        }
+        super.onPause();
+    }
+
+    @Override
+    public void onBackPressed() {
+        // A4 #8：有编辑先提交收键盘，再退出页面
+        if (recordTableView != null && recordTableView.isEditing()) {
+            recordTableView.endEditing();
+        }
+        super.onBackPressed();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (tableHost != null) {
+            tableHost.destroy();
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -192,84 +168,21 @@ public class FeedingRecordActivity extends BaseActivity {
                 });
     }
 
-    // ==================== Header ====================
-
-    private void setupHeader() {
-        headerScrollContainer.removeAllViews();
-        LinearLayout headerRow = new LinearLayout(this);
-        headerRow.setOrientation(LinearLayout.HORIZONTAL);
-        headerRow.setLayoutParams(new HorizontalScrollView.LayoutParams(
-                HorizontalScrollView.LayoutParams.WRAP_CONTENT,
-                HorizontalScrollView.LayoutParams.MATCH_PARENT));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_breakfast), cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_lunch), cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_dinner), cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_night_snack), cellWidth, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_water), cellWidth * 2, 0xFF2D84C2));
-        headerRow.addView(createHeaderCell(getString(R.string.feeding_header_remark), remarkWidth, 0xFF2D84C2));
-        headerScrollContainer.addView(headerRow);
-
-        headerScrollContainer.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            if (isSyncingScroll) return;
-            isSyncingScroll = true;
-            masterScrollX = Math.max(0, scrollX);
-            syncVisibleRows();
-            isSyncingScroll = false;
-        });
-    }
-
-    private TextView createHeaderCell(String text, int width, @SuppressWarnings("SameParameterValue") int bgColor) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(12);
-        tv.setTextColor(0xFFFFFFFF);
-        tv.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        tv.setGravity(Gravity.CENTER);
-        tv.setBackground(createHeaderBorder(bgColor));
-        tv.setLayoutParams(new LinearLayout.LayoutParams(width, rowHeight));
-        return tv;
-    }
-
-    // ==================== RecyclerView setup ====================
-
-    private void setupRecyclerView() {
-        adapter = new RecordAdapter();
-        recordRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recordRecyclerView.setAdapter(adapter);
-
-        recordRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
-                if (lm == null) return;
-                int lastVisible = lm.findLastVisibleItemPosition();
-                int totalCount = lm.getItemCount();
-                if (!isLoadingMore && hasMoreData && lastVisible >= totalCount - 5) {
-                    loadMoreData();
-                }
-            }
-
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    syncVisibleRows();
-                }
-            }
-        });
-    }
-
     // ==================== Data loading ====================
 
     private void loadInitialData() {
-        if (loadingOverlay != null) loadingOverlay.setVisibility(View.VISIBLE);
+        if (loadingOverlay != null) {
+            loadingOverlay.setVisibility(View.VISIBLE);
+        }
         Thread t = new Thread(() -> {
             int totalDays = dbHelper.getTotalDaysInBatch(currentBatchId);
             List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, totalDays, 0);
-            hasMoreData = false;
             runOnUiThread(() -> {
                 allRecords.addAll(records);
-                adapter.notifyItemRangeInserted(0, records.size());
-                if (loadingOverlay != null) loadingOverlay.setVisibility(View.GONE);
+                recordTableView.setDayCount(allRecords.size());
+                if (loadingOverlay != null) {
+                    loadingOverlay.setVisibility(View.GONE);
+                }
                 scrollToYesterday();
             });
         }, "FeedingRecord-loadInitial");
@@ -277,24 +190,7 @@ public class FeedingRecordActivity extends BaseActivity {
         t.start();
     }
 
-    private void loadMoreData() {
-        if (isLoadingMore || !hasMoreData) return;
-        isLoadingMore = true;
-        Thread t = new Thread(() -> {
-            int offset = allRecords.size();
-            List<DayRecord> records = dbHelper.getRecordsByPage(currentBatchId, PAGE_SIZE, offset);
-            hasMoreData = records.size() >= PAGE_SIZE;
-            runOnUiThread(() -> {
-                int startPos = allRecords.size();
-                allRecords.addAll(records);
-                adapter.notifyItemRangeInserted(startPos, records.size());
-                isLoadingMore = false;
-            });
-        }, "FeedingRecord-loadMore");
-        t.setDaemon(true);
-        t.start();
-    }
-
+    /** 打开时定位到昨天（若无昨天记录则定位到最后一条不晚于今天的记录） */
     private void scrollToYesterday() {
         Calendar today = Calendar.getInstance();
         String waterPrepDate = dbHelper.getBasicData(currentBatchId, "water_prep_date");
@@ -312,7 +208,9 @@ public class FeedingRecordActivity extends BaseActivity {
                 }
             } catch (Exception ignored) { /* ignored */ }
         }
-        if (!parsed) return;
+        if (!parsed) {
+            return;
+        }
 
         int targetIndex = -1;
         for (int i = 0; i < allRecords.size(); i++) {
@@ -330,94 +228,88 @@ public class FeedingRecordActivity extends BaseActivity {
         }
         if (targetIndex >= 0) {
             int finalTarget = targetIndex;
-            recordRecyclerView.post(() -> {
-                LinearLayoutManager lm = (LinearLayoutManager) recordRecyclerView.getLayoutManager();
-                if (lm != null) lm.scrollToPositionWithOffset(finalTarget, 0);
+            recordTableView.post(() -> {
+                int dayHeight = RecordTableStyle.subRowHeightPx(this) * 2;
+                recordTableView.setTableScroll(0, finalTarget * dayHeight);
             });
         }
     }
 
-    // ==================== Scroll sync ====================
-
-    private void syncVisibleRows() {
-        if (adapter == null) return;
-        for (RecordViewHolder vh : adapter.attachedHolders) {
-            vh.rowScroll.scrollTo(masterScrollX, 0);
-        }
-    }
-
-    // ==================== Debounced save ====================
-
-    private void scheduleSave(DayRecord record) {
-        if (dbHelper.isBatchFinished(currentBatchId)) {
-            Toast.makeText(this, getString(R.string.batch_toast_finished_no_record), Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String key = record.date;
-        Runnable existing = pendingSaves.get(key);
-        if (existing != null) debounceHandler.removeCallbacks(existing);
-        Runnable saveTask = () -> {
-            dbHelper.saveRecordWithTransaction(currentBatchId, record);
-            pendingSaves.remove(key);
-        };
-        pendingSaves.put(key, saveTask);
-        debounceHandler.postDelayed(saveTask, 500);
-    }
-
     // ==================== Product selector ====================
 
-    private void showProductSelector(final String columnId, final int adapterPosition, final DayRecord record) {
-        final String title;
-        final List<DatabaseHelper.PresetItem> presets;
-        if (columnId.startsWith("mix")) {
-            presets = dbHelper.getMixPresetsSorted(currentBatchId);
-            title = getString(R.string.feeding_title_select_feed);
-        } else {
-            presets = dbHelper.getWaterPresetsSorted(currentBatchId);
-            title = getString(R.string.feeding_title_select_water);
-        }
-
-        if (presets.isEmpty()) {
-            String msg = columnId.startsWith("mix") ? getString(R.string.feeding_msg_no_feed_presets) : getString(R.string.feeding_msg_no_water_presets);
-            showStyledConfirmDialog(getString(R.string.basic_title_prompt), msg,
-                    new String[]{getString(R.string.btn_cancel), getString(R.string.check_btn_go_settings)}, null,
-                    new DialogInterface.OnClickListener[]{null, (d, w) -> {
-                        Intent intent = new Intent(FeedingRecordActivity.this, BasicDataActivity.class);
-                        intent.putExtra("open_tab", columnId.startsWith("mix") ? 1 : 2);
-                        startActivity(intent);
-                    }});
+    /** 产品格点击回调（由 tableHost 转发）；选择后写回记录、防抖保存并局部重绘 */
+    private void showProductSelector(int day, String columnId) {
+        final DayRecord record = tableHost.recordAt(day);
+        if (record == null || batchFinished) {
             return;
         }
+        final boolean feed = columnId.startsWith("mix");
+        final List<DatabaseHelper.PresetItem> presets = feed
+                ? dbHelper.getMixPresetsSorted(currentBatchId)
+                : dbHelper.getWaterPresetsSorted(currentBatchId);
+        if (presets.isEmpty()) {
+            showNoPresetsDialog(feed);
+            return;
+        }
+        showProductListDialog(presets, record, columnId, feed);
+    }
 
+    /** 预设为空：提示并引导去基础数据页 */
+    private void showNoPresetsDialog(boolean feed) {
+        String msg = getString(feed
+                ? R.string.feeding_msg_no_feed_presets : R.string.feeding_msg_no_water_presets);
+        showStyledConfirmDialog(getString(R.string.basic_title_prompt), msg,
+                new String[]{getString(R.string.btn_cancel), getString(R.string.check_btn_go_settings)}, null,
+                new DialogInterface.OnClickListener[]{null, (d, w) -> {
+                    Intent intent = new Intent(FeedingRecordActivity.this, BasicDataActivity.class);
+                    intent.putExtra("open_tab", feed ? 1 : 2);
+                    startActivity(intent);
+                }});
+    }
+
+    /** 构建并显示预设列表弹窗 */
+    private void showProductListDialog(final List<DatabaseHelper.PresetItem> presets,
+                                       final DayRecord record, final String columnId, final boolean feed) {
+        final String title = getString(feed
+                ? R.string.feeding_title_select_feed : R.string.feeding_title_select_water);
         List<String> displayNames = new ArrayList<>();
-        for (DatabaseHelper.PresetItem item : presets) displayNames.add(item.displayName);
+        for (DatabaseHelper.PresetItem item : presets) {
+            displayNames.add(item.displayName);
+        }
         displayNames.add("");
 
         Dialog dialog = new Dialog(FeedingRecordActivity.this);
         @SuppressLint("InflateParams")
         View dialogView = LayoutInflater.from(FeedingRecordActivity.this).inflate(R.layout.dialog_simple_list, null);
         dialog.setContentView(dialogView);
-
-        TextView tvTitle = dialogView.findViewById(R.id.tv_title);
-        tvTitle.setText(title);
+        ((TextView) dialogView.findViewById(R.id.tv_title)).setText(title);
 
         ListView listView = dialogView.findViewById(R.id.list_view);
-        ArrayAdapter<String> ad = new ArrayAdapter<>(FeedingRecordActivity.this, android.R.layout.simple_list_item_1, displayNames);
-        listView.setAdapter(ad);
-        listView.setOnItemClickListener((parent, view, which, id) -> {
-            if (which >= presets.size()) {
-                setDayRecordField(record, columnId, "");
-            } else {
-                DatabaseHelper.PresetItem selected = presets.get(which);
-                String prefix = columnId.startsWith("mix") ? "【拌料】" : "【调水】";
-                String fullValue = prefix + selected.tagContent + "+" + selected.displayName;
-                setDayRecordField(record, columnId, fullValue);
-            }
-            scheduleSave(record);
-            dialog.dismiss();
-            adapter.notifyItemChanged(adapterPosition);
-        });
+        listView.setAdapter(new ArrayAdapter<>(FeedingRecordActivity.this,
+                android.R.layout.simple_list_item_1, displayNames));
+        listView.setOnItemClickListener((parent, view, which, id) ->
+                onProductSelected(dialog, presets, record, columnId, feed, which));
         dialog.show();
+        sizeProductDialog(dialog);
+    }
+
+    /** 选中一个预设（或清空）：写回字段、防抖保存、局部重绘 */
+    private void onProductSelected(Dialog dialog, List<DatabaseHelper.PresetItem> presets,
+                                   DayRecord record, String columnId, boolean feed, int which) {
+        if (which >= presets.size()) {
+            record.setField(columnId, "");
+        } else {
+            DatabaseHelper.PresetItem selected = presets.get(which);
+            String prefix = feed ? "【拌料】" : "【调水】";
+            record.setField(columnId, prefix + selected.tagContent + "+" + selected.displayName);
+        }
+        tableHost.scheduleSave(record);
+        dialog.dismiss();
+        recordTableView.notifyDataChanged();
+    }
+
+    /** 弹窗宽度取屏宽一半，透明背景交给 dialog_simple_list 自己画 */
+    private void sizeProductDialog(Dialog dialog) {
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         if (dialog.getWindow() != null) {
             dialog.getWindow().setLayout(screenWidth / 2, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -425,430 +317,7 @@ public class FeedingRecordActivity extends BaseActivity {
         }
     }
 
-    private void setDayRecordField(DayRecord record, String field, String value) {
-        switch (field) {
-            case "breakfast": record.breakfast = value; break;
-            case "lunch": record.lunch = value; break;
-            case "dinner": record.dinner = value; break;
-            case "nightSnack": record.nightSnack = value; break;
-            case "waterMix1": record.waterMix1 = value; break;
-            case "waterMix2": record.waterMix2 = value; break;
-            case "waterMix3": record.waterMix3 = value; break;
-            case "waterMix4": record.waterMix4 = value; break;
-            case "mix1": record.mix1 = value; break;
-            case "mix2": record.mix2 = value; break;
-            case "mix3": record.mix3 = value; break;
-            case "mix4": record.mix4 = value; break;
-            case "remark": record.remark = value; break;
-        }
-    }
-
-    // ==================== Drawing helpers ====================
-
-    private android.graphics.drawable.GradientDrawable createCellBorder(int color) {
-        if (cellBorderCache == null) {
-            cellBorderCache = new android.graphics.drawable.GradientDrawable();
-            cellBorderCache.setStroke(2, 0xFF000000);
-        }
-        android.graphics.drawable.GradientDrawable.ConstantState cs = cellBorderCache.getConstantState();
-        android.graphics.drawable.GradientDrawable d;
-        if (cs != null) {
-            d = (android.graphics.drawable.GradientDrawable) cs.newDrawable().mutate();
-        } else {
-            d = new android.graphics.drawable.GradientDrawable();
-        }
-        d.setColor(color);
-        return d;
-    }
-
-    private android.graphics.drawable.GradientDrawable createHeaderBorder(int color) {
-        if (headerBorderCache == null) {
-            headerBorderCache = new android.graphics.drawable.GradientDrawable();
-            headerBorderCache.setStroke(2, 0xFF000000);
-        }
-        android.graphics.drawable.GradientDrawable.ConstantState cs = headerBorderCache.getConstantState();
-        android.graphics.drawable.GradientDrawable d;
-        if (cs != null) {
-            d = (android.graphics.drawable.GradientDrawable) cs.newDrawable().mutate();
-        } else {
-            d = new android.graphics.drawable.GradientDrawable();
-        }
-        d.setColor(color);
-        return d;
-    }
-
-    private String formatDateDisplay(String fullDate) {
-        try {
-            int month = Integer.parseInt(fullDate.substring(5, 7));
-            int day = Integer.parseInt(fullDate.substring(8, 10));
-            return String.format(java.util.Locale.ROOT, getString(R.string.feeding_date_format), month, day);
-        } catch (Exception e) {
-            return fullDate;
-        }
-    }
-
-    private boolean isDateAfterStocking(String recordDate) {
-        if (stockingDate == null || stockingDate.isEmpty() || "选择日期".equals(stockingDate)) {
-            return true;
-        }
-        String a = recordDate.replace("/", "-");
-        String b = stockingDate.replace("/", "-");
-        return a.compareTo(b) >= 0;
-    }
-
-    // ==================== ViewHolder ====================
-
-    static class RecordViewHolder extends RecyclerView.ViewHolder {
-        TextView dateView;
-        HorizontalScrollView rowScroll;
-
-        RecordViewHolder(View itemView) {
-            super(itemView);
-            dateView = itemView.findViewById(R.id.record_date);
-            rowScroll = itemView.findViewById(R.id.row_scroll);
-        }
-    }
-
-    // ==================== Adapter ====================
-
-    class RecordAdapter extends RecyclerView.Adapter<RecordViewHolder> {
-        final Set<RecordViewHolder> attachedHolders = new HashSet<>();
-
-        @Override
-        public int getItemCount() {
-            return allRecords.size();
-        }
-
-        @Override
-        public void onViewAttachedToWindow(@NonNull RecordViewHolder holder) {
-            super.onViewAttachedToWindow(holder);
-            attachedHolders.add(holder);
-            // 复用/回收后重新挂载的行，强制拉回全局滚动位置，杜绝单行错位
-            holder.rowScroll.scrollTo(masterScrollX, 0);
-        }
-
-        @Override
-        public void onViewDetachedFromWindow(@NonNull RecordViewHolder holder) {
-            super.onViewDetachedFromWindow(holder);
-            attachedHolders.remove(holder);
-        }
-
-        @Override
-        @SuppressLint("ClickableViewAccessibility")
-        public @NonNull RecordViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            LinearLayout root = new LinearLayout(FeedingRecordActivity.this);
-            root.setOrientation(LinearLayout.HORIZONTAL);
-            root.setLayoutParams(new RecyclerView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, rowHeight * 2));
-
-            // Date cell (fixed left column)
-            TextView dateView = new TextView(FeedingRecordActivity.this);
-            dateView.setId(R.id.record_date);
-            dateView.setTextSize(13);
-            dateView.setTextColor(0xFF2E7D32);
-            dateView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            dateView.setGravity(Gravity.CENTER);
-            dateView.setBackground(createCellBorder(0xFFE8F5E9));
-            dateView.setLayoutParams(new LinearLayout.LayoutParams(cellWidth, rowHeight * 2));
-            root.addView(dateView);
-
-            // Horizontal scrollable area
-            HorizontalScrollView hsv = new HorizontalScrollView(FeedingRecordActivity.this);
-            hsv.setId(R.id.row_scroll);
-            hsv.setLayoutParams(new LinearLayout.LayoutParams(0, rowHeight * 2, 1f));
-            hsv.setHorizontalScrollBarEnabled(false);
-            hsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
-
-            // Scroll content: contains [6 cells wide area + remark]
-            LinearLayout scrollContent = new LinearLayout(FeedingRecordActivity.this);
-            scrollContent.setOrientation(LinearLayout.HORIZONTAL);
-            int totalCellWidth = cellWidth * 6 + remarkWidth;
-            scrollContent.setLayoutParams(new LinearLayout.LayoutParams(totalCellWidth, rowHeight * 2));
-
-            // Upper row: breakfast, lunch, dinner, nightSnack, waterMix1, waterMix2
-            LinearLayout upperRow = new LinearLayout(FeedingRecordActivity.this);
-            upperRow.setOrientation(LinearLayout.HORIZONTAL);
-            upperRow.setLayoutParams(new LinearLayout.LayoutParams(cellWidth * 6, rowHeight));
-            upperRow.setGravity(Gravity.CENTER_VERTICAL);
-
-            upperRow.addView(buildFeedEdit(R.id.cell_breakfast));
-            upperRow.addView(buildFeedEdit(R.id.cell_lunch));
-            upperRow.addView(buildFeedEdit(R.id.cell_dinner));
-            upperRow.addView(buildFeedEdit(R.id.cell_night_snack));
-            upperRow.addView(buildProductEdit(R.id.cell_water_mix1));
-            upperRow.addView(buildProductEdit(R.id.cell_water_mix2));
-
-            // Lower row: mix1, mix2, mix3, mix4, waterMix3, waterMix4
-            LinearLayout lowerRow = new LinearLayout(FeedingRecordActivity.this);
-            lowerRow.setOrientation(LinearLayout.HORIZONTAL);
-            lowerRow.setLayoutParams(new LinearLayout.LayoutParams(cellWidth * 6, rowHeight));
-            lowerRow.setGravity(Gravity.CENTER_VERTICAL);
-
-            lowerRow.addView(buildProductEdit(R.id.cell_mix1));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix2));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix3));
-            lowerRow.addView(buildProductEdit(R.id.cell_mix4));
-            lowerRow.addView(buildProductEdit(R.id.cell_water_mix3));
-            lowerRow.addView(buildProductEdit(R.id.cell_water_mix4));
-
-            LinearLayout middleArea = new LinearLayout(FeedingRecordActivity.this);
-            middleArea.setOrientation(LinearLayout.VERTICAL);
-            middleArea.setLayoutParams(new LinearLayout.LayoutParams(cellWidth * 6, rowHeight * 2));
-            middleArea.addView(upperRow);
-            middleArea.addView(lowerRow);
-
-            scrollContent.addView(middleArea);
-
-            // Remark cell (full height, rightmost)
-            EditText remark = new EditText(FeedingRecordActivity.this);
-            remark.setId(R.id.cell_remark);
-            remark.setTextSize(12);
-            remark.setTextColor(0xFF444444);
-            remark.setGravity(Gravity.CENTER);
-            remark.setBackground(createCellBorder(0xFFFFFFFF));
-            remark.setSingleLine(false);
-            remark.setPadding(0, 0, 0, 0);
-            remark.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
-            remark.setVerticalScrollBarEnabled(true);
-            remark.setOnClickListener(v -> {
-                if (batchFinished) return;
-                remark.requestFocus();
-                InputMethodManager imm = (InputMethodManager) FeedingRecordActivity.this.getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (imm != null) imm.showSoftInput(remark, InputMethodManager.SHOW_IMPLICIT);
-            });
-            remark.setLayoutParams(new LinearLayout.LayoutParams(remarkWidth, rowHeight * 2));
-            scrollContent.addView(remark);
-
-            hsv.addView(scrollContent);
-            root.addView(hsv);
-
-            // --- Scroll sync listener ---
-            hsv.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-                if (isSyncingScroll) return;
-                isSyncingScroll = true;
-                masterScrollX = Math.max(0, scrollX);
-                headerScrollContainer.scrollTo(masterScrollX, 0);
-                syncVisibleRows();
-                isSyncingScroll = false;
-            });
-
-            // Disallow RecyclerView intercept during horizontal scroll but allow vertical scroll
-            hsv.setOnTouchListener((v, event) -> {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        v.setTag(R.id.tag_watcher, new float[]{event.getX(), event.getY()});
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        Object tag = v.getTag(R.id.tag_watcher);
-                        if (tag instanceof float[]) {
-                            float[] start = (float[]) tag;
-                            float dx = Math.abs(event.getX() - start[0]);
-                            float dy = Math.abs(event.getY() - start[1]);
-                            if (dx > dy && dx > 10) {
-                                recordRecyclerView.requestDisallowInterceptTouchEvent(true);
-                            }
-                        }
-                        break;
-                    case MotionEvent.ACTION_UP:
-                        v.performClick();
-                        // 拖动结束兜底：若互斥窗口吞掉了该行最后几帧滚动，
-                        // 以该行真实 scrollX 为基准立即全量对齐，避免单行错位
-                        isSyncingScroll = true;
-                        masterScrollX = Math.max(0, v.getScrollX());
-                        headerScrollContainer.scrollTo(masterScrollX, 0);
-                        syncVisibleRows();
-                        isSyncingScroll = false;
-                        break;
-                    case MotionEvent.ACTION_CANCEL:
-                        break;
-                }
-                return false;
-            });
-
-            return new RecordViewHolder(root);
-        }
-
-        @Override
-        public void onBindViewHolder(RecordViewHolder holder, int position) {
-            final DayRecord record = allRecords.get(position);
-
-            holder.dateView.setText(formatDateDisplay(record.date));
-
-            // --- Bind number cells (breakfast, lunch, dinner, nightSnack) ---
-            boolean afterStocking = isDateAfterStocking(record.date);
-            boolean editable = afterStocking && !batchFinished;
-            boolean grayOut = !afterStocking && !batchFinished;
-            bindNumberCell(holder.itemView, R.id.cell_breakfast, record.breakfast, record, "breakfast", editable, grayOut);
-            bindNumberCell(holder.itemView, R.id.cell_lunch, record.lunch, record, "lunch", editable, grayOut);
-            bindNumberCell(holder.itemView, R.id.cell_dinner, record.dinner, record, "dinner", editable, grayOut);
-            bindNumberCell(holder.itemView, R.id.cell_night_snack, record.nightSnack, record, "nightSnack", editable, grayOut);
-
-            // --- Bind product cells ---
-            bindProductCell(holder.itemView, R.id.cell_water_mix1, record.waterMix1, record, "waterMix1", position);
-            bindProductCell(holder.itemView, R.id.cell_water_mix2, record.waterMix2, record, "waterMix2", position);
-            bindProductCell(holder.itemView, R.id.cell_mix1, record.mix1, record, "mix1", position);
-            bindProductCell(holder.itemView, R.id.cell_mix2, record.mix2, record, "mix2", position);
-            bindProductCell(holder.itemView, R.id.cell_mix3, record.mix3, record, "mix3", position);
-            bindProductCell(holder.itemView, R.id.cell_mix4, record.mix4, record, "mix4", position);
-            bindProductCell(holder.itemView, R.id.cell_water_mix3, record.waterMix3, record, "waterMix3", position);
-            bindProductCell(holder.itemView, R.id.cell_water_mix4, record.waterMix4, record, "waterMix4", position);
-
-            // --- Bind remark ---
-            EditText remarkEt = holder.itemView.findViewById(R.id.cell_remark);
-            remarkEt.setOnFocusChangeListener(null);
-            remarkEt.setFocusable(!batchFinished);
-            remarkEt.setFocusableInTouchMode(!batchFinished);
-            remarkEt.setClickable(!batchFinished);
-            remarkEt.setText(record.remark);
-            if (remarkEt.isFocused()) remarkEt.setSelection(remarkEt.length());
-            remarkEt.setOnFocusChangeListener((v, hasFocus) -> {
-                if (hasFocus) {
-                    ((EditText) v).setSelection(((EditText) v).length());
-                } else {
-                    record.remark = ((EditText) v).getText().toString();
-                    scheduleSave(record);
-                }
-            });
-
-            // Restore horizontal scroll position（layout 完成后恢复，避免测量时序导致 clamp 失效）
-            final HorizontalScrollView rowScroll = holder.rowScroll;
-            rowScroll.post(() -> {
-                isSyncingScroll = true;
-                rowScroll.scrollTo(masterScrollX, 0);
-                isSyncingScroll = false;
-            });
-        }
-
-        // ---- Cell builders (called once per view creation) ----
-
-        private EditText buildFeedEdit(int id) {
-            EditText et = new EditText(FeedingRecordActivity.this);
-            et.setId(id);
-            et.setTextSize(16);
-            et.setTextColor(0xFF444444);
-            et.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            et.setGravity(Gravity.CENTER);
-            et.setBackground(createCellBorder(0xFFFFFFFF));
-            et.setPadding(0, 0, 0, 0);
-            et.setOverScrollMode(View.OVER_SCROLL_NEVER);
-            et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            et.setSingleLine(true);
-            et.setImeOptions(EditorInfo.IME_ACTION_NEXT);
-            et.setFilters(new InputFilter[]{
-                    (source, start, end, dest, dstart, dend) -> {
-                        String newText = dest.toString().substring(0, dstart)
-                                + source.toString()
-                                + dest.toString().substring(dend);
-                        if (newText.isEmpty()) return null;
-                        if (!newText.matches("^\\d*(\\.\\d?)?$")) return "";
-                        return null;
-                    }
-            });
-            et.setLayoutParams(new LinearLayout.LayoutParams(cellWidth, rowHeight));
-            return et;
-        }
-
-        private EditText buildProductEdit(int id) {
-            final EditText et = new EditText(FeedingRecordActivity.this);
-            et.setId(id);
-            et.setTextSize(12);
-            et.setTextColor(0xFF000000);
-            et.setGravity(Gravity.CENTER);
-            et.setBackground(createCellBorder(0xFFFFFFFF));
-            et.setPadding(0, 0, 0, 0);
-            et.setOverScrollMode(View.OVER_SCROLL_NEVER);
-            et.setSingleLine(false);
-            et.setMaxLines(2);
-            et.setFocusable(false);
-            et.setFocusableInTouchMode(false);
-            et.setClickable(true);
-            et.setLayoutParams(new LinearLayout.LayoutParams(cellWidth, rowHeight));
-            return et;
-        }
-
-        // ---- Binding helpers (called on every bind) ----
-
-        private void bindNumberCell(View root, int cellId, String value, DayRecord record, String field, boolean editable, boolean grayOut) {
-            final EditText et = root.findViewById(cellId);
-            Object tag = et.getTag(R.id.tag_watcher);
-            if (tag instanceof TextWatcher) {
-                et.removeTextChangedListener((TextWatcher) tag);
-            }
-            et.setOnFocusChangeListener(null);
-            et.setText(value);
-            et.setEnabled(editable);
-            et.setFocusable(editable);
-            et.setFocusableInTouchMode(editable);
-            et.setClickable(editable);
-            if (grayOut) {
-                et.setInputType(android.text.InputType.TYPE_NULL);
-                et.setKeyListener(null);
-                et.setTextColor(0xFFCCCCCC);
-                et.setBackground(createCellBorder(0xFFF5F5F5));
-            } else if (editable) {
-                et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-                et.setTextColor(0xFF444444);
-                et.setBackground(createCellBorder(0xFFFFFFFF));
-            } else {
-                et.setInputType(android.text.InputType.TYPE_NULL);
-                et.setKeyListener(null);
-                et.setTextColor(0xFF444444);
-                et.setBackground(createCellBorder(0xFFFFFFFF));
-            }
-            if (et.isFocused()) et.setSelection(et.length());
-            if (editable) {
-                TextWatcher watcher = new TextWatcher() {
-                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-                    @Override public void afterTextChanged(Editable s) {
-                        setDayRecordField(record, field, s.toString().trim());
-                        scheduleSave(record);
-                    }
-                };
-                et.addTextChangedListener(watcher);
-                et.setTag(R.id.tag_watcher, watcher);
-                et.setOnFocusChangeListener((v, hasFocus) -> {
-                    if (!hasFocus) {
-                        String s = et.getText().toString().trim();
-                        if (!s.isEmpty()) {
-                            try {
-                                double val = Double.parseDouble(s);
-                                double rounded = Math.round(val * 10.0) / 10.0;
-                                String formatted = (rounded == (long) rounded) ? String.valueOf((long) rounded) : String.valueOf(rounded);
-                                et.removeTextChangedListener(watcher);
-                                et.setText(formatted);
-                                et.setSelection(formatted.length());
-                                et.addTextChangedListener(watcher);
-                            } catch (NumberFormatException ignored) { /* ignored */ }
-                        }
-                    }
-                });
-            }
-        }
-
-        private void bindProductCell(View root, int cellId, String value, DayRecord record, String field, int position) {
-            final EditText et = root.findViewById(cellId);
-            String display = DatabaseHelper.extractProductName(value);
-            et.setText(display);
-            if (batchFinished) {
-                et.setOnClickListener(null);
-                et.setClickable(false);
-                et.setFocusable(false);
-                et.setFocusableInTouchMode(false);
-            } else {
-                et.setOnClickListener(v -> showProductSelector(field, position, record));
-                et.setClickable(true);
-            }
-        }
-    }
-
     // ==================== Data class ====================
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        debounceHandler.removeCallbacksAndMessages(null);
-    }
 
     public static class DayRecord {
         public String date = "";
@@ -865,6 +334,46 @@ public class FeedingRecordActivity extends BaseActivity {
         public String mix3 = "";
         public String mix4 = "";
         public String remark = "";
+
+        /** 按列名写字段；与 RecordTableColumns 的 id 一一对应 */
+        public void setField(String field, String value) {
+            switch (field) {
+                case "breakfast": breakfast = value; break;
+                case "lunch": lunch = value; break;
+                case "dinner": dinner = value; break;
+                case "nightSnack": nightSnack = value; break;
+                case "waterMix1": waterMix1 = value; break;
+                case "waterMix2": waterMix2 = value; break;
+                case "waterMix3": waterMix3 = value; break;
+                case "waterMix4": waterMix4 = value; break;
+                case "mix1": mix1 = value; break;
+                case "mix2": mix2 = value; break;
+                case "mix3": mix3 = value; break;
+                case "mix4": mix4 = value; break;
+                case "remark": remark = value; break;
+                default: break;
+            }
+        }
+
+        /** 按列名读字段；未知列返回空串 */
+        public String getField(String field) {
+            switch (field) {
+                case "breakfast": return breakfast;
+                case "lunch": return lunch;
+                case "dinner": return dinner;
+                case "nightSnack": return nightSnack;
+                case "waterMix1": return waterMix1;
+                case "waterMix2": return waterMix2;
+                case "waterMix3": return waterMix3;
+                case "waterMix4": return waterMix4;
+                case "mix1": return mix1;
+                case "mix2": return mix2;
+                case "mix3": return mix3;
+                case "mix4": return mix4;
+                case "remark": return remark;
+                default: return "";
+            }
+        }
 
         @SuppressWarnings("unused")
         public ContentValues toContentValues() {
@@ -928,5 +437,4 @@ public class FeedingRecordActivity extends BaseActivity {
             remark = json.optString("remark", "");
         }
     }
-
 }
