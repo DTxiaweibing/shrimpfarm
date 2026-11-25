@@ -19,44 +19,16 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
-    <!-- 表头区域 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:orientation="horizontal"
-        android:background="#FF2D84C2">
-
-        <TextView
-            android:id="@+id/header_fixed_date"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="@string/header_date"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:textStyle="bold" />
-
-        <HorizontalScrollView
-            android:id="@+id/header_scroll_container"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scrollbars="none"
-            android:overScrollMode="never" />
-    </LinearLayout>
-
-    <!-- 数据区域 -->
+    <!-- 数据区域：自绘表格（表头 / 冻结日期列 / 备注跨行 / 编辑器都在一个 View 内） -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/record_recycler_view"
+        <com.shrimpfarm.app.feedtable.RecordTableView
+            android:id="@+id/record_table_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingBottom="8dp" />
+            android:layout_height="match_parent" />
 
         <FrameLayout
             android:id="@+id/loading_overlay"

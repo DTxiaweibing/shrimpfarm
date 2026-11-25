@@ -26,3 +26,6 @@ keystore.properties
 
 app/src/main/assets/sherpa_models/
 
+
+# Superpowers SDD 工作区（本地临时）
+.superpowers/

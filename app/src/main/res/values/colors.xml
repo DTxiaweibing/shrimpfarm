@@ -3,5 +3,7 @@
     <color name="colorPrimary">#009688</color>
     <color name="colorPrimaryDark">#00796B</color>
     <color name="colorAccent">#FF9800</color>
+    <!-- 记录表编辑光标（API 28 兜底）：与 RecordCellFit.CURSOR_COLOR 同值 -->
+    <color name="record_cursor_orange">#FFFF5722</color>
 
 </resources>

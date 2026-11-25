@@ -1,4 +1,4 @@
-package com.shrimpfarm.app.mixcalc.table;
+package com.shrimpfarm.app.table;
 
 /**
  * 「下一步 / 下一行」的点击节流：与鸿蒙 {@code lastNextAt} 同值 120ms。

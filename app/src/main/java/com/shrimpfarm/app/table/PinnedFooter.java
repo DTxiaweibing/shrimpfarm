@@ -1,4 +1,4 @@
-package com.shrimpfarm.app.mixcalc.table;
+package com.shrimpfarm.app.table;
 
 /**
  * 表尾「重置」格的钉住位置（对齐鸿蒙）：贴右边缘，横向滚动不跟着跑，
