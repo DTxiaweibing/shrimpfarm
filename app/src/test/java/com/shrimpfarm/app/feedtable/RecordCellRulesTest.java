@@ -53,4 +53,17 @@ public class RecordCellRulesTest {
         assertEquals("【拌料】料A+标签",
                 RecordCellRules.commitText(RecordTableColumns.KIND_PRODUCT, "【拌料】料A+标签"));
     }
+
+    @Test
+    public void numberCellKeepsNativeMovementSoCaretCanDraw() {
+        // 数字格不能 setMovementMethod(null)：那会让光标完全不画（与计算器 CellEditorOverlay 一致）
+        assertEquals(RecordCellRules.MovementMethodPolicy.NATIVE,
+                RecordCellRules.movementMethodFor(RecordTableColumns.KIND_NUMBER));
+    }
+
+    @Test
+    public void remarkCellUsesScrollingMovementForMultipleLines() {
+        assertEquals(RecordCellRules.MovementMethodPolicy.SCROLLING,
+                RecordCellRules.movementMethodFor(RecordTableColumns.KIND_REMARK));
+    }
 }

@@ -27,6 +27,20 @@ public final class RecordCellRules {
         return kind == RecordTableColumns.KIND_NUMBER;
     }
 
+    /**
+     * 编辑器 movement method 策略。
+     *
+     * <p>数字格必须留在 {@code NATIVE}：调用 {@code setMovementMethod(null)} 会把光标整个吞掉，
+     * 与计算器 {@code CellEditorOverlay} 的原生焦点流程一致；只有多行备注格需要 {@code SCROLLING}。</p>
+     */
+    public enum MovementMethodPolicy {
+        NATIVE, SCROLLING
+    }
+
+    public static MovementMethodPolicy movementMethodFor(int kind) {
+        return multiLine(kind) ? MovementMethodPolicy.SCROLLING : MovementMethodPolicy.NATIVE;
+    }
+
     /** 提交文本：数字走 1 位小数归一化，备注原样返回（含换行） */
     public static String commitText(int kind, String raw) {
         if (kind == RecordTableColumns.KIND_NUMBER) {

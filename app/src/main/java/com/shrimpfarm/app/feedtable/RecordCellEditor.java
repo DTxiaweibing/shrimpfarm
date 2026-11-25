@@ -136,7 +136,8 @@ public final class RecordCellEditor {
     /** 按列类型重配输入：数字单行 + NEXT，备注多行 + DONE；换格时调用，不留上一格状态 */
     private void applyKindConfig(int kind) {
         editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, table.editorTextSizePx(kind));
-        if (RecordCellRules.multiLine(kind)) {
+        if (RecordCellRules.movementMethodFor(kind)
+                == RecordCellRules.MovementMethodPolicy.SCROLLING) {
             editText.setSingleLine(false);
             editText.setMaxLines(
                     RecordCellFit.maxLinesForHeight(cellBounds.height(), editText.getTextSize()));
@@ -144,7 +145,7 @@ public final class RecordCellEditor {
             editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
             editText.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
         } else {
-            editText.setMovementMethod(null);
+            // 数字格：绝不 setMovementMethod(null)，否则光标不画；原生 movement 与计算器同款
             editText.setSingleLine(true);
             editText.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
             // R5：软键盘右下角显示「下一项」，换格由 bridge.handleEditNext 负责
