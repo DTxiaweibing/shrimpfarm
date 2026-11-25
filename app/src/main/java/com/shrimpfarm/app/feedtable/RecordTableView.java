@@ -4,14 +4,15 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 
 /**
  * 记录表的绘制层：一个自绘 {@link ViewGroup}，不创建任何子 View。
  *
  * <p>画什么、怎么裁由本类决定，数据全部经 {@link RecordTextProvider} 取，几何全部经
- * {@link RecordTableMetrics} 算。本卡不含手势、惯性、编辑器；{@code setTableScroll} 供 R3 驱动滚动，
- * 编辑器留给 R4。</p>
+ * {@link RecordTableMetrics} 算。手势（拖动 / 惯性 / 点击长按）全部委托给
+ * {@link RecordTableGesture}，本类只留委托；编辑器留给 R4。</p>
  *
  * <p>绘制顺序固定（后画的盖住先画的）：</p>
  * <ol>
@@ -31,6 +32,8 @@ public class RecordTableView extends ViewGroup {
     private final RecordCellText cellText = new RecordCellText();
     /** 复用的格子矩形，绘制期只 set 不 new */
     private final RectF cellRect = new RectF();
+    /** 拖动 / 惯性 / 点击长按全部在这里 */
+    private final RecordTableGesture gesture;
 
     private RecordTextProvider textProvider;
     private RecordTableSizing sizing;
@@ -58,6 +61,9 @@ public class RecordTableView extends ViewGroup {
         style = new RecordTableStyle(context);
         // ViewGroup 默认跳过 onDraw，自绘必须显式打开
         setWillNotDraw(false);
+        // 撞边即停，不要 EdgeEffect 的拉伸/回弹
+        setOverScrollMode(OVER_SCROLL_NEVER);
+        gesture = new RecordTableGesture(this);
     }
 
     // ==================== 外部接口 ====================
@@ -106,6 +112,25 @@ public class RecordTableView extends ViewGroup {
     /** 列模型；未 setSizing 前为 null */
     public RecordTableColumns getColumns() {
         return columns;
+    }
+
+    /** R4 / R6 挂编辑器与产品选择器 */
+    public void setOnCellTapListener(OnRecordCellTapListener listener) {
+        gesture.setListener(listener);
+    }
+
+    // ==================== 手势委托 ====================
+
+    @Override
+    public boolean onTouchEvent(MotionEvent ev) {
+        return gesture.onTouchEvent(ev);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        // 视图离开窗口：停掉帧回调，别让惯性在后台继续跑
+        gesture.stopFling();
+        super.onDetachedFromWindow();
     }
 
     // ==================== measure / layout ====================
