@@ -72,10 +72,12 @@ public final class RecordCellEditor {
                 end();
             }
         });
-        // R4 用 DONE：按完成键就提交收起；R5 换成 NEXT 走换格
+        // IME「下一项」：换格 / 表尾收起都交给 bridge（含 120ms 节流）
         editText.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_DONE && editing) {
-                dismiss();
+            if (actionId == EditorInfo.IME_ACTION_NEXT && editing) {
+                int currentDay = day;
+                int currentColumn = column;
+                table.editBridge().handleEditNext(currentDay, currentColumn);
                 return true;
             }
             return false;
@@ -91,6 +93,8 @@ public final class RecordCellEditor {
         editText.setOverScrollMode(View.OVER_SCROLL_NEVER);
         editText.setSingleLine(true);
         editText.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        // R5：软键盘右下角显示「下一项」，换格由 bridge.handleEditNext 负责
+        editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
         editText.setBackground(buildCellBackground());
         editText.setVisibility(View.GONE);
     }
@@ -161,7 +165,7 @@ public final class RecordCellEditor {
         layoutInto(cellBounds);
         editText.requestFocus();
         showIme();
-        table.notifyEditBegin(day, columnId);
+        table.editBridge().notifyEditBegin(day, columnId);
     }
 
     /** 提交（仅 dirty）并收起，不主动收键盘（换格时避免键盘闪一下） */
@@ -177,7 +181,7 @@ public final class RecordCellEditor {
         day = -1;
         column = -1;
         editText.clearFocus();
-        table.notifyEditEnd(finishedDay, finishedColumn);
+        table.editBridge().notifyEditEnd(finishedDay, finishedColumn);
     }
 
     /** 收起并收键盘：点非数字格、返回键、onPause、detach 时用 */
@@ -202,7 +206,7 @@ public final class RecordCellEditor {
         }
         dirty = false;
         String text = CellInputRules.normalizeNumber(editText.getText().toString());
-        table.notifyEditCommitted(day, column, text);
+        table.editBridge().notifyEditCommitted(day, column, text);
     }
 
     // ==================== 定位 ====================

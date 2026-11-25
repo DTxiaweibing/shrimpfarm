@@ -4,9 +4,13 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+
+import com.shrimpfarm.app.table.NextActionGate;
+import com.shrimpfarm.app.table.RevealMath;
 
 /**
  * 记录表的绘制层：一个自绘 {@link ViewGroup}，不创建任何子 View。
@@ -37,22 +41,12 @@ public class RecordTableView extends ViewGroup {
     private final RecordTableGesture gesture;
     /** 全表唯一的 EditText（唯一子 View） */
     private final RecordCellEditor editor;
-    /** 命中分流：数字格开编辑器，其余交给外部 listener */
-    private final OnRecordCellTapListener internalTapListener = new OnRecordCellTapListener() {
-        @Override
-        public void onCellTap(int day, String columnId) {
-            handleCellTap(day, columnId);
-        }
-
-        @Override
-        public void onCellLongPress(int day, String columnId) {
-            handleCellLongPress(day, columnId);
-        }
-    };
+    /** 命中分流 + 编辑事件转发；从本类抽出，避免视图逼近 500 行上限 */
+    private final RecordTableBridge bridge;
+    /** IME「下一项」节流时间戳（单调时钟） */
+    private long lastNextAt;
 
     private RecordTextProvider textProvider;
-    private OnRecordCellEditListener editListener;
-    private OnRecordCellTapListener externalTapListener;
     private RecordTableSizing sizing;
     private RecordTableColumns columns;
     /** 表头 6 格；rebuild 时缓存，避免 onDraw 里调 headers() 的拷贝分配 */
@@ -81,8 +75,10 @@ public class RecordTableView extends ViewGroup {
         // 撞边即停，不要 EdgeEffect 的拉伸/回弹
         setOverScrollMode(OVER_SCROLL_NEVER);
         gesture = new RecordTableGesture(this);
-        gesture.setListener(internalTapListener);
+        bridge = new RecordTableBridge(this);
+        gesture.setListener(bridge);
         editor = new RecordCellEditor(this);
+        bridge.setEditor(editor);
         addView(editor.view());
     }
 
@@ -136,12 +132,12 @@ public class RecordTableView extends ViewGroup {
 
     /** R4 / R6 挂编辑器与产品选择器 */
     public void setOnCellTapListener(OnRecordCellTapListener listener) {
-        this.externalTapListener = listener;
+        bridge.setOnCellTapListener(listener);
     }
 
     /** 编辑事件（提交 / 开始 / 结束）；产品格点击仍走 {@link #setOnCellTapListener} */
     public void setEditListener(OnRecordCellEditListener listener) {
-        this.editListener = listener;
+        bridge.setEditListener(listener);
     }
 
     /** 提交并收起编辑器；Activity 的返回键 / onPause 会调用 */
@@ -190,47 +186,38 @@ public class RecordTableView extends ViewGroup {
         return textProvider;
     }
 
-    void notifyEditBegin(int day, String columnId) {
-        if (editListener != null) {
-            editListener.onCellEditBegin(day, columnId);
-        }
+    /** 编辑器回调用的桥接（R5 换格 / notify 都走它） */
+    RecordTableBridge editBridge() {
+        return bridge;
     }
 
-    void notifyEditCommitted(int day, int column, String text) {
-        if (editListener == null || columns == null
+    int getDayCount() {
+        return dayCount;
+    }
+
+    /** IME「下一项」节流：与计算器同值 120ms */
+    boolean allowNextAction() {
+        long now = SystemClock.uptimeMillis();
+        if (!NextActionGate.allow(now, lastNextAt)) {
+            return false;
+        }
+        lastNextAt = now;
+        return true;
+    }
+
+    /** 换格后把目标格滚进可视区（对齐计算器的 ensureEditorVisible） */
+    void revealCell(int day, int column) {
+        if (columns == null || day < 0 || day >= dayCount
                 || column < 0 || column >= columns.count()) {
             return;
         }
-        editListener.onCellCommitted(day, columns.ids[column], text);
-    }
-
-    void notifyEditEnd(int day, int column) {
-        if (editListener == null || columns == null
-                || column < 0 || column >= columns.count()) {
-            return;
-        }
-        editListener.onCellEditEnd(day, columns.ids[column]);
-    }
-
-    private void handleCellTap(int day, String columnId) {
-        if (columns != null) {
-            int column = columns.indexOf(columnId);
-            if (column >= 0 && columns.kinds[column] == RecordTableColumns.KIND_NUMBER) {
-                editor.begin(day, column);
-            } else {
-                // 产品格 / 备注格 / 只读格：先结算并收起当前编辑
-                editor.dismiss();
-            }
-        }
-        if (externalTapListener != null) {
-            externalTapListener.onCellTap(day, columnId);
-        }
-    }
-
-    private void handleCellLongPress(int day, String columnId) {
-        editor.commitNow();
-        if (externalTapListener != null) {
-            externalTapListener.onCellLongPress(day, columnId);
+        int newY = RevealMath.scrollY(day, columns.dayHeight(), metrics.bodyHeight,
+                tableScrollY, metrics.maxScrollY);
+        int baseLeft = metrics.xOf(column, 0);
+        int newX = RevealMath.scrollX(baseLeft, columns.widths[column], columns.dateWidth,
+                getWidth(), tableScrollX, metrics.maxScrollX, false);
+        if (newX != tableScrollX || newY != tableScrollY) {
+            setTableScroll(newX, newY);
         }
     }
 
