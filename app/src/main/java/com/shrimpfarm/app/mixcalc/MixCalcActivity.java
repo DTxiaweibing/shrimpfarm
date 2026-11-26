@@ -1983,7 +1983,7 @@ public class MixCalcActivity extends BaseActivity {
             table = findViewById(R.id.mix_calc_table);
             tvErrorDisplay = findViewById(R.id.tv_error_display);
 
-            // 菜单按钮（下拉：快捷设置 / 隐私政策 / 用户协议 / 使用帮助）
+            // 菜单按钮（下拉：快捷设置 / 批次切换 / 使用帮助）
             View menuBtn = findViewById(R.id.btn_menu);
             menuBtn.setOnClickListener(v -> showMainMenu());
             installWindowSizeWatcher();
@@ -2945,18 +2945,6 @@ public class MixCalcActivity extends BaseActivity {
         }
     }
 
-    // 隐私政策 / 用户协议沿用 App 现有的页面，避免同一份文档在 assets 里存两份
-    private void openLegacyAssetPage(String assetFile, int titleRes) {
-        try {
-            Intent intent = new Intent(this, com.shrimpfarm.app.AssetWebViewActivity.class);
-            intent.putExtra(com.shrimpfarm.app.AssetWebViewActivity.EXTRA_TITLE, getString(titleRes));
-            intent.putExtra(com.shrimpfarm.app.AssetWebViewActivity.EXTRA_FILE, assetFile);
-            startActivity(intent);
-        } catch (Exception e) {
-            Log.e(TAG, "打开页面异常: " + e.getMessage());
-        }
-    }
-
     // 打开菜单/弹窗前先把正在编辑的格收掉、键盘收起。
     // 否则弹窗抢焦点时 IME 再收，表格会在弹窗后面先缩一下，看起来就是左上角闪一下。
     private void closeEditorAndIme() {
@@ -2995,72 +2983,7 @@ public class MixCalcActivity extends BaseActivity {
         View anchor = findViewById(R.id.main_layout);
         popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y);
     }
-    // 语言选择：单选列表 + 取消，选完存偏好并重建界面。
-    private void showLanguageDialog() {
-        try {
-            closeEditorAndIme();
-
-            final String[] keys = {
-                    com.shrimpfarm.app.utils.LocaleHelper.LANG_AUTO,
-                    com.shrimpfarm.app.utils.LocaleHelper.LANG_ZH,
-                    com.shrimpfarm.app.utils.LocaleHelper.LANG_EN
-            };
-            String[] labels = {
-                    getString(R.string.mix_lang_option_system),
-                    getString(R.string.mix_lang_option_zh),
-                    getString(R.string.mix_lang_option_en)
-            };
-            String current = com.shrimpfarm.app.utils.LocaleHelper.getSavedLang(this);
-            int checked = 0;
-            for (int i = 0; i < keys.length; i++) {
-                if (keys[i].equals(current)) { checked = i; break; }
-            }
-
-            Dialog dialog = new Dialog(this);
-            View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_language, null);
-            dialog.setContentView(dialogView);
-            dialog.setCanceledOnTouchOutside(true);
-
-            TextView tvTitle = dialogView.findViewById(R.id.tv_title);
-            tvTitle.setText(R.string.mix_lang_dialog_title);
-
-            android.widget.ListView lv = dialogView.findViewById(R.id.lv_languages);
-            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
-                    this, R.layout.item_language, labels);
-            lv.setAdapter(adapter);
-            lv.setItemChecked(checked, true);
-            lv.setOnItemClickListener((parent, view, position, id) -> {
-                dialog.dismiss();
-                applyLanguage(keys[position]);
-            });
-
-            Button btnCancel = dialogView.findViewById(R.id.btn_cancel);
-            btnCancel.setOnClickListener(v -> dialog.dismiss());
-
-            dialog.getWindow().setLayout(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-            // 关掉系统默认的对话框动画：华为上它的阴影/缩放会扫过下面露出的表格
-            dialog.getWindow().setWindowAnimations(0);
-            dialog.show();
-            if (table != null) {
-                table.postInvalidateOnAnimation();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "显示语言选择异常: " + e.getMessage());
-        }
-    }
-
-    private void applyLanguage(String lang) {
-        String current = com.shrimpfarm.app.utils.LocaleHelper.getSavedLang(this);
-        if (lang != null && lang.equals(current)) {
-            return;
-        }
-        com.shrimpfarm.app.utils.LocaleHelper.setLocale(this, lang);
-        recreate();
-    }
-
-    // ==================== 主菜单下拉（快捷设置 / 隐私政策 / 用户协议 / 使用帮助） ====================
+    // ==================== 主菜单下拉（快捷设置 / 批次切换 / 使用帮助） ====================
 
     private void showMainMenu() {
         try {
@@ -3070,7 +2993,7 @@ public class MixCalcActivity extends BaseActivity {
             View popupView = getLayoutInflater().inflate(R.layout.popup_main_menu, null);
 
             final PopupWindow popup = new PopupWindow(popupView);
-            // 关掉菜单窗口的进出动画，避免和后续语言弹窗同帧切换时带出表格抖动
+            // 关掉菜单窗口的进出动画，避免弹出/关闭时带出抖动
             popup.setAnimationStyle(0);
             popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
             popup.setOutsideTouchable(true);
@@ -3088,40 +3011,14 @@ public class MixCalcActivity extends BaseActivity {
             final View batchRow = popupView.findViewById(R.id.menu_item_batch);
             batchRow.setOnClickListener(v -> showBatchPopup(batchRow, popup));
 
-            popupView.findViewById(R.id.menu_item_privacy_policy).setOnClickListener(v -> {
-                popup.dismiss();
-                openLegacyAssetPage("privacy-policy.html", R.string.menu_privacy_policy);
-            });
-            popupView.findViewById(R.id.menu_item_user_agreement).setOnClickListener(v -> {
-                popup.dismiss();
-                openLegacyAssetPage("user-agreement.html", R.string.menu_user_agreement);
-            });
             popupView.findViewById(R.id.menu_item_help).setOnClickListener(v -> {
                 popup.dismiss();
                 showHelpPanel();
             });
-            popupView.findViewById(R.id.menu_item_language).setOnClickListener(v -> {
-                popup.dismiss();
-                // 菜单窗口先移除，下一帧再弹语言框：两个窗口同一帧切换时，
-                // 菜单盖住的那块表格会重新露出，华为上会看到左上角抖一下。
-                View main = findViewById(R.id.main_layout);
-                if (main != null) {
-                    main.post(() -> {
-                        if (!isFinishing() && !isDestroyed()) {
-                            showLanguageDialog();
-                        }
-                    });
-                } else {
-                    showLanguageDialog();
-                }
-            });
 
-            // 版本号：取构建配置里的真实 versionName（app/build.gradle）
-            TextView versionTv = popupView.findViewById(R.id.menu_item_version);
-            versionTv.setText(getString(R.string.mix_menu_version_format, BuildConfig.VERSION_NAME));
 
             // 宽度：正常字体下手机 1/3、平板/11 列全显 1/4；字体放大时按 fontScale 加宽（最多屏幕 60%），
-            // 避免版本号在窄菜单里被挤成每行一个字。高度由 wrap_content 撑开。
+            // 避免文字在窄菜单里被挤得太紧。高度由 wrap_content 撑开。
             View mainLayout = findViewById(R.id.main_layout);
             int totalWidth = mainLayout != null && mainLayout.getWidth() > 0
                     ? mainLayout.getWidth()
@@ -3297,8 +3194,7 @@ public class MixCalcActivity extends BaseActivity {
     private void fitMenuRowHeights(View popupView) {
         int[] ids = {
                 R.id.menu_item_quick_settings, R.id.menu_item_batch,
-                R.id.menu_item_privacy_policy, R.id.menu_item_user_agreement,
-                R.id.menu_item_help, R.id.menu_item_language, R.id.menu_item_version
+                R.id.menu_item_help
         };
         boolean firstVisible = true;
         for (int id : ids) {

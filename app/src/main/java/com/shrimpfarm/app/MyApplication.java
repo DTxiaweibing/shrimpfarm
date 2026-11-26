@@ -121,6 +121,13 @@ public class MyApplication extends MultiDexApplication {
     }
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        android.content.res.Configuration config = new android.content.res.Configuration(base.getResources().getConfiguration());
+        config.fontScale = 1.0f;
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
+    @Override
     public void onCreate() {
         super.onCreate();
         Thread.setDefaultUncaughtExceptionHandler(new CrashHandler(this));
@@ -134,8 +141,32 @@ public class MyApplication extends MultiDexApplication {
                 boolean lightIcons = isLightStatusBarIcons(activity);
 
                 // MixCalcActivity 自己处理 insets（spacer），不要重复加 padding。
+                // 但系统导航栏的颜色/图标外观仍需与其他页面保持一致。
                 if (activity instanceof MixCalcActivity) {
                     applyStatusBarIcons(activity, lightIcons);
+                    if (Build.VERSION.SDK_INT >= 35) {
+                        try {
+                            WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+                        } catch (Throwable t) {
+                            android.util.Log.w("MyApplication", "setDecorFitsSystemWindows failed", t);
+                        }
+                        try {
+                            activity.getWindow().setStatusBarColor(0);
+                            activity.getWindow().setNavigationBarColor(0);
+                        } catch (Throwable t) {
+                            android.util.Log.w("MyApplication", "set system bar colors failed", t);
+                        }
+                        try {
+                            WindowInsetsController controller = activity.getWindow().getInsetsController();
+                            if (controller != null) {
+                                controller.setSystemBarsAppearance(
+                                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+                            }
+                        } catch (Throwable t) {
+                            android.util.Log.w("MyApplication", "light nav bar icons failed", t);
+                        }
+                    }
                     return;
                 }
 

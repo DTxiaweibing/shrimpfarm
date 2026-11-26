@@ -65,6 +65,10 @@ public class LocaleHelper {
 
         Configuration config = new Configuration(context.getResources().getConfiguration());
         config.setLocale(locale);
-        return context.createConfigurationContext(config);
+        config.fontScale = 1.0f;
+        Context newCtx = context.createConfigurationContext(config);
+        android.util.DisplayMetrics dm = newCtx.getResources().getDisplayMetrics();
+        dm.scaledDensity = dm.density;
+        return newCtx;
     }
 }

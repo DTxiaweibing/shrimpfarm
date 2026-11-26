@@ -56,49 +56,6 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#E0E0E0" />
-    <TextView
-        android:id="@+id/menu_item_privacy_policy"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="39dp"
-        android:includeFontPadding="false"
-        android:text="@string/mix_menu_privacy_policy"
-        android:textSize="18sp"
-        android:textColor="#333333"
-        android:gravity="center"
-        android:textAlignment="center"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="?attr/selectableItemBackground" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0" />
-
-    <TextView
-        android:id="@+id/menu_item_user_agreement"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="39dp"
-        android:includeFontPadding="false"
-        android:text="@string/mix_menu_user_agreement"
-        android:textSize="18sp"
-        android:textColor="#333333"
-        android:gravity="center"
-        android:textAlignment="center"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="?attr/selectableItemBackground" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0" />
 
     <TextView
         android:id="@+id/menu_item_help"
@@ -117,46 +74,6 @@
         android:paddingBottom="8dp"
         android:background="?attr/selectableItemBackground" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0" />
 
-    <TextView
-        android:id="@+id/menu_item_language"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="39dp"
-        android:includeFontPadding="false"
-        android:text="@string/mix_menu_language"
-        android:textSize="18sp"
-        android:textColor="#333333"
-        android:gravity="center"
-        android:textAlignment="center"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="?attr/selectableItemBackground" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0" />
-
-    <TextView
-        android:id="@+id/menu_item_version"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="39dp"
-        android:includeFontPadding="false"
-        android:textSize="18sp"
-        android:textColor="#333333"
-        android:gravity="center"
-        android:textAlignment="center"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp" />
 
 </LinearLayout>

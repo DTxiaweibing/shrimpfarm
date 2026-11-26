@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.annotation.SuppressLint;
@@ -99,6 +100,27 @@ public abstract class BaseActivity extends AppCompatActivity {
         if (integrityHandler != null) {
             integrityHandler.removeCallbacksAndMessages(null);
         }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        if (newConfig.fontScale != 1f) {
+            newConfig.fontScale = 1f;
+            getResources().getDisplayMetrics().scaledDensity =
+                    getResources().getDisplayMetrics().density;
+        }
+        super.onConfigurationChanged(newConfig);
+    }
+
+    @Override
+    public android.content.res.Resources getResources() {
+        android.content.res.Resources res = super.getResources();
+        if (res != null && res.getConfiguration().fontScale != 1f) {
+            Configuration config = new Configuration(res.getConfiguration());
+            config.fontScale = 1f;
+            res.updateConfiguration(config, res.getDisplayMetrics());
+        }
+        return res;
     }
 
     @SuppressLint("InflateParams")
