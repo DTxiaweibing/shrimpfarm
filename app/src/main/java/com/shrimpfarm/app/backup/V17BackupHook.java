@@ -46,7 +46,8 @@ public final class V17BackupHook {
         try {
             Log.w(TAG, msg, t);
         } catch (Throwable ignored) {
-            // JVM unit tests may not mock android.util.Log
+            System.err.println(TAG + ": " + msg);
+            if (t != null) t.printStackTrace(System.err);
         }
     }
 
@@ -57,7 +58,7 @@ public final class V17BackupHook {
             logW("Failed to create backup dir: " + backupDir.getAbsolutePath(), null);
             return null;
         }
-        File dst = new File(backupDir, backupFileName(nowMs));
+        File dst = new File(backupDir, backupFileName(nowMs, userVersion));
         copyDatabase(dbFile, dst);
         cleanupExpired(backupDir, nowMs, RETAIN_MS);
         return dst;
@@ -85,9 +86,9 @@ public final class V17BackupHook {
         }
     }
 
-    private static String backupFileName(long nowMs) {
+    private static String backupFileName(long nowMs, int userVersion) {
         String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date(nowMs));
-        return "v16_" + ts + ".db";
+        return "v" + userVersion + "_" + ts + ".db";
     }
 
     private static void copyDatabase(File src, File dst) throws Exception {

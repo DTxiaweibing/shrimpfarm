@@ -67,9 +67,12 @@ public final class V17Reconcile {
 
     public static void reconcileV17(SQLiteDatabase db, Map<String, Snapshot> before) {
         Map<String, Snapshot> after = snapshotIncomeAfter(db);
-        for (String batch : before.keySet()) {
+        java.util.TreeSet<String> batches = new java.util.TreeSet<>(before.keySet());
+        batches.addAll(after.keySet());
+        for (String batch : batches) {
             Snapshot b = before.get(batch);
             Snapshot a = after.get(batch);
+            if (b == null) b = new Snapshot(0, 0, 0, 0, 0, 0);
             if (a == null) a = new Snapshot(0, 0, 0, 0, 0, 0);
             checkCount(batch, "单头数", b.count, a.count);
             checkCount(batch, "明细行数", b.count, a.itemCount);
