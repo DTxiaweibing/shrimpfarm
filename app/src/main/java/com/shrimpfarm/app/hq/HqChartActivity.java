@@ -3,6 +3,7 @@ package com.shrimpfarm.app.hq;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -43,6 +44,7 @@ public class HqChartActivity extends BaseActivity {
     private static final int BAND_COLOR = Color.argb(80, 10, 126, 140);
     private static final int LINE_COLOR = Color.parseColor("#0A7E8C");
     private static final int BAR_COLOR = Color.parseColor("#FF9800");
+    private static final float MIN_DAY_WIDTH_DP = 24f;
 
     private CombinedChart chart;
     private DatabaseHelper dbHelper;
@@ -86,7 +88,11 @@ public class HqChartActivity extends BaseActivity {
         chart.setTouchEnabled(true);
         chart.setDragEnabled(true);
         chart.setScaleEnabled(true);
+        // 价格轴始终固定：捏合只缩放日期轴，正反方向都生效。
+        chart.setScaleYEnabled(false);
         chart.setPinchZoom(true);
+        // 双击改为自己的档位逻辑（翻倍放大，到顶后还原），不用库默认的 X/Y 一起放大。
+        chart.setDoubleTapToZoomEnabled(false);
         chart.setDrawGridBackground(false);
         chart.setExtraOffsets(8f, 8f, 8f, 30f);
         chart.setDrawOrder(new CombinedChart.DrawOrder[]{
@@ -143,6 +149,16 @@ public class HqChartActivity extends BaseActivity {
 
             @Override
             public void onChartDoubleTapped(MotionEvent e) {
+                if (points.isEmpty()) return;
+                float minDayWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                        MIN_DAY_WIDTH_DP, getResources().getDisplayMetrics());
+                int steps = HqChartZoom.stepsForAllDays(points.size(), chart.getWidth(), minDayWidth);
+                float target = HqChartZoom.nextScale(chart.getScaleX(), steps);
+                if (target <= 1f) {
+                    chart.fitScreen();
+                } else {
+                    chart.zoom(target / chart.getScaleX(), 1f, e.getX(), e.getY());
+                }
             }
 
             @Override

@@ -711,7 +711,7 @@
     <string name="hq_chart_legend_range">价格区间</string>
     <string name="hq_chart_legend_mid">中值</string>
     <string name="hq_chart_legend_bar">价格</string>
-    <string name="hq_chart_toggle_hint">点击图表切换折线图/柱状图</string>
+    <string name="hq_chart_toggle_hint">点击图表切换折线图/柱状图；双击放大日期轴，再双击还原；双指捏合可缩放日期轴</string>
     <string name="hq_date_with_suffix" translatable="false">%1$s · %2$s</string>
     <string name="hq_arrow_prev" translatable="false">‹</string>
     <string name="hq_arrow_next" translatable="false">›</string>

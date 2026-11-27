@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class HqSyncPlannerTest {
@@ -48,5 +49,20 @@ public class HqSyncPlannerTest {
         assertTrue(HqSyncPlanner.missingDates(null, null, null, 365).isEmpty());
         assertTrue(HqSyncPlanner.missingDates("bad", Collections.emptyList(),
                 Collections.emptyList(), 365).isEmpty());
+    }
+
+    /** 补缺产出的日期字符串必须能被绿点匹配，避免同步成功但日历不亮。 */
+    @Test
+    public void backfilledDatesAreRecognizedByDotMatcher() {
+        List<String> missing = HqSyncPlanner.missingDates("2026-11-20",
+                Collections.emptyList(), Arrays.asList("2026-11-01", "2026-11-20"), 20);
+        java.util.Set<String> localAfterSync = new java.util.HashSet<>(missing);
+        for (String date : localAfterSync) {
+            String[] parts = date.split("-");
+            assertTrue(HqDateDots.hasDot(localAfterSync,
+                    Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1,
+                    Integer.parseInt(parts[2])));
+        }
+        assertFalse(HqDateDots.hasDot(localAfterSync, 2026, 10, 19));
     }
 }

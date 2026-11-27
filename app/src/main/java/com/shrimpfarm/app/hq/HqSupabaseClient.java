@@ -190,15 +190,31 @@ public final class HqSupabaseClient {
         if (fromDate == null || fromDate.isEmpty() || toDate == null || toDate.isEmpty()) {
             return Collections.emptyList();
         }
-        String path = "price_records?select=record_date&region_id=eq." + REGION_ID
-                + "&record_date=gte." + encode(fromDate)
-                + "&record_date=lte." + encode(toDate)
-                + "&order=record_date.asc&limit=1000";
         Set<String> dates = new TreeSet<>();
-        for (JsonElement el : queryArray(path)) {
-            String date = getStr(el.getAsJsonObject(), "record_date");
-            if (!date.isEmpty()) dates.add(date);
+        String cursor = null;
+        int pages = 0;
+        while (true) {
+            String path = "price_records?select=record_date&region_id=eq." + REGION_ID
+                    + "&record_date=" + HqDatePaging.lowerOp(cursor)
+                    + encode(HqDatePaging.lowerBound(fromDate, cursor))
+                    + "&record_date=lte." + encode(toDate)
+                    + "&order=record_date.asc&limit=" + HqDatePaging.PAGE_SIZE;
+            JsonArray rows = queryArray(path);
+            pages++;
+            if (rows.size() == 0) break;
+
+            String pageMax = null;
+            for (JsonElement el : rows) {
+                String date = getStr(el.getAsJsonObject(), "record_date");
+                if (date.isEmpty()) continue;
+                dates.add(date);
+                if (pageMax == null || date.compareTo(pageMax) > 0) pageMax = date;
+            }
+            String next = HqDatePaging.nextCursor(cursor, pageMax);
+            if (next == null || !HqDatePaging.shouldContinue(rows.size(), pages)) break;
+            cursor = next;
         }
+        Log.d(TAG, "远端日期分页完成: pages=" + pages + " dates=" + dates.size());
         return new ArrayList<>(dates);
     }
 

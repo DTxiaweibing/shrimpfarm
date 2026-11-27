@@ -98,6 +98,15 @@
         <item name="android:windowLightNavigationBar">true</item>
     </style>
 
+    <!-- 行情模块用 MaterialComponents 主题：官方日期选择器要求宿主主题提供 materialCalendarStyle 等属性。 -->
+    <style name="HqTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
     <!-- 无主题背景的主题（用于根布局自带背景的 Activity，避免 Overdraw） -->
     <style name="AppTheme.NoWindowBackground" parent="AppTheme">
         <item name="android:windowBackground">@null</item>

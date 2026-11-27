@@ -1,6 +1,5 @@
 package com.shrimpfarm.app.hq;
 
-import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -21,8 +20,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 无锡行情。一天一页，左滑看更晚、右滑看更早。
@@ -47,6 +48,7 @@ public class HqActivity extends BaseActivity {
     private DatabaseHelper dbHelper;
 
     private final List<String> dates = new ArrayList<>();
+    private final AtomicInteger pendingSyncs = new AtomicInteger();
     private boolean userDragged;
 
     @Override
@@ -98,28 +100,24 @@ public class HqActivity extends BaseActivity {
         syncMissingDates();
     }
 
-    /** 点日历按钮：只能在当前可翻页窗口内挑选，选中后直接跳到那一页。 */
+    /** 点日历按钮：原生 Material 月历，有数据的日期下方带绿点。 */
     private void showDatePicker() {
-        if (dates.isEmpty()) return;
-        Calendar anchor = parseCalendar(currentDate());
-        Calendar min = parseCalendar(dates.get(0));
-        Calendar max = parseCalendar(dates.get(dates.size() - 1));
-        if (anchor == null || min == null || max == null) return;
+        // 同步未落库时绿点快照会缺日期，按钮此时已置灰，这里再挡一层。
+        if (!HqDateDots.canReadDots(pendingSyncs.get(), !dates.isEmpty())) return;
+        // 远端数据已由打开模块时的同步入库；绿点只读本地库，打开弹窗时现取。
+        HqDatePickerDialog.show(this, HqDateDots.toSet(dbHelper.getMarketPriceDates()),
+                dates.get(0), dates.get(dates.size() - 1), currentDate(),
+                this::onDatePicked);
+    }
 
-        DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
-            String picked = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day);
-            int index = dates.indexOf(picked);
-            if (index >= 0) {
-                pager.setCurrentItem(index, true);
-            } else {
-                Toast.makeText(this, R.string.hq_toast_date_unavailable, Toast.LENGTH_SHORT).show();
-            }
-        }, anchor.get(Calendar.YEAR), anchor.get(Calendar.MONTH),
-                anchor.get(Calendar.DAY_OF_MONTH));
-        dialog.getDatePicker().setMinDate(min.getTimeInMillis());
-        dialog.getDatePicker().setMaxDate(max.getTimeInMillis());
-        dialog.setTitle(R.string.select_date);
-        dialog.show();
+    /** 选中日期后沿用原来的跳转/提示逻辑。 */
+    private void onDatePicked(String picked) {
+        int index = dates.indexOf(picked);
+        if (index >= 0) {
+            pager.setCurrentItem(index, true);
+        } else {
+            Toast.makeText(this, R.string.hq_toast_date_unavailable, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** 本地缓存日期字符串转 Calendar；严格解析，非法输入返回 null。 */
@@ -134,8 +132,8 @@ public class HqActivity extends BaseActivity {
     }
 
     /**
-     * 后台补齐最近 MAX_HISTORY_DAYS 天内「远端有、本地无」的行情。
-     * 静默执行：单条失败只记日志，不弹提示、不中断后续日期。
+     * 打开模块即同步：把远端有、本地无的行情补进本地库。
+     * 同步期间日历按钮置灰，保证绿点快照只在落库完成后读取。
      */
     private void syncMissingDates() {
         String today = dateFormat().format(new Date());
@@ -144,39 +142,41 @@ public class HqActivity extends BaseActivity {
         from.add(Calendar.DAY_OF_YEAR, -(MAX_HISTORY_DAYS - 1));
         String fromDate = dateFormat().format(from.getTime());
 
+        beginSync();
         new Thread(() -> {
-            List<String> saved = backfill(fromDate, today);
-            if (saved.isEmpty()) return;
+            List<String> saved = Collections.emptyList();
+            try {
+                saved = HqBackfill.run(dbHelper, fromDate, today, MAX_HISTORY_DAYS);
+            } catch (Exception e) {
+                Log.w(TAG, "补缺失败: " + e.getMessage());
+            }
+            final List<String> result = saved;
             runOnUiThread(() -> {
-                if (isFinishing()) return;
-                rebuildDates(null);
-                for (String date : saved) refreshDayFragment(date);
+                try {
+                    if (isFinishing()) return;
+                    if (!result.isEmpty()) {
+                        rebuildDates(null);
+                        for (String date : result) refreshDayFragment(date);
+                    }
+                } finally {
+                    endSync();
+                }
             });
         }, "hq-backfill").start();
     }
 
-    /** 在主线程之外批量拉取并落库，返回成功写入的日期。 */
-    private List<String> backfill(String fromDate, String today) {
-        List<String> saved = new ArrayList<>();
-        try {
-            List<String> remote = HqSupabaseClient.fetchRemoteDates(fromDate, today);
-            List<String> missing = HqSyncPlanner.missingDates(today,
-                    dbHelper.getMarketPriceDates(), remote, MAX_HISTORY_DAYS);
-            for (String date : missing) {
-                try {
-                    PriceData data = HqSupabaseClient.fetchByDateSync(date);
-                    if (data != null && data.categories != null && !data.categories.isEmpty()) {
-                        dbHelper.saveMarketPrices(data);
-                        saved.add(date);
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "补缺 " + date + " 失败: " + e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "补缺日期查询失败: " + e.getMessage());
-        }
-        return saved;
+    /** 任一同步开始：计数归零前日历不可打开，避免绿点读半截数据。 */
+    private void beginSync() {
+        if (pendingSyncs.incrementAndGet() == 1) setPickerSyncing(true);
+    }
+
+    private void endSync() {
+        if (pendingSyncs.decrementAndGet() == 0 && !isFinishing()) setPickerSyncing(false);
+    }
+
+    private void setPickerSyncing(boolean syncing) {
+        btnPickDate.setEnabled(!syncing);
+        btnPickDate.setAlpha(syncing ? 0.5f : 1f);
     }
 
     /** 页范围：最近 WINDOW_DAYS 天；本地有更早的行情就继续往前扩。 */
@@ -271,24 +271,33 @@ public class HqActivity extends BaseActivity {
             tvDate.setText(R.string.hq_label_date_fetching);
         }
 
+        beginSync();
         HqCrawler.fetchLatest(this, new HqCrawler.OnDataCallback() {
             @Override
             public void onSuccess(PriceData data) {
-                if (isFinishing()) return;
-                if (data == null || data.date == null) {
-                    updateHeader(pager.getCurrentItem());
-                    return;
+                try {
+                    if (isFinishing()) return;
+                    if (data == null || data.date == null) {
+                        updateHeader(pager.getCurrentItem());
+                        return;
+                    }
+                    dbHelper.saveMarketPrices(data);
+                    rebuildDates(userDragged ? null : data.date);
+                    refreshDayFragment(data.date);
+                } finally {
+                    endSync();
                 }
-                dbHelper.saveMarketPrices(data);
-                rebuildDates(userDragged ? null : data.date);
-                refreshDayFragment(data.date);
             }
 
             @Override
             public void onError(String msg) {
-                if (!userInitiated || isFinishing()) return;
-                Toast.makeText(HqActivity.this, msg, Toast.LENGTH_LONG).show();
-                updateHeader(pager.getCurrentItem());
+                try {
+                    if (!userInitiated || isFinishing()) return;
+                    Toast.makeText(HqActivity.this, msg, Toast.LENGTH_LONG).show();
+                    updateHeader(pager.getCurrentItem());
+                } finally {
+                    endSync();
+                }
             }
         });
     }

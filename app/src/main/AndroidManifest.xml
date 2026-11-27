@@ -104,6 +104,7 @@
             android:exported="false" />
         <activity
             android:name=".hq.HqActivity"
+            android:theme="@style/HqTheme"
             android:label="行情资讯"
             android:screenOrientation="portrait"
             android:exported="false" />
