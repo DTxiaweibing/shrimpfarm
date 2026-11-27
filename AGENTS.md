@@ -2,11 +2,16 @@
 
 ## 构建 / 打包
 
-- **不要执行 `gradlew assembleDebug` / `assembleRelease` 等打包命令。**
-  签名配置在 Android Studio 里，命令行出的包没有正确签名，装上无法使用（会被当成盗版）。
-  构建一律交给用户在 AS 中完成。
-- 命令行构建会覆盖 `app\build\outputs\apk\debug\app-debug.apk`，该文件随后以 debug keystore 签名，**不是可发布的产物**。
-- 真机验证前确认用户已用 AS 重新构建。
+- 签名已写进 `app/build.gradle`：从仓库外的 `keystore.properties`（UTF-8 读取）取
+  `storeFile / storePassword / keyAlias / keyPassword`，debug 与 release 共用 `signingConfigs.release`，
+  V1/V2/V3 签名全开。密码只在仓库外的 `keystore.properties` 里，不要入库。
+- **可以直接命令行打包**：`gradlew assembleDebug`、`gradlew assembleRelease` 都行。
+  本机 `D:\shrimpfarm\keystore.properties` 存在时，命令行产物与 AS 构建签名一致，可正常安装。
+- 前提：打包前确认 `keystore.properties` 存在。文件缺失时 debug 回退默认调试签名、
+  release 保持未签名（只供别人拉代码后本地调试），那种包不要拿去真机验证或发布。
+- 产物：`app\build\outputs\apk\debug\app-debug.apk`、
+  `app\build\outputs\apk\release\app-release.apk`。
+- 真机验证用新打的包；若手机上装过旧签名的同包名应用，先卸载再装。
 
 ## 知识库（RAG）
 

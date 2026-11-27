@@ -115,14 +115,13 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     public android.content.res.Resources getResources() {
         android.content.res.Resources res = super.getResources();
-        if (res != null && res.getConfiguration().fontScale != 1f) {
-            Configuration config = new Configuration(res.getConfiguration());
-            config.fontScale = 1f;
-            res.updateConfiguration(config, res.getDisplayMetrics());
+        Configuration c = res.getConfiguration();
+        if (c.fontScale != 1f) {
+            c.fontScale = 1f;
+            res.updateConfiguration(c, res.getDisplayMetrics());
         }
         return res;
     }
-
     @SuppressLint("InflateParams")
     protected void showPiratedBlockingDialog() {
         Dialog dialog = new Dialog(this);
