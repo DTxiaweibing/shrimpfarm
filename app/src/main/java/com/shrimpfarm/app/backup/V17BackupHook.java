@@ -26,17 +26,24 @@ public final class V17BackupHook {
             File dbFile = context.getDatabasePath(DB_NAME);
             if (dbFile == null || !dbFile.exists()) return;
             int userVersion = readUserVersion(dbFile.getAbsolutePath());
-            if (!needsBackup(userVersion)) return;
             File dir = new File(new LocalBackupManager(context).getLegacyBackupDir(), BACKUP_SUBDIR);
-            if (!dir.exists() && !dir.mkdirs()) {
-                Log.w(TAG, "Failed to create backup dir: " + dir.getAbsolutePath());
-                return;
-            }
-            copyDatabase(dbFile, new File(dir, backupFileName()));
-            cleanupExpired(dir, System.currentTimeMillis(), RETAIN_MS);
+            backupIfNeeded(dbFile, userVersion, dir, System.currentTimeMillis());
         } catch (Exception e) {
             Log.w(TAG, "Pre-v17 backup hook failed", e);
         }
+    }
+
+    static File backupIfNeeded(File dbFile, int userVersion, File backupDir, long nowMs)
+            throws Exception {
+        if (!needsBackup(userVersion)) return null;
+        if (!backupDir.exists() && !backupDir.mkdirs()) {
+            Log.w(TAG, "Failed to create backup dir: " + backupDir.getAbsolutePath());
+            return null;
+        }
+        File dst = new File(backupDir, backupFileName(nowMs));
+        copyDatabase(dbFile, dst);
+        cleanupExpired(backupDir, nowMs, RETAIN_MS);
+        return dst;
     }
 
     static boolean needsBackup(int userVersion) {
@@ -61,8 +68,8 @@ public final class V17BackupHook {
         }
     }
 
-    private static String backupFileName() {
-        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+    private static String backupFileName(long nowMs) {
+        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date(nowMs));
         return "v16_" + ts + ".db";
     }
 
