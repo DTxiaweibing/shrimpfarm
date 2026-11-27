@@ -27,9 +27,26 @@ public final class V17BackupHook {
             if (dbFile == null || !dbFile.exists()) return;
             int userVersion = readUserVersion(dbFile.getAbsolutePath());
             File dir = new File(new LocalBackupManager(context).getLegacyBackupDir(), BACKUP_SUBDIR);
-            backupIfNeeded(dbFile, userVersion, dir, System.currentTimeMillis());
+            safeBackupIfNeeded(dbFile, userVersion, dir, System.currentTimeMillis());
         } catch (Exception e) {
-            Log.w(TAG, "Pre-v17 backup hook failed", e);
+            logW("Pre-v17 backup hook failed", e);
+        }
+    }
+
+    static boolean safeBackupIfNeeded(File dbFile, int userVersion, File backupDir, long nowMs) {
+        try {
+            return backupIfNeeded(dbFile, userVersion, backupDir, nowMs) != null;
+        } catch (Exception e) {
+            logW("Pre-v17 backup hook failed", e);
+            return false;
+        }
+    }
+
+    private static void logW(String msg, Throwable t) {
+        try {
+            Log.w(TAG, msg, t);
+        } catch (Throwable ignored) {
+            // JVM unit tests may not mock android.util.Log
         }
     }
 
@@ -37,7 +54,7 @@ public final class V17BackupHook {
             throws Exception {
         if (!needsBackup(userVersion)) return null;
         if (!backupDir.exists() && !backupDir.mkdirs()) {
-            Log.w(TAG, "Failed to create backup dir: " + backupDir.getAbsolutePath());
+            logW("Failed to create backup dir: " + backupDir.getAbsolutePath(), null);
             return null;
         }
         File dst = new File(backupDir, backupFileName(nowMs));
@@ -86,8 +103,8 @@ public final class V17BackupHook {
             }
             out.getFD().sync();
         } finally {
-            if (in != null) try { in.close(); } catch (Exception e) { Log.w(TAG, "close in failed", e); }
-            if (out != null) try { out.close(); } catch (Exception e) { Log.w(TAG, "close out failed", e); }
+            if (in != null) try { in.close(); } catch (Exception e) { logW("close in failed", e); }
+            if (out != null) try { out.close(); } catch (Exception e) { logW("close out failed", e); }
         }
     }
 
@@ -96,7 +113,7 @@ public final class V17BackupHook {
         if (files == null) return;
         for (File f : files) {
             if (f.isFile() && isExpired(f.lastModified(), nowMs, retainMs) && !f.delete()) {
-                Log.w(TAG, "Failed to delete expired backup: " + f.getAbsolutePath());
+                logW("Failed to delete expired backup: " + f.getAbsolutePath(), null);
             }
         }
     }

@@ -36,6 +36,7 @@ public class V17BackupHookTest {
         File backup = V17BackupHook.backupIfNeeded(db, 16, dir, now);
 
         assertNotNull(backup);
+        assertTrue(backup.getName().matches("v16_\\d{8}_\\d{6}\\.db"));
         assertTrue(backup.exists());
         assertEquals(3L, backup.length());
         assertFalse(old.exists());
@@ -48,6 +49,16 @@ public class V17BackupHookTest {
         File backup = V17BackupHook.backupIfNeeded(db, 17, dir, System.currentTimeMillis());
 
         assertNull(backup);
+        assertEquals(0, dir.listFiles().length);
+    }
+
+    @Test public void safeBackupIfNeededSwallowsCopyFailure() throws Exception {
+        File missingDb = new File(tmp.getRoot(), "missing.db");
+        File dir = tmp.newFolder("pre_v17");
+
+        boolean backedUp = V17BackupHook.safeBackupIfNeeded(missingDb, 16, dir, 8L * 24 * 3600 * 1000);
+
+        assertFalse(backedUp);
         assertEquals(0, dir.listFiles().length);
     }
 }
