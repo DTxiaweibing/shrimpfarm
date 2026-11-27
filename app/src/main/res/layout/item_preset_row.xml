@@ -45,7 +45,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:inputType="text"
-            android:maxLength="20"
+            android:maxLength="8"
             android:hint="@string/hint_preset_name"
             android:textSize="16sp"
             android:gravity="end"
