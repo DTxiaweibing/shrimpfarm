@@ -30,7 +30,6 @@ import com.shrimpfarm.app.model.PricePoint;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 单品种价格走势：点一下图表在两种模式间切换。
@@ -116,11 +115,12 @@ public class HqChartActivity extends BaseActivity {
         left.setTypeface(Typeface.DEFAULT_BOLD);
         left.setDrawGridLines(true);
         left.setGridColor(0xFFE6E6E6);
+        // 让库生成的刻度本身落在半元网格上，避免出现 11.2 这类间隔。
+        left.setGranularity(HqAxisScale.STEP);
         left.setValueFormatter(new ValueFormatter() {
             @Override
             public String getFormattedValue(float value) {
-                if (value == Math.round(value)) return String.valueOf((int) value);
-                return String.format(Locale.CHINA, "%.1f", value);
+                return HqAxisScale.format(value);
             }
         });
 
