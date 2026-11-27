@@ -27,7 +27,8 @@ public final class V17Schema {
                 + "amount REAL DEFAULT 0,"
                 + "net_fee REAL DEFAULT 0,"
                 + "sort_order INTEGER DEFAULT 0,"
-                + "spec_range TEXT)");
+                + "spec_range TEXT,"
+                + "specs TEXT)");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_fin_income_item ON "
                 + TABLE_FIN_INCOME_ITEM + "(income_id)");
         db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SHED_ARCHIVE + " ("
@@ -43,6 +44,7 @@ public final class V17Schema {
     }
 
     public static void ensureAll(SQLiteDatabase db) {
+        ensureColumn(db, TABLE_FIN_INCOME_ITEM, "specs", "TEXT");
         ensureColumn(db, "fin_income", "doc_no", "TEXT");
         ensureColumn(db, "fin_purchase_order", "pay_type", "INTEGER DEFAULT 0");
         ensureColumn(db, "fin_purchase_order", "settle_date", "TEXT");

@@ -58,8 +58,8 @@ public final class V17Migration {
     private static String backfillIncomeItems(SQLiteDatabase db) {
         SQLiteStatement ins = db.compileStatement(
                 "INSERT INTO fin_income_item(income_id,shed_id,shed_text,tail_per_jin,"
-                        + "weight,price,amount,net_fee,sort_order,spec_range)"
-                        + " VALUES (?,?,?,?,?,?,?,?,0,?)");
+                        + "weight,price,amount,net_fee,sort_order,spec_range,specs)"
+                        + " VALUES (?,?,?,?,?,?,?,?,0,?,?)");
         Cursor c = db.rawQuery("SELECT id,shed_no,specs,weight,price,net_fee,amount "
                 + "FROM fin_income ORDER BY id", null);
         List<String> fixups = new ArrayList<>();
@@ -88,14 +88,14 @@ public final class V17Migration {
         double netFee = c.getDouble(5);
         double amount = c.getDouble(6);
         V17Parse.SpecParse sp = V17Parse.parseSpec(specs);
-        bindIncomeItem(ins, id, resolveSingleShed(db, shed), shed, sp, weight, price, amount, netFee);
+        bindIncomeItem(ins, id, resolveSingleShed(db, shed), shed, sp, weight, price, amount, netFee, specs);
         ins.executeInsert();
         collectFixups(fixups, id, specs, weight, price, netFee, amount, sp.value);
     }
 
     private static void bindIncomeItem(SQLiteStatement ins, long id, long shedId, String shed,
                                        V17Parse.SpecParse sp, double weight, double price,
-                                       double amount, double netFee) {
+                                       double amount, double netFee, String specs) {
         ins.clearBindings();
         ins.bindLong(1, id);
         ins.bindLong(2, shedId);
@@ -106,6 +106,7 @@ public final class V17Migration {
         ins.bindDouble(7, amount);
         ins.bindDouble(8, netFee);
         ins.bindString(9, sp.range);
+        ins.bindString(10, specs);
     }
 
     private static void collectFixups(List<String> fixups, long id, String specs,

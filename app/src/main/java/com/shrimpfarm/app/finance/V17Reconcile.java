@@ -82,11 +82,14 @@ public final class V17Reconcile {
 
     private static Map<String, Snapshot> snapshotIncomeAfter(SQLiteDatabase db) {
         Map<String, Snapshot> map = new HashMap<>();
-        Cursor c = db.rawQuery("SELECT IFNULL(i.batch_id,''), COUNT(DISTINCT i.id), COUNT(it.id), "
-                + "IFNULL(SUM(it.weight),0), IFNULL(SUM(it.amount),0), IFNULL(SUM(it.net_fee),0), "
-                + "IFNULL(SUM(i.actual_amount),0) "
+        Cursor c = db.rawQuery("SELECT t.batch, t.cnt, t.icnt, t.w, t.a, t.nf, "
+                + "IFNULL((SELECT SUM(i2.actual_amount) FROM fin_income i2 "
+                + "WHERE IFNULL(i2.batch_id,'') = t.batch), 0) "
+                + "FROM (SELECT IFNULL(i.batch_id,'') batch, COUNT(DISTINCT i.id) cnt, "
+                + "COUNT(it.id) icnt, IFNULL(SUM(it.weight),0) w, IFNULL(SUM(it.amount),0) a, "
+                + "IFNULL(SUM(it.net_fee),0) nf "
                 + "FROM fin_income i LEFT JOIN fin_income_item it ON it.income_id=i.id "
-                + "GROUP BY i.batch_id", null);
+                + "GROUP BY i.batch_id) t", null);
         try {
             while (c.moveToNext()) {
                 map.put(nonNull(c.getString(0)), new Snapshot(c.getLong(1), c.getLong(2),
