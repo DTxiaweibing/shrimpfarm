@@ -15,6 +15,7 @@ import com.shrimpfarm.app.model.PriceItem;
 import com.shrimpfarm.app.model.PricePoint;
 import com.shrimpfarm.app.model.PriceRange;
 import com.shrimpfarm.app.model.PriceRangeParser;
+import com.shrimpfarm.app.finance.V17Schema;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import java.text.SimpleDateFormat;
@@ -30,7 +31,7 @@ import java.util.Map;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "FeedingRecord.db";
-    private static final int DATABASE_VERSION = 16;
+    private static final int DATABASE_VERSION = 17;
 
     // ==================== 表名 ====================
     public static final String TABLE_DAILY_RECORDS = "daily_records";
@@ -734,6 +735,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_PLAN_TASKS_TABLE);
         db.execSQL(CREATE_FEEDING_CHECK_ANALYSIS_TABLE);
         createFinanceTables(db);
+        V17Schema.createAll(db);
     }
 
     @Override
@@ -750,6 +752,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // 行情价格区间列由 case 15 加入；已升到 v16 的设备不会再走 onUpgrade。
         ensureColumn(db, TABLE_MARKET_PRICES, "price_low", "REAL");
         ensureColumn(db, TABLE_MARKET_PRICES, "price_high", "REAL");
+        V17Schema.ensureAll(db);
     }
 
     /** 该列存在则直接返回，不存在则补上（自愈存量库，避免建表语句与迁移脱节）。 */
