@@ -15,6 +15,7 @@ import com.shrimpfarm.app.model.PriceItem;
 import com.shrimpfarm.app.model.PricePoint;
 import com.shrimpfarm.app.model.PriceRange;
 import com.shrimpfarm.app.model.PriceRangeParser;
+import com.shrimpfarm.app.finance.V17Migration;
 import com.shrimpfarm.app.finance.V17Schema;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
@@ -996,6 +997,9 @@ try {
                 try {
                     db.execSQL("ALTER TABLE " + TABLE_MARKET_PRICES + " ADD COLUMN price_high REAL");
                 } catch (Exception ignored) { /* 已存在则忽略 */ }
+                break;
+            case 16:
+                V17Migration.migrate(db);
                 break;
             }
         }
