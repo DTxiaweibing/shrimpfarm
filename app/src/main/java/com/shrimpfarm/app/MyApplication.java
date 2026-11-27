@@ -14,6 +14,7 @@ import androidx.multidex.MultiDexApplication;
 
 import com.shrimpfarm.app.analysis.DataAnalysisActivity;
 import com.shrimpfarm.app.backup.BackgroundBackupManager;
+import com.shrimpfarm.app.backup.V17BackupHook;
 import com.shrimpfarm.app.checkfeed.CheckFeedActivity;
 import com.shrimpfarm.app.mixcalc.MixCalcActivity;
 import com.shrimpfarm.app.model.KnowledgeBaseUpdater;
@@ -130,6 +131,7 @@ public class MyApplication extends MultiDexApplication {
     @Override
     public void onCreate() {
         super.onCreate();
+        V17BackupHook.run(this);
         Thread.setDefaultUncaughtExceptionHandler(new CrashHandler(this));
 
         KnowledgeBaseUpdater.startBackgroundPolling(this);
