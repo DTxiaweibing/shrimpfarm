@@ -145,7 +145,7 @@ public class SupplierManageActivity extends BaseActivity {
                 supplier == null ? SupplierKindRules.KIND_MED : supplier.supplierKind) : null;
         layout.addView(etRemark);
 
-        String preStart = today();
+        String preStart = SupplierDateRules.today();
         double preWage = 0;
         if (supplier != null) {
             etName.setText(supplier.name);
@@ -172,7 +172,7 @@ public class SupplierManageActivity extends BaseActivity {
 
     private void setupDatePicker(EditText etStart, String[] startDate) {
         etStart.setOnClickListener(v -> {
-            int[] p = parseDate(startDate[0]);
+            int[] p = SupplierDateRules.parseDate(startDate[0]);
             new DatePickerDialog(this, (view, y, m, d) -> {
                 startDate[0] = String.format(Locale.CHINA, "%d/%02d/%02d", y, m + 1, d);
                 etStart.setText(startDate[0]);
@@ -200,31 +200,8 @@ public class SupplierManageActivity extends BaseActivity {
         loadData();
     }
 
-    private String today() {
-        return new SimpleDateFormat("yyyy/MM/dd", Locale.CHINA).format(Calendar.getInstance().getTime());
-    }
-
-    private int[] parseDate(String date) {
-        try {
-            String[] parts = date.split("/");
-            return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2])};
-        } catch (Exception e) {
-            Calendar c = Calendar.getInstance();
-            return new int[]{c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)};
-        }
-    }
-
     private void showRestDialog(final FinSupplier s) {
-        final String[] splits = s.startDate.split("/"); final int[] start = new int[3];
-        if (splits.length == 3) {
-            try {
-                start[0] = Integer.parseInt(splits[0]);
-                start[1] = Integer.parseInt(splits[1]);
-                start[2] = Integer.parseInt(splits[2]);
-            } catch (Exception e) { resetToday(start); }
-        } else {
-            resetToday(start);
-        }
+        final int[] start = SupplierDateRules.parseDate(s.startDate);
         Calendar cal = Calendar.getInstance(), end = Calendar.getInstance();
         cal.set(start[0], start[1] - 1, start[2]);
 
@@ -268,17 +245,17 @@ public class SupplierManageActivity extends BaseActivity {
         dialog.show();
     }
 
-    private void resetToday(int[] out) {
-        Calendar c = Calendar.getInstance();
-        out[0] = c.get(Calendar.YEAR);
-        out[1] = c.get(Calendar.MONTH) + 1;
-        out[2] = c.get(Calendar.DAY_OF_MONTH);
-    }
-
     private void openSupplierProducts(FinSupplier supplier) {
         Intent intent = new Intent(this, SupplierProductActivity.class);
         intent.putExtra("supplierId", supplier.id);
         intent.putExtra("supplierName", supplier.name);
+        startActivity(intent);
+    }
+
+    private void openAgentCustomers(FinSupplier agent) {
+        Intent intent = new Intent(this, AgentCustomerActivity.class);
+        intent.putExtra("agentId", agent.id);
+        intent.putExtra("agentName", agent.name);
         startActivity(intent);
     }
 
@@ -337,7 +314,7 @@ public class SupplierManageActivity extends BaseActivity {
                     base += getString(R.string.finance_daily_wage) + ": " + FinanceDb.round2(s.dailyWage);
                 }
                 int restCount = financeDb.getRestDays(s.id).size();
-                double due = financeDb.calcDueWage(s.id, today());
+                double due = financeDb.calcDueWage(s.id, SupplierDateRules.today());
                 double paid = financeDb.sumWageByEmployee(s.id);
                 String stat = base + (base.isEmpty() ? "" : "\n")
                         + getString(R.string.finance_rest_count) + ":" + restCount + "天  "
@@ -366,10 +343,13 @@ public class SupplierManageActivity extends BaseActivity {
         TextView tvToggle = row.findViewById(R.id.tv_toggle), tvEdit = row.findViewById(R.id.tv_edit);
         TextView tvAccounts = row.findViewById(R.id.tv_accounts);
 
-        tvProducts.setText(isEmployee() ? R.string.finance_rest_reg
-                : R.string.finance_supplier_product_manage);
+        boolean agent = AgentCustomerRules.isAgentRow(filterType, s.personType);
+        tvProducts.setText(agent ? R.string.finance_agent_customer_link
+                : isEmployee() ? R.string.finance_rest_reg : R.string.finance_supplier_product_manage);
         tvProducts.setOnClickListener(v -> {
-            if (isEmployee()) showRestDialog(s); else openSupplierProducts(s);
+            if (isEmployee()) showRestDialog(s);
+            else if (agent) openAgentCustomers(s);
+            else openSupplierProducts(s);
         });
         tvAccounts.setOnClickListener(v -> openContactAccounts(s));
 

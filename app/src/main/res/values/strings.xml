@@ -971,6 +971,19 @@
     <string name="finance_add_contact_account">添加收款账户</string>
     <string name="finance_input_account_name">请输入账户名</string>
     <string name="finance_confirm_delete_contact_account">确认删除该收款账户？</string>
+
+    <!-- 中介-客户关联（A3） -->
+    <string name="finance_agent_customer_manage">%1$s - 关联客户</string>
+    <string name="finance_agent_customer_link">关联客户</string>
+    <string name="finance_agent_customer_unlink">解除关联</string>
+    <string name="finance_pick_customer">选择已有客户</string>
+    <string name="finance_quick_add_customer">新增客户</string>
+    <string name="finance_customer_linked">客户已关联</string>
+    <string name="finance_customer_unlinked">客户已解除关联</string>
+    <string name="finance_customer_missing">客户已删除或不存在</string>
+    <string name="finance_no_customer_pick">暂无可关联客户，请先新增客户</string>
+    <string name="finance_confirm_unlink_customer">确认解除与客户「%1$s」的关联？</string>
+    <string name="finance_customer_link_failed">关联失败，请重试</string>
     <string name="finance_account_type_bank">银行</string>
     <string name="finance_account_type_wechat">微信</string>
     <string name="finance_account_type_alipay">支付宝</string>

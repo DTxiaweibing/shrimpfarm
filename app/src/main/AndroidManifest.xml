@@ -256,6 +256,12 @@
             android:screenOrientation="portrait"
             android:exported="false" />
         <activity
+            android:name=".finance.AgentCustomerActivity"
+            android:label="@string/finance_agent_customer_link"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
             android:name=".finance.PickingFeeActivity"
             android:label="@string/finance_picking_fee"
             android:windowSoftInputMode="adjustResize"
