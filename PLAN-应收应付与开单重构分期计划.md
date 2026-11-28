@@ -286,3 +286,35 @@ CREATE TABLE IF NOT EXISTS fin_expense_category (
 - **备份文件**：未验证升级前备份文件实际生成与内容；需真机/真实库验收。
 - **AR/AP UI**：本期为 schema/foundation，无应收应付中心 UI、结算交互、卖虾单三态可见性 UI；按计划属于 P3/P5。
 - **自动化缺口（已接受）**：v18 迁移/备份/FinanceDb 新 CRUD 缺少 Android DB 行为自动化测试；v17->v18 真实设备升级、pre_v18 备份文件、7 天清理、真实备份/对账待用户验收。V17SchemaTest 版本断言更新为已接受维护项。FinanceDb R3 债务按 R10 豁免记录。
+
+## 14. P2 执行记录（2026-11-28）
+
+- **分支**：`feat/p2-finance-master-data`（从 `main@064cdda729ff7016cb56f4e0ab04ab28ecbbd19e` 分出；未合并/未推送）。
+- **提交（9 commits，相对 main）**：
+  - `83e36f8` `feat(finance): add supplier kind rules for P2`
+  - `d2d6030` `feat(finance): add supplier kind selection and filter`
+  - `8b0ebb3` `fix(finance): correct toolbar title suffix and add R3 exemption for supplier kind rules`
+  - `b092fa7` `feat(finance): add quick-add supplier/category in product filing`
+  - `5c204e5` `fix(finance): assign real id to quick-added supplier products`
+  - `3d85d72` `feat(finance): add agent-customer association management`
+  - `440e14c` `feat(finance): add net worker management entry`
+  - `aa102cd` `fix(finance): preserve net worker type in query edit`
+  - `c946b01` `feat(finance): add park management archive`
+- **全量 JVM 测试**：`.\gradlew.bat :app:testDebugUnitTest` — BUILD SUCCESSFUL；55 test classes / 343 tests / 0 failures / 0 errors（`app/build/test-results/testDebugUnitTest` XML 汇总）。
+- **Debug APK**：`.\gradlew.bat :app:assembleDebug` — BUILD SUCCESSFUL；产物 `app/build/outputs/apk/debug/app-debug.apk`。
+
+### 已交付范围（P2）
+
+- 供应商档案：新增/编辑时选择动保/苗种（A1，必选）；列表显示 `[动保]/[苗种]` 标识；供应商管理页支持 全部/动保/苗种 过滤（非供应商类型不显示 kind 过滤/标签）。
+- 商品建档（A2）：供应商商品建档支持品类快捷新增“新增品类...”并选择新建记录；`ProductManageActivity` 新增/建档入口改为走供应商感知流程（供应商选择/快捷新增供应商与品类）；保存时缺少有效品类阻断；快捷新增商品写入真实 `FinProduct` id，避免票据编辑无法回显。
+- 中介-客户（A3）：中介行操作改为“关联客户”；新增 `AgentCustomerActivity` 支持查看已关联客户、选择已有客户、快捷新增客户并关联、解除关联（确认后仅删除所选关系）。
+- 捞网工管理（A9，档案范围）：新增 `PERSON_NET_WORKER=5`（无 schema 变更，复用联系人/收款账户模式）；`FinanceActivity` 增加“捞网工管理”入口；捞网工隐藏商品/种类过滤，保留收款账户管理；修复 `QueryActivity` 编辑/标签对 net-worker 的保留，避免误改为员工。
+- 园区管理（A14，独立档案）：新增 `ParkManageActivity`，支持园区名称必填、收款户名/账号可选、启用/停用；`FinanceActivity` 增加“园区管理”入口；复用 P1 v18 `fin_park`/FinanceDb CRUD，无 schema 变更。
+
+### 未纳入 / 已知缺口
+
+- **无 P3-P5 行为**：未实现 AR/AP 应收应付结算、支出台账改造、动保/苗种票据与卖虾结算联动、结算时快捷新增供应商/品类/商品/收款账户/园区弹窗。P2 仅提供档案/关联/管理入口。
+- **自动化缺口（已接受）**：无 Robolectric/instrumentation DB 测试；UI 流程以 compile + JVM 单测 + 人工真机验证为准。真实 v17->v18 升级、备份清理、真机 QA 仍待执行（继承 P1 缺口）。
+- **数据兼容性**：Task 3 修复后新建快捷商品有真实 id；修复前已持久化的 `product_id=0` 供应商商品行未迁移，票据编辑可能仍无法回显（记录为后续数据修复/兼容项）。
+- **SDD deferred minors（非阻断）**：见 `.superpowers/sdd/2026-11-28-p2-finance-master-data/progress.md`（含部分 UI 边界校验、重复检测细节、XML R10 标注检查范围、QueryActivity.onSearch 存量超长等）。
+- **校验脚本**：`code-standards/scripts/check-limits.ps1` 在仓库存在存量违规时退出非 0；本次 P2 变更未引入新的 R2/R3 有效行净增长（新增纯逻辑文件均合规，存量增长文件已加 `standards-exempt` 或净收缩）。
