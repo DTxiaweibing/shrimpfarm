@@ -268,3 +268,21 @@ CREATE TABLE IF NOT EXISTS fin_expense_category (
 2. 从 **P1** 开始，不跳过迁移和测试。
 3. P3/P5 涉及卖虾单状态规则，必须共用同一套可见性函数，避免页面各算各的。
 4. 每期结束都打 debug 包给你真机测，再进下一期。
+## 13. P1 执行记录（2026-11-28）
+
+- **基线**：`feat/p1-finance-schema-v18 @ f0e0a7421ad40e094a23216802bac2aa8f3a2842`（Task 1-4 完成）。
+- **全量 JVM 测试**：`.\gradlew.bat :app:testDebugUnitTest` BUILD SUCCESSFUL，315 tests / 0 failures / 0 errors / 0 skipped（48 test classes）。
+- **Debug APK**：`.\gradlew.bat :app:assembleDebug` BUILD SUCCESSFUL，产物 `app/build/outputs/apk/debug/app-debug.apk`（279,388,583 bytes）。
+
+### 已完成项（P1 范围）
+
+- v18 schema/迁移基础：`fin_supplier.supplier_kind`、`fin_agent_customer`、`fin_income` 捞网费结算扩展字段、`fin_settlement`、`fin_expense_category`（见 Task 1/2/3 交付）。
+- FinanceDb v18 模型与 CRUD 基础、AR/AP 可见性纯规则、ArApLedgerRules amount 接口方法（见 Task 3/4）。
+- 迁移前备份钩子沿用 V17BackupHook 模式（Task 1）。
+
+### 未覆盖项 / 已知缺口
+
+- **真机 v17->v18 升级**：未在本次任务执行，需真机安装验证升级不崩溃、关键表/列/数据存在。
+- **备份文件**：未验证升级前备份文件实际生成与内容；需真机/真实库验收。
+- **AR/AP UI**：本期为 schema/foundation，无应收应付中心 UI、结算交互、卖虾单三态可见性 UI；按计划属于 P3/P5。
+- **自动化缺口（已接受）**：v18 迁移/备份/FinanceDb 新 CRUD 缺少 Android DB 行为自动化测试；v17->v18 真实设备升级、pre_v18 备份文件、7 天清理、真实备份/对账待用户验收。V17SchemaTest 版本断言更新为已接受维护项。FinanceDb R3 债务按 R10 豁免记录。
