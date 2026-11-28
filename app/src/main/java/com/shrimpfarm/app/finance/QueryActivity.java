@@ -122,12 +122,7 @@ public class QueryActivity extends BaseActivity {
     }
 
     private String personTypeLabel(int type) {
-        switch (type) {
-            case FinanceDb.PERSON_AGENT: return getString(R.string.finance_person_agent);
-            case FinanceDb.PERSON_CUSTOMER: return getString(R.string.finance_person_customer);
-            case FinanceDb.PERSON_EMPLOYEE: return getString(R.string.finance_person_employee);
-            default: return getString(R.string.finance_person_supplier);
-        }
+        return PersonTypeUi.label(this, type);
     }
 
     private void onSearch() {
@@ -294,17 +289,15 @@ public class QueryActivity extends BaseActivity {
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
         layout.setPadding(pad, pad / 2, pad, 0);
 
-        final String[] types = {
-                getString(R.string.finance_person_supplier),
-                getString(R.string.finance_person_agent),
-                getString(R.string.finance_person_customer),
-                getString(R.string.finance_person_employee)
-        };
+        int[] personTypes = PersonTypeOptions.types();
+        String[] types = new String[personTypes.length];
+        for (int i = 0; i < personTypes.length; i++) {
+            types[i] = PersonTypeUi.label(this, personTypes[i]);
+        }
         final Spinner spType = new Spinner(this);
         spType.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_dropdown_item, types));
-        int typePos = Math.max(0, s.personType - 1);
-        spType.setSelection(Math.min(typePos, types.length - 1));
+        spType.setSelection(PersonTypeOptions.positionOf(s.personType));
         layout.addView(spType);
 
         final EditText etName = new EditText(this);
@@ -326,7 +319,7 @@ public class QueryActivity extends BaseActivity {
         builder.setPositiveButton(R.string.btn_ok, (d, w) -> {
             String name = etName.getText().toString().trim();
             if (name.isEmpty()) return;
-            int type = spType.getSelectedItemPosition() + 1;
+            int type = PersonTypeOptions.typeAt(spType.getSelectedItemPosition());
             financeDb.updateSupplier(s.id, type, name, "",
                     etPhone.getText().toString().trim(), s.startDate, s.dailyWage,
                     etRemark.getText().toString().trim());
