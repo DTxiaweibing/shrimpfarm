@@ -73,7 +73,7 @@ public class ProductManageActivity extends BaseActivity {
     private void showSpecDialog(long spId, long supplierId, FinSupplierProduct old) {
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_finance_supplier_product, null);
         EditText etName = new EditText(this); etName.setHint(R.string.finance_product_name_hint);
-        ((ViewGroup) view).addView(etName, 0);
+        ((ViewGroup) ((ViewGroup) view).getChildAt(0)).addView(etName, 0);
         EditText etSpec = view.findViewById(R.id.et_spec); Spinner spCat = view.findViewById(R.id.sp_category);
         Spinner spUnit = view.findViewById(R.id.sp_unit); Spinner spPack = view.findViewById(R.id.sp_pack_unit);
         EditText etPackQty = view.findViewById(R.id.et_pack_qty); EditText etPrice = view.findViewById(R.id.et_price);
