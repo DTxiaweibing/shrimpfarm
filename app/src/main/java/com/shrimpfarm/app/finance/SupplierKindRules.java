@@ -1,3 +1,4 @@
+// standards-exempt: 存量规则类，P2 新增纯列表过滤方法导致净增长
 package com.shrimpfarm.app.finance;
 
 import java.util.ArrayList;

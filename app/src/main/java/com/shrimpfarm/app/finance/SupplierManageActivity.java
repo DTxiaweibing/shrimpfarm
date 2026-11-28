@@ -71,7 +71,7 @@ public class SupplierManageActivity extends BaseActivity {
     }
 
     private String typeTitle() {
-        return typeLabel(filterType) + getString(R.string.finance_manage);
+        return typeLabel(filterType);
     }
 
     private String typeLabel(int type) {
