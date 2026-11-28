@@ -17,6 +17,7 @@ import com.shrimpfarm.app.model.PriceRange;
 import com.shrimpfarm.app.model.PriceRangeParser;
 import com.shrimpfarm.app.finance.V17Migration;
 import com.shrimpfarm.app.finance.V17Schema;
+import com.shrimpfarm.app.finance.V18Migration;
 import com.shrimpfarm.app.finance.V18Schema;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
@@ -1046,6 +1047,9 @@ try {
                 break;
             case 16:
                 V17Migration.migrate(db);
+                break;
+            case 17:
+                V18Migration.migrate(db);
                 break;
             }
         }
