@@ -244,12 +244,16 @@ public class FinanceDb {
     }
 
     public void updateSupplier(long id, int personType, String name, String contact, String phone, String remark) {
-        updateSupplier(id, personType, name, contact, phone, "", 0, remark, 1);
+        FinSupplier cur = getSupplierById(id);
+        int kind = cur == null ? 1 : cur.supplierKind;
+        updateSupplier(id, personType, name, contact, phone, "", 0, remark, kind);
     }
 
     public void updateSupplier(long id, int personType, String name, String contact, String phone,
                                String startDate, double dailyWage, String remark) {
-        updateSupplier(id, personType, name, contact, phone, startDate, dailyWage, remark, 1);
+        FinSupplier cur = getSupplierById(id);
+        int kind = cur == null ? 1 : cur.supplierKind;
+        updateSupplier(id, personType, name, contact, phone, startDate, dailyWage, remark, kind);
     }
 
     public void updateSupplier(long id, int personType, String name, String contact, String phone,
