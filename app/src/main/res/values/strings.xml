@@ -873,6 +873,11 @@
     <string name="finance_select">点击选择</string>
     <string name="finance_person_type">联系人类型</string>
     <string name="finance_person_supplier">供应商</string>
+    <string name="finance_supplier_kind">类别</string>
+    <string name="finance_supplier_kind_med">动保</string>
+    <string name="finance_supplier_kind_seed">苗种</string>
+    <string name="finance_filter_all">全部</string>
+    <string name="finance_supplier_kind_required">请选择供应商类别</string>
     <string name="finance_person_agent">中介</string>
     <string name="finance_person_customer">客户</string>
     <string name="finance_person_employee">员工</string>

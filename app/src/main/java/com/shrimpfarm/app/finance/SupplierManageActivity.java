@@ -13,6 +13,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.appcompat.widget.Toolbar;
@@ -36,6 +37,7 @@ public class SupplierManageActivity extends BaseActivity {
     private ListView listView;
     private SupplierAdapter adapter;
     private int filterType = FinanceDb.PERSON_SUPPLIER;
+    private int supplierKindFilter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +51,10 @@ public class SupplierManageActivity extends BaseActivity {
         listView.setAdapter(adapter);
         findViewById(R.id.btn_add).setOnClickListener(v -> showEditDialog(null));
         loadData();
+        SupplierKindUi.setupFilter(this, isSupplier(), filter -> {
+            supplierKindFilter = filter;
+            loadData();
+        });
     }
 
     @Override
@@ -60,13 +66,12 @@ public class SupplierManageActivity extends BaseActivity {
         return filterType == FinanceDb.PERSON_EMPLOYEE;
     }
 
+    private boolean isSupplier() {
+        return filterType == FinanceDb.PERSON_SUPPLIER;
+    }
+
     private String typeTitle() {
-        switch (filterType) {
-            case FinanceDb.PERSON_AGENT: return getString(R.string.finance_person_agent);
-            case FinanceDb.PERSON_CUSTOMER: return getString(R.string.finance_person_customer);
-            case FinanceDb.PERSON_EMPLOYEE: return getString(R.string.finance_person_employee);
-            default: return getString(R.string.finance_person_supplier);
-        }
+        return typeLabel(filterType) + getString(R.string.finance_manage);
     }
 
     private String typeLabel(int type) {
@@ -89,17 +94,15 @@ public class SupplierManageActivity extends BaseActivity {
     }
 
     private void loadData() {
-        supplierList = financeDb.getSuppliersByType(filterType);
+        supplierList = SupplierKindRules.filterSuppliers(
+                financeDb.getSuppliersByType(filterType), isSupplier() ? supplierKindFilter : 0);
         TextView tvTotal = findViewById(R.id.tv_total);
-        if (filterType == FinanceDb.PERSON_SUPPLIER) {
+        if (isSupplier()) {
             double total = 0;
             int count = 0;
             for (FinSupplier s : supplierList) {
                 double unpaid = financeDb.sumUnsettledBySupplier(s.id);
-                if (unpaid > 0) {
-                    total += unpaid;
-                    count++;
-                }
+                if (unpaid > 0) { total += unpaid; count++; }
             }
             if (count > 0) {
                 tvTotal.setText(getString(R.string.erp_total_unsettled,
@@ -120,31 +123,26 @@ public class SupplierManageActivity extends BaseActivity {
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
         layout.setPadding(pad, pad / 2, pad, 0);
 
-        final EditText etName = new EditText(this);
+        final EditText etName = new EditText(this), etContact = new EditText(this), etPhone = new EditText(this);
+        final EditText etRemark = new EditText(this), etStart = new EditText(this), etWage = new EditText(this);
         etName.setHint(R.string.finance_input_name);
-        final EditText etContact = new EditText(this);
         etContact.setHint(R.string.finance_contact_person);
-        final EditText etPhone = new EditText(this);
         etPhone.setHint(R.string.finance_phone);
         etPhone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
-        layout.addView(etName);
-        layout.addView(etContact);
-        layout.addView(etPhone);
-
-        final EditText etStart = new EditText(this);
         etStart.setHint(R.string.finance_start_date);
         etStart.setFocusable(false);
-        final EditText etWage = new EditText(this);
         etWage.setHint(R.string.finance_daily_wage);
         etWage.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(etName);
+        layout.addView(etContact);
+        layout.addView(etPhone);
         if (isEmployee()) {
             layout.addView(etStart);
             layout.addView(etWage);
         }
-
-        final EditText etRemark = new EditText(this);
-        etRemark.setHint(R.string.finance_remark);
+        final Spinner spKind = isSupplier() ? SupplierKindUi.addEditorSelector(this, layout,
+                supplier == null ? SupplierKindRules.KIND_MED : supplier.supplierKind) : null;
         layout.addView(etRemark);
 
         String preStart = today();
@@ -160,6 +158,19 @@ public class SupplierManageActivity extends BaseActivity {
         final String[] startDate = {preStart};
         etStart.setText(startDate[0]);
         etWage.setText(preWage > 0 ? String.valueOf(preWage) : "");
+        setupDatePicker(etStart, startDate);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(supplier == null ? R.string.finance_add : R.string.finance_edit);
+        builder.setView(layout);
+        builder.setPositiveButton(R.string.btn_ok, (d, w) -> saveSupplier(supplier, etName,
+                etContact, etPhone, etRemark, etWage, startDate[0], SupplierKindUi.selectedKind(spKind,
+                supplier == null ? SupplierKindRules.KIND_MED : supplier.supplierKind)));
+        builder.setNegativeButton(R.string.btn_cancel, null);
+        builder.show();
+    }
+
+    private void setupDatePicker(EditText etStart, String[] startDate) {
         etStart.setOnClickListener(v -> {
             int[] p = parseDate(startDate[0]);
             new DatePickerDialog(this, (view, y, m, d) -> {
@@ -167,29 +178,26 @@ public class SupplierManageActivity extends BaseActivity {
                 etStart.setText(startDate[0]);
             }, p[0], p[1] - 1, p[2]).show();
         });
+    }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(supplier == null ? R.string.finance_add : R.string.finance_edit);
-        builder.setView(layout);
-        builder.setPositiveButton(R.string.btn_ok, (d, w) -> {
-            String name = etName.getText().toString().trim();
-            if (name.isEmpty()) return;
-            String contact = etContact.getText().toString().trim();
-            String phone = etPhone.getText().toString().trim();
-            String remark = etRemark.getText().toString().trim();
-            double wage = 0;
-            try { wage = Double.parseDouble(etWage.getText().toString().trim()); } catch (Exception ignored) { /* 0 */ }
-            if (supplier == null) {
-                financeDb.insertSupplier(filterType, name, contact, phone,
-                        isEmployee() ? startDate[0] : "", isEmployee() ? wage : 0, remark);
-            } else {
-                financeDb.updateSupplier(supplier.id, filterType, name, contact, phone,
-                        isEmployee() ? startDate[0] : "", isEmployee() ? wage : 0, remark);
-            }
-            loadData();
-        });
-        builder.setNegativeButton(R.string.btn_cancel, null);
-        builder.show();
+    private void saveSupplier(FinSupplier supplier, EditText etName, EditText etContact,
+                              EditText etPhone, EditText etRemark, EditText etWage,
+                              String startDate, int kind) {
+        String name = etName.getText().toString().trim();
+        if (name.isEmpty()) return;
+        String contact = etContact.getText().toString().trim();
+        String phone = etPhone.getText().toString().trim();
+        String remark = etRemark.getText().toString().trim();
+        String wageText = etWage.getText().toString().trim();
+        double wage = wageText.matches("-?\\d+(\\.\\d+)?") ? Double.parseDouble(wageText) : 0;
+        if (supplier == null) {
+            financeDb.insertSupplier(filterType, name, contact, phone,
+                    isEmployee() ? startDate : "", isEmployee() ? wage : 0, remark, kind);
+        } else {
+            financeDb.updateSupplier(supplier.id, filterType, name, contact, phone,
+                    isEmployee() ? startDate : "", isEmployee() ? wage : 0, remark, kind);
+        }
+        loadData();
     }
 
     private String today() {
@@ -207,8 +215,7 @@ public class SupplierManageActivity extends BaseActivity {
     }
 
     private void showRestDialog(final FinSupplier s) {
-        final String[] splits = s.startDate.split("/");
-        final int[] start = new int[3];
+        final String[] splits = s.startDate.split("/"); final int[] start = new int[3];
         if (splits.length == 3) {
             try {
                 start[0] = Integer.parseInt(splits[0]);
@@ -218,8 +225,7 @@ public class SupplierManageActivity extends BaseActivity {
         } else {
             resetToday(start);
         }
-        Calendar cal = Calendar.getInstance();
-        Calendar end = Calendar.getInstance();
+        Calendar cal = Calendar.getInstance(), end = Calendar.getInstance();
         cal.set(start[0], start[1] - 1, start[2]);
 
         Set<String> restSet = new HashSet<>(financeDb.getRestDays(s.id));
@@ -233,12 +239,9 @@ public class SupplierManageActivity extends BaseActivity {
         while (!cal.after(end) && guard < 1000) {
             final String d = fmt.format(cal.getTime());
             CheckBox cb = new CheckBox(this);
-            cb.setText(d + (restSet.contains(d) ? "  休息" : ""));
-            cb.setChecked(restSet.contains(d));
-            boxes.add(cb);
-            box.addView(cb);
-            cal.add(Calendar.DATE, 1);
-            guard++;
+            cb.setText(d + (restSet.contains(d) ? "  休息" : "")); cb.setChecked(restSet.contains(d));
+            boxes.add(cb); box.addView(cb);
+            cal.add(Calendar.DATE, 1); guard++;
         }
         if (boxes.isEmpty()) {
             new AlertDialog.Builder(this)
@@ -314,7 +317,8 @@ public class SupplierManageActivity extends BaseActivity {
             TextView tvRemark = convertView.findViewById(R.id.tv_remark);
             TextView tvExtra = convertView.findViewById(R.id.tv_extra);
 
-            tvName.setText(s.name + "  [" + typeLabel(s.personType) + "]");
+            tvName.setText(s.name + SupplierKindUi.kindTag(SupplierManageActivity.this,
+                    s.supplierKind, isSupplier()) + "  [" + typeLabel(s.personType) + "]");
             String contactLine = "";
             if (!s.contact.isEmpty()) contactLine = getString(R.string.finance_contact_person) + ": " + s.contact;
             if (!s.phone.isEmpty()) {
@@ -352,50 +356,48 @@ public class SupplierManageActivity extends BaseActivity {
                 }
             }
 
-            TextView tvProducts = convertView.findViewById(R.id.tv_products);
-            TextView tvDelete = convertView.findViewById(R.id.tv_delete);
-            TextView tvToggle = convertView.findViewById(R.id.tv_toggle);
-            TextView tvEdit = convertView.findViewById(R.id.tv_edit);
-            TextView tvAccounts = convertView.findViewById(R.id.tv_accounts);
-
-            if (isEmployee()) {
-                tvProducts.setText(R.string.finance_rest_reg);
-                tvProducts.setOnClickListener(v -> showRestDialog(s));
-            } else {
-                tvProducts.setText(R.string.finance_supplier_product_manage);
-                tvProducts.setOnClickListener(v -> openSupplierProducts(s));
-            }
-
-            tvAccounts.setOnClickListener(v -> openContactAccounts(s));
-
-            tvDelete.setOnClickListener(v -> new AlertDialog.Builder(SupplierManageActivity.this)
-                    .setMessage(R.string.finance_confirm_delete)
-                    .setPositiveButton(R.string.btn_ok, (d, w) -> {
-                        financeDb.setSupplierEnabled(s.id, false);
-                        loadData();
-                    })
-                    .setNegativeButton(R.string.btn_cancel, null)
-                    .show());
-
-            tvToggle.setText(s.enabled ? R.string.finance_disable : R.string.finance_enable);
-            tvToggle.setOnClickListener(v -> {
-                if (s.enabled) {
-                    new AlertDialog.Builder(SupplierManageActivity.this)
-                            .setMessage(R.string.finance_confirm_disable)
-                            .setPositiveButton(R.string.btn_ok, (d, w) -> {
-                                financeDb.setSupplierEnabled(s.id, false);
-                                loadData();
-                            })
-                            .setNegativeButton(R.string.btn_cancel, null)
-                            .show();
-                } else {
-                    financeDb.setSupplierEnabled(s.id, true);
-                    loadData();
-                }
-            });
-
-            tvEdit.setOnClickListener(v -> showEditDialog(s));
+            bindRowActions(convertView, s);
             return convertView;
         }
+    }
+
+    private void bindRowActions(View row, final FinSupplier s) {
+        TextView tvProducts = row.findViewById(R.id.tv_products), tvDelete = row.findViewById(R.id.tv_delete);
+        TextView tvToggle = row.findViewById(R.id.tv_toggle), tvEdit = row.findViewById(R.id.tv_edit);
+        TextView tvAccounts = row.findViewById(R.id.tv_accounts);
+
+        tvProducts.setText(isEmployee() ? R.string.finance_rest_reg
+                : R.string.finance_supplier_product_manage);
+        tvProducts.setOnClickListener(v -> {
+            if (isEmployee()) showRestDialog(s); else openSupplierProducts(s);
+        });
+        tvAccounts.setOnClickListener(v -> openContactAccounts(s));
+
+        tvDelete.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setMessage(R.string.finance_confirm_delete)
+                .setPositiveButton(R.string.btn_ok, (d, w) -> {
+                    financeDb.setSupplierEnabled(s.id, false);
+                    loadData();
+                })
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show());
+
+        tvToggle.setText(s.enabled ? R.string.finance_disable : R.string.finance_enable);
+        tvToggle.setOnClickListener(v -> {
+            if (s.enabled) {
+                new AlertDialog.Builder(this)
+                        .setMessage(R.string.finance_confirm_disable)
+                        .setPositiveButton(R.string.btn_ok, (d, w) -> {
+                            financeDb.setSupplierEnabled(s.id, false);
+                            loadData();
+                        })
+                        .setNegativeButton(R.string.btn_cancel, null)
+                        .show();
+            } else {
+                financeDb.setSupplierEnabled(s.id, true);
+                loadData();
+            }
+        });
+        tvEdit.setOnClickListener(v -> showEditDialog(s));
     }
 }
