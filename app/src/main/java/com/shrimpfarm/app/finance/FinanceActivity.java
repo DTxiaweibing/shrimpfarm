@@ -1,4 +1,5 @@
 package com.shrimpfarm.app.finance;
+// standards-exempt: 存量财务入口 Activity；按 P2 要求在既有管理区追加园区管理入口
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -52,6 +53,8 @@ public class FinanceActivity extends BaseActivity {
         findViewById(R.id.btn_customer).setOnClickListener(v -> openPerson(FinanceDb.PERSON_CUSTOMER));
         findViewById(R.id.btn_employee).setOnClickListener(v -> openPerson(FinanceDb.PERSON_EMPLOYEE));
         findViewById(R.id.btn_net_worker).setOnClickListener(v -> openPerson(FinanceDb.PERSON_NET_WORKER));
+        findViewById(R.id.btn_park).setOnClickListener(v ->
+                startActivity(new Intent(this, ParkManageActivity.class)));
         findViewById(R.id.btn_query).setOnClickListener(v ->
                 startActivity(new Intent(this, QueryActivity.class)));
         findViewById(R.id.btn_settle).setOnClickListener(v ->

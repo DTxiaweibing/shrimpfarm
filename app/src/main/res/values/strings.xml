@@ -1,5 +1,5 @@
 <resources>
-    <!-- standards-exempt: string resource data table; adding net worker labels only -->
+    <!-- standards-exempt: string resource data table; adding net worker and park archive labels -->
     <string name="open_drawer">打开菜单</string>
     <string name="close_drawer">关闭菜单</string>
     <string name="title_check_feed">小棚养虾查料表</string>
@@ -1255,6 +1255,21 @@
     <string name="mix_shed_transfer_in">转入</string>
     <string name="mix_shed_transfer_out">转出</string>
     <string name="mix_shed_transfer_whole_to_blank">整行转到空行等于把整行挪下去，请直接在目标行填写棚号</string>
+
+    <!-- 园区档案（A14） -->
+    <string name="finance_park_manage">园区管理</string>
+    <string name="finance_park_name">园区名称</string>
+    <string name="finance_park_account_name">收款账户名（选填）</string>
+    <string name="finance_park_account_no">收款账号（选填）</string>
+    <string name="finance_park_add">新增园区</string>
+    <string name="finance_park_edit">编辑园区</string>
+    <string name="finance_park_enabled">启用该园区</string>
+    <string name="finance_park_status_on">已启用</string>
+    <string name="finance_park_status_off">已停用</string>
+    <string name="finance_park_account_line">收款账户：%1$s</string>
+    <string name="finance_park_account_unset">未登记收款账户</string>
+    <string name="finance_park_saved">园区已保存</string>
+    <string name="finance_park_save_failed">园区保存失败，请重试</string>
 </resources>
 
 

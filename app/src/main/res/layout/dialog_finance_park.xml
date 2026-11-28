@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="12dp"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp">
+
+    <EditText
+        android:id="@+id/et_park_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/finance_park_name"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <EditText
+        android:id="@+id/et_account_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/finance_park_account_name"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <EditText
+        android:id="@+id/et_account_no"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/finance_park_account_no"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <CheckBox
+        android:id="@+id/cb_enabled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/finance_park_enabled" />
+
+</LinearLayout>

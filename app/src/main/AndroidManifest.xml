@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- standards-exempt: declarative manifest; registering the A14 park management activity -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
@@ -258,6 +259,12 @@
         <activity
             android:name=".finance.AgentCustomerActivity"
             android:label="@string/finance_agent_customer_link"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".finance.ParkManageActivity"
+            android:label="@string/finance_park_manage"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait"
             android:exported="false" />
