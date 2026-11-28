@@ -331,6 +331,7 @@ public class FinanceDb {
         public String spec;
         public boolean enabled;
         public String standardName = "";
+        public String supplierName = "";
         public String unit = "";          // 基本单位：瓶 / 斤 / 毫升 …
         public double lastPrice = 0;
         public long categoryId;
@@ -396,6 +397,12 @@ public class FinanceDb {
     public void setSupplierProductCategory(long id, long categoryId) {
         ContentValues v = new ContentValues();
         v.put(DatabaseHelper.COLUMN_FIN_SP_CATEGORY_ID, categoryId);
+        db().update(DatabaseHelper.TABLE_FIN_SUPPLIER_PRODUCT, v, "id=?", new String[]{String.valueOf(id)});
+    }
+
+    public void setSupplierProductProductId(long id, long productId) {
+        ContentValues v = new ContentValues();
+        v.put(DatabaseHelper.COLUMN_FIN_PRODUCT_ID, productId);
         db().update(DatabaseHelper.TABLE_FIN_SUPPLIER_PRODUCT, v, "id=?", new String[]{String.valueOf(id)});
     }
 
@@ -468,6 +475,25 @@ public class FinanceDb {
         while (c.moveToNext()) list.add(readSupplierProduct(c));
         c.close();
         return list;
+    }
+
+    /** All supplier-product rows across suppliers, with supplierName filled for display. */
+    public List<FinSupplierProduct> getAllSupplierProducts() {
+        List<FinSupplierProduct> list = new ArrayList<>();
+        Cursor c = db().rawQuery("SELECT " + SP_SELECT + " ORDER BY supplier_id, sp_category_id, id DESC", null);
+        while (c.moveToNext()) list.add(readSupplierProduct(c));
+        c.close();
+        fillSupplierNames(list);
+        return list;
+    }
+
+    private void fillSupplierNames(List<FinSupplierProduct> list) {
+        if (list == null || list.isEmpty()) return;
+        java.util.HashMap<Long, String> names = new java.util.HashMap<>();
+        Cursor c = db().rawQuery("SELECT id,name FROM " + DatabaseHelper.TABLE_FIN_SUPPLIER, null);
+        while (c.moveToNext()) names.put(c.getLong(0), nonNull(EncryptUtils.decrypt(c.getString(1))));
+        c.close();
+        for (FinSupplierProduct sp : list) sp.supplierName = names.get(sp.supplierId) == null ? "" : names.get(sp.supplierId);
     }
 
     // 进货开单三级联动用：某供应商在某品类下的启用商品

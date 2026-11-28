@@ -99,28 +99,13 @@ public class SupplierProductActivity extends BaseActivity {
             });
             return;
         }
-        List<FinProduct> standard = financeDb.getProducts();
-        final List<FinProduct> enabled = new ArrayList<>();
-        for (FinProduct p : standard) if (p.enabled) enabled.add(p);
-        List<String> names = new ArrayList<>();
-        for (FinProduct p : enabled) names.add(p.name + (p.unit.isEmpty() ? "" : " (" + p.unit + ")"));
-        names.add(getString(R.string.finance_quick_add_product));
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(R.string.finance_product);
-        builder.setItems(names.toArray(new String[0]), (d, which) -> {
-            if (which < enabled.size()) {
-                showSpecDialog(enabled.get(which));
-                return;
-            }
-            ProductFilingUi.promptName(this, R.string.finance_quick_add_product, name -> {
-                FinProduct p = new FinProduct();
-                p.name = name;
-                p.enabled = true;
-                showSpecDialog(p);
-            });
+        // P2 feedback: 新增商品不需要关联已有商品，直接创建新商品
+        ProductFilingUi.promptName(this, R.string.finance_quick_add_product, name -> {
+            FinProduct p = new FinProduct();
+            p.name = name;
+            p.enabled = true;
+            showSpecDialog(p);
         });
-        builder.setNegativeButton(R.string.btn_cancel, null);
-        builder.show();
     }
 
     /** 鍝佺被 / 鍙屽崟浣?/ 鍗曚环 寤烘。 */
@@ -170,8 +155,9 @@ public class SupplierProductActivity extends BaseActivity {
 
             long productId = product.id;
             if (productId <= 0) {
-                productId = ProductFilingUi.ensureProduct(this, financeDb, product.name, unit, catId);
-                if (productId <= 0) return;
+                productId = financeDb.insertProduct(product.name, unit);
+                if (productId <= 0) { Toast.makeText(this, R.string.finance_save_failed, Toast.LENGTH_SHORT).show(); return; }
+                financeDb.setProductCategories(productId, java.util.Collections.singletonList(catId));
             }
             financeDb.insertSupplierProduct(supplierId, productId, product.name, spec,
                     catId, unit, packUnit, price, packQty);

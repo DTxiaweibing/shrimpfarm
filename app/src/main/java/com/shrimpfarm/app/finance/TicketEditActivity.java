@@ -463,44 +463,15 @@ public class TicketEditActivity extends BaseActivity {
         });
 
         r.spName.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                if (r.binding) return;
-                List<FinProduct> list = r.productList;
-                int size = list == null ? 0 : list.size();
-                if (pos <= 0 || size == 0) {
-                    clearProduct(r);
-                    return;
-                }
-                if (pos == size + 1) {
-                    // 末位是「添加品名」
-                    promptAddProduct(r);
-                    return;
-                }
-                r.product = list.get(pos - 1);
-                if (resolveSupplierProduct(r)) {
-                    applyHistory(r, true);
-                } else {
-                    clearProduct(r);
-                    return;
-                }
-                recalcRow(r);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> p) {
-            }
+            @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) { onNameSelected(r, pos); }
+            @Override public void onNothingSelected(AdapterView<?> p) { }
         });
-
         TextWatcher w = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(Editable s) {
-                if (!r.binding) recalcRow(r);
-            }
+            @Override public void afterTextChanged(Editable s) { if (!r.binding) recalcRow(r); }
         };
-        r.etQty.addTextChangedListener(w);
-        r.etCurrent.addTextChangedListener(w);
+        r.etQty.addTextChangedListener(w); r.etCurrent.addTextChangedListener(w);
 
         r.tvHistory.setOnClickListener(v -> showHistory(r));
 
@@ -510,6 +481,21 @@ public class TicketEditActivity extends BaseActivity {
             if (rows.isEmpty()) addRow();
             refreshSummary();
         });
+    }
+
+    private void onNameSelected(Row r, int pos) {
+        if (r.binding) return;
+        List<FinProduct> list = r.productList;
+        int size = list == null ? 0 : list.size();
+        if (pos == size + 1) { promptAddProduct(r); return; }
+        if (pos <= 0) {
+            r.product = null; r.sp = null; r.hasHistory = false; r.historyPrice = 0;
+            r.tvSpec.setText(""); r.tvHistory.setText(""); r.tvChange.setText(""); r.tvAmount.setText("");
+            recalcRow(r); return;
+        }
+        r.product = list.get(pos - 1);
+        if (resolveSupplierProduct(r)) applyHistory(r, true); else { r.product = null; r.sp = null; }
+        recalcRow(r);
     }
 
     /** 品类下拉：占位 + 全部品类 + 自定义项 + 自定义 */
@@ -747,7 +733,7 @@ public class TicketEditActivity extends BaseActivity {
                     Toast.makeText(this, R.string.finance_po_category_added,
                             Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton(R.string.btn_cancel, null)
+                .setNegativeButton(R.string.btn_cancel, (d, w) -> r.spCat.setSelection(0))
                 .show();
     }
 
@@ -773,17 +759,15 @@ public class TicketEditActivity extends BaseActivity {
                 .setView(box)
                 .setPositiveButton(R.string.btn_ok, (d, w) -> {
                     String name = etName.getText().toString().trim();
-                    if (name.isEmpty()) return;
+                    if (name.isEmpty()) { r.spName.setSelection(0); return; }
                     long productId = financeDb.insertProduct(name, etUnit.getText().toString().trim());
-                    if (productId <= 0) return;
-                    List<Long> cats = new ArrayList<>();
-                    cats.add(r.categoryId);
-                    financeDb.setProductCategories(productId, cats);
+                    if (productId <= 0) { r.spName.setSelection(0); return; }
+                    financeDb.setProductCategories(productId, java.util.Collections.singletonList(r.categoryId));
                     fillProducts(r);
                     int idx = indexOfProduct(r, productId);
-                    if (idx >= 0) r.spName.setSelection(idx);
+                    if (idx >= 0) r.spName.setSelection(idx); else r.spName.setSelection(0);
                 })
-                .setNegativeButton(R.string.btn_cancel, null)
+                .setNegativeButton(R.string.btn_cancel, (d, w) -> r.spName.setSelection(0))
                 .show();
     }
 

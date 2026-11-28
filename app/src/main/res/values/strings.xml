@@ -837,6 +837,8 @@
     <string name="finance_manage">管理</string>
     <string name="finance_category_manage">品类管理</string>
     <string name="finance_product_manage">商品管理</string>
+    <string name="finance_product_name_hint">请输入品名</string>
+    <string name="finance_product_name_required">请填写品名</string>
     <string name="finance_supplier_manage">供应商管理</string>
     <string name="finance_supplier_product_manage">供应商商品</string>
     <string name="finance_history_price">历史价</string>
