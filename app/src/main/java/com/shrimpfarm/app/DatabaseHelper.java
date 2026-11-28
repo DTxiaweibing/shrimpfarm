@@ -17,6 +17,7 @@ import com.shrimpfarm.app.model.PriceRange;
 import com.shrimpfarm.app.model.PriceRangeParser;
 import com.shrimpfarm.app.finance.V17Migration;
 import com.shrimpfarm.app.finance.V17Schema;
+import com.shrimpfarm.app.finance.V18Schema;
 import com.shrimpfarm.app.utils.EncryptUtils;
 
 import java.text.SimpleDateFormat;
@@ -32,7 +33,7 @@ import java.util.Map;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "FeedingRecord.db";
-    private static final int DATABASE_VERSION = 17;
+    private static final int DATABASE_VERSION = 18;
 
     // ==================== 表名 ====================
     public static final String TABLE_DAILY_RECORDS = "daily_records";
@@ -68,6 +69,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String TABLE_FIN_CONTACT_ACCOUNT = "fin_contact_account";
     public static final String TABLE_FIN_PURCHASE_ORDER = "fin_purchase_order";
     public static final String TABLE_FIN_PURCHASE_ITEM = "fin_purchase_item";
+    public static final String TABLE_FIN_AGENT_CUSTOMER = "fin_agent_customer";
+    public static final String TABLE_FIN_SETTLEMENT = "fin_settlement";
+    public static final String TABLE_FIN_PARK = "fin_park";
 
     // ==================== 财务模块公共字段 ====================
     public static final String COLUMN_ID = "id";
@@ -474,6 +478,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_DAILY_WAGE + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
                     COLUMN_REMARK + " TEXT, " +
+                    "supplier_kind INTEGER DEFAULT 1, " +
                     COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
     private static final String CREATE_FIN_SUPPLIER_PRODUCT_TABLE =
@@ -609,6 +614,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_NET_FEE_PAID + " INTEGER DEFAULT 0, " +
                     COLUMN_FIN_NET_FEE_PAY_DATE + " TEXT, " +
                     COLUMN_FIN_NET_FEE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    "net_fee_mode INTEGER DEFAULT 0, " +
+                    "net_fee_unit_price REAL DEFAULT 0.35, " +
+                    "net_fee_payee_id INTEGER DEFAULT 0, " +
+                    "net_fee_payee_account_id INTEGER DEFAULT 0, " +
                     COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
                     COLUMN_FIN_PAID + " INTEGER DEFAULT 1, " +
@@ -629,6 +638,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
                     COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
+                    "pay_account_id INTEGER DEFAULT 0, " +
+                    "receive_account_id INTEGER DEFAULT 0, " +
+                    "settle_type INTEGER DEFAULT 0, " +
+                    "settled INTEGER DEFAULT 1, " +
+                    "settle_date TEXT, " +
                     COLUMN_REMARK + " TEXT, " +
                     COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
@@ -697,6 +711,36 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_REMARK + " TEXT, " +
                     COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
+    private static final String CREATE_FIN_AGENT_CUSTOMER_TABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_AGENT_CUSTOMER + " ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "agent_id INTEGER NOT NULL,"
+                    + "customer_id INTEGER NOT NULL,"
+                    + "create_time INTEGER DEFAULT 0,"
+                    + "UNIQUE(agent_id,customer_id))";
+
+    private static final String CREATE_FIN_SETTLEMENT_TABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_SETTLEMENT + " ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "direction INTEGER NOT NULL,"
+                    + "biz_type TEXT NOT NULL,"
+                    + "biz_id INTEGER NOT NULL,"
+                    + "amount REAL DEFAULT 0,"
+                    + "settle_date TEXT,"
+                    + "pay_account_id INTEGER DEFAULT 0,"
+                    + "receive_account_id INTEGER DEFAULT 0,"
+                    + "remark TEXT,"
+                    + "create_time INTEGER DEFAULT 0)";
+
+    private static final String CREATE_FIN_PARK_TABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_PARK + " ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "name TEXT,"
+                    + "account_name TEXT,"
+                    + "account_no TEXT,"
+                    + "enabled INTEGER DEFAULT 1,"
+                    + "create_time INTEGER DEFAULT 0)";
+
     private static DatabaseHelper instance;
 
     public DatabaseHelper(Context context) {
@@ -737,6 +781,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_FEEDING_CHECK_ANALYSIS_TABLE);
         createFinanceTables(db);
         V17Schema.createAll(db);
+        V18Schema.createAll(db);
     }
 
     @Override
@@ -754,6 +799,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ensureColumn(db, TABLE_MARKET_PRICES, "price_low", "REAL");
         ensureColumn(db, TABLE_MARKET_PRICES, "price_high", "REAL");
         V17Schema.ensureAll(db);
+        V18Schema.ensureAll(db);
     }
 
     /** 该列存在则直接返回，不存在则补上（自愈存量库，避免建表语句与迁移脱节）。 */
@@ -1028,6 +1074,9 @@ try {
         db.execSQL(CREATE_FIN_LEAVE_TABLE);
         db.execSQL(CREATE_FIN_SALARY_TABLE);
         db.execSQL(CREATE_FIN_ADVANCE_TABLE);
+        db.execSQL(CREATE_FIN_AGENT_CUSTOMER_TABLE);
+        db.execSQL(CREATE_FIN_SETTLEMENT_TABLE);
+        db.execSQL(CREATE_FIN_PARK_TABLE);
         seedBuiltinCategories(db);
     }
 
