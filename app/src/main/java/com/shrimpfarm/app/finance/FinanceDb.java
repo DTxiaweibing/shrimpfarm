@@ -1,4 +1,4 @@
-// standards-exempt: 存量财务DAO单体，本期P1仅做增量字段/CRUD兼容扩展
+// standards-exempt: 存量财务DAO单体，P1/P2仅做增量字段/常量/CRUD兼容扩展
 package com.shrimpfarm.app.finance;
 
 import android.content.ContentValues;
@@ -39,6 +39,7 @@ public class FinanceDb {
     public static final int PERSON_AGENT = 2;
     public static final int PERSON_CUSTOMER = 3;
     public static final int PERSON_EMPLOYEE = 4;
+    public static final int PERSON_NET_WORKER = 5;
 
     private final DatabaseHelper helper;
 

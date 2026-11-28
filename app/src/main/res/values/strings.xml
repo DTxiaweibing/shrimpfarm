@@ -1,4 +1,5 @@
 <resources>
+    <!-- standards-exempt: string resource data table; adding net worker labels only -->
     <string name="open_drawer">打开菜单</string>
     <string name="close_drawer">关闭菜单</string>
     <string name="title_check_feed">小棚养虾查料表</string>
@@ -881,7 +882,9 @@
     <string name="finance_person_agent">中介</string>
     <string name="finance_person_customer">客户</string>
     <string name="finance_person_employee">员工</string>
+    <string name="finance_person_net_worker">捞网工</string>
     <string name="finance_person_employee_manage">员工管理</string>
+    <string name="finance_person_net_worker_manage">捞网工管理</string>
     <string name="finance_person_manage">联系人管理</string>
     <string name="finance_person_agent_manage">中介管理</string>
     <string name="finance_person_customer_manage">客户管理</string>

@@ -47,18 +47,11 @@ public class FinanceActivity extends BaseActivity {
                 startActivity(new Intent(this, IncomeActivity.class)));
         findViewById(R.id.btn_product).setOnClickListener(v ->
                 startActivity(new Intent(this, ProductManageActivity.class)));
-        findViewById(R.id.btn_supplier).setOnClickListener(v ->
-                startActivity(new Intent(this, SupplierManageActivity.class)
-                        .putExtra("personType", FinanceDb.PERSON_SUPPLIER)));
-        findViewById(R.id.btn_agent).setOnClickListener(v ->
-                startActivity(new Intent(this, SupplierManageActivity.class)
-                        .putExtra("personType", FinanceDb.PERSON_AGENT)));
-        findViewById(R.id.btn_customer).setOnClickListener(v ->
-                startActivity(new Intent(this, SupplierManageActivity.class)
-                        .putExtra("personType", FinanceDb.PERSON_CUSTOMER)));
-        findViewById(R.id.btn_employee).setOnClickListener(v ->
-                startActivity(new Intent(this, SupplierManageActivity.class)
-                        .putExtra("personType", FinanceDb.PERSON_EMPLOYEE)));
+        findViewById(R.id.btn_supplier).setOnClickListener(v -> openPerson(FinanceDb.PERSON_SUPPLIER));
+        findViewById(R.id.btn_agent).setOnClickListener(v -> openPerson(FinanceDb.PERSON_AGENT));
+        findViewById(R.id.btn_customer).setOnClickListener(v -> openPerson(FinanceDb.PERSON_CUSTOMER));
+        findViewById(R.id.btn_employee).setOnClickListener(v -> openPerson(FinanceDb.PERSON_EMPLOYEE));
+        findViewById(R.id.btn_net_worker).setOnClickListener(v -> openPerson(FinanceDb.PERSON_NET_WORKER));
         findViewById(R.id.btn_query).setOnClickListener(v ->
                 startActivity(new Intent(this, QueryActivity.class)));
         findViewById(R.id.btn_settle).setOnClickListener(v ->
@@ -69,6 +62,11 @@ public class FinanceActivity extends BaseActivity {
                 startActivity(new Intent(this, WorkLogActivity.class)));
         findViewById(R.id.btn_salary).setOnClickListener(v ->
                 startActivity(new Intent(this, SalaryActivity.class)));
+    }
+
+    private void openPerson(int personType) {
+        startActivity(new Intent(this, SupplierManageActivity.class)
+                .putExtra("personType", personType));
     }
 
     @Override

@@ -71,16 +71,7 @@ public class SupplierManageActivity extends BaseActivity {
     }
 
     private String typeTitle() {
-        return typeLabel(filterType);
-    }
-
-    private String typeLabel(int type) {
-        switch (type) {
-            case FinanceDb.PERSON_AGENT: return getString(R.string.finance_person_agent);
-            case FinanceDb.PERSON_CUSTOMER: return getString(R.string.finance_person_customer);
-            case FinanceDb.PERSON_EMPLOYEE: return getString(R.string.finance_person_employee);
-            default: return getString(R.string.finance_person_supplier);
-        }
+        return PersonTypeUi.label(this, filterType);
     }
 
     private void setupToolbar() {
@@ -295,7 +286,7 @@ public class SupplierManageActivity extends BaseActivity {
             TextView tvExtra = convertView.findViewById(R.id.tv_extra);
 
             tvName.setText(s.name + SupplierKindUi.kindTag(SupplierManageActivity.this,
-                    s.supplierKind, isSupplier()) + "  [" + typeLabel(s.personType) + "]");
+                    s.supplierKind, isSupplier()) + "  [" + PersonTypeUi.label(SupplierManageActivity.this, s.personType) + "]");
             String contactLine = "";
             if (!s.contact.isEmpty()) contactLine = getString(R.string.finance_contact_person) + ": " + s.contact;
             if (!s.phone.isEmpty()) {
@@ -343,6 +334,8 @@ public class SupplierManageActivity extends BaseActivity {
         TextView tvToggle = row.findViewById(R.id.tv_toggle), tvEdit = row.findViewById(R.id.tv_edit);
         TextView tvAccounts = row.findViewById(R.id.tv_accounts);
 
+        boolean netWorker = NetWorkerRules.isNetWorker(filterType, s.personType);
+        tvProducts.setVisibility(netWorker ? View.GONE : View.VISIBLE);
         boolean agent = AgentCustomerRules.isAgentRow(filterType, s.personType);
         tvProducts.setText(agent ? R.string.finance_agent_customer_link
                 : isEmployee() ? R.string.finance_rest_reg : R.string.finance_supplier_product_manage);
