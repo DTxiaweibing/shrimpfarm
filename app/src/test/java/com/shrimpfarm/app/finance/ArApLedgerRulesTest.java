@@ -22,4 +22,14 @@ public class ArApLedgerRulesTest {
         assertEquals(1000.0, ArApLedgerRules.goodsIncomeActual(1000.0), 0.0001);
         assertEquals(35.0, ArApLedgerRules.netFeeExpense(100.0, 0.35), 0.0001);
     }
+
+    @Test public void incomeGoodsAmount_paidAndUnpaidWithRounding() {
+        assertEquals(1000.13, ArApLedgerRules.incomeGoodsAmount(1000.126, true), 0.0001);
+        assertEquals(0.0, ArApLedgerRules.incomeGoodsAmount(1000.126, false), 0.0001);
+    }
+
+    @Test public void incomeNetFeePayable_unpaidAndPaidWithRounding() {
+        assertEquals(35.57, ArApLedgerRules.incomeNetFeePayable(35.567, false), 0.0001);
+        assertEquals(0.0, ArApLedgerRules.incomeNetFeePayable(35.567, true), 0.0001);
+    }
 }
