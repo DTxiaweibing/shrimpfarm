@@ -64,7 +64,9 @@ public final class V18Schema {
         try {
             db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + ddl);
         } catch (Exception e) {
-            Log.w(TAG, "ensure " + table + "." + column, e);
+            String msg = "ensure " + table + "." + column + " failed";
+            Log.e(TAG, msg, e);
+            throw new RuntimeException(msg, e);
         }
     }
 
