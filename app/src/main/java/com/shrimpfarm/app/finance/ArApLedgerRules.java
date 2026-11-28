@@ -13,6 +13,11 @@ public final class ArApLedgerRules {
         return !netFeePaid;
     }
 
+    /**
+     * A5: net-fee settlement state does not gate income-ledger inclusion;
+     * goods settlement alone controls visibility. netFeePaid is kept in the
+     * signature for plan/API parity.
+     */
     public static boolean showInIncomeLedger(boolean goodsPaid, boolean netFeePaid) {
         return goodsPaid;
     }

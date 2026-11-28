@@ -49,6 +49,7 @@ public final class V18Schema {
     }
 
     public static void ensureAll(SQLiteDatabase db) {
+        createAll(db);
         ensureColumn(db, DatabaseHelper.TABLE_FIN_SUPPLIER, DatabaseHelper.COLUMN_FIN_SUPPLIER_KIND, "INTEGER DEFAULT 1");
         ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_MODE, "INTEGER DEFAULT 0");
         ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_UNIT_PRICE, "REAL DEFAULT 0.35");
