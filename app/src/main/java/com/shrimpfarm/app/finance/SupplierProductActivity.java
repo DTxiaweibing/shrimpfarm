@@ -168,7 +168,12 @@ public class SupplierProductActivity extends BaseActivity {
                 return;
             }
 
-            financeDb.insertSupplierProduct(supplierId, product.id, product.name, spec,
+            long productId = product.id;
+            if (productId <= 0) {
+                productId = ProductFilingUi.ensureProduct(this, financeDb, product.name, unit, catId);
+                if (productId <= 0) return;
+            }
+            financeDb.insertSupplierProduct(supplierId, productId, product.name, spec,
                     catId, unit, packUnit, price, packQty);
             dialog.dismiss();
             loadData();

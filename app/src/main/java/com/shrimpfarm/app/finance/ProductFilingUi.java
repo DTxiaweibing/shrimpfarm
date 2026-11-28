@@ -98,6 +98,25 @@ public final class ProductFilingUi {
         });
     }
 
+    /** Reuse a same-named global product or create one, so filed rows get a real product id. */
+    public static long ensureProduct(Activity activity, FinanceDb db, String name,
+                                     String unit, long categoryId) {
+        long existing = ProductFilingOptions.existingProductId(db.getProducts(), name);
+        long id = existing > 0 ? existing : db.insertProduct(name, unit);
+        if (id <= 0) {
+            Toast.makeText(activity, R.string.finance_save_failed, Toast.LENGTH_SHORT).show();
+            return 0;
+        }
+        List<Long> categories = new ArrayList<>();
+        FinanceDb.FinProduct current = db.getProduct(id);
+        if (current != null) categories.addAll(current.categoryIds);
+        if (!categories.contains(categoryId)) {
+            categories.add(categoryId);
+            db.setProductCategories(id, categories);
+        }
+        return id;
+    }
+
     /** Supplier picker with a trailing quick-add item (A1 kind required for new suppliers). */
     public static void pickSupplier(final Activity activity, final FinanceDb db,
                                     final IdPicked callback) {

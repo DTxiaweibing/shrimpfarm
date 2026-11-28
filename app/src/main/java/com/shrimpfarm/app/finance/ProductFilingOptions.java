@@ -1,6 +1,7 @@
 package com.shrimpfarm.app.finance;
 
 import com.shrimpfarm.app.finance.FinanceDb.FinCategory;
+import com.shrimpfarm.app.finance.FinanceDb.FinProduct;
 import com.shrimpfarm.app.finance.FinanceDb.FinSupplier;
 
 import java.util.ArrayList;
@@ -48,6 +49,15 @@ public final class ProductFilingOptions {
         String key = name.trim();
         for (FinCategory c : categories) {
             if (key.equals(c.name)) return c.id;
+        }
+        return 0;
+    }
+
+    public static long existingProductId(List<FinProduct> products, String name) {
+        if (!validName(name)) return 0;
+        String key = name.trim();
+        for (FinProduct p : products) {
+            if (p.id > 0 && key.equals(p.name)) return p.id;
         }
         return 0;
     }

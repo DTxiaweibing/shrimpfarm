@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import com.shrimpfarm.app.finance.FinanceDb.FinCategory;
+import com.shrimpfarm.app.finance.FinanceDb.FinProduct;
 import com.shrimpfarm.app.finance.FinanceDb.FinSupplier;
 
 import java.util.Arrays;
@@ -25,6 +26,13 @@ public class ProductFilingOptionsTest {
         s.id = id;
         s.name = name;
         return s;
+    }
+
+    private static FinProduct product(long id, String name) {
+        FinProduct p = new FinProduct();
+        p.id = id;
+        p.name = name;
+        return p;
     }
 
     @Test public void namesAreTrimmedAndRejectBlank() {
@@ -60,6 +68,13 @@ public class ProductFilingOptionsTest {
         assertEquals(9L, ProductFilingOptions.existingCategoryId(categories, "  苗种 "));
         assertEquals(0L, ProductFilingOptions.existingCategoryId(categories, "饲料"));
         assertEquals(0L, ProductFilingOptions.existingCategoryId(categories, "  "));
+    }
+
+    @Test public void duplicateProductResolvesToExistingRealId() {
+        List<FinProduct> products = Arrays.asList(product(11, "全局商品"), product(12, "苗种A"));
+        assertEquals(12L, ProductFilingOptions.existingProductId(products, "  苗种A "));
+        assertEquals(0L, ProductFilingOptions.existingProductId(products, "未建档"));
+        assertEquals(0L, ProductFilingOptions.existingProductId(products, "  "));
     }
 
     @Test public void supplierLabelsAlwaysEndWithQuickAdd() {
