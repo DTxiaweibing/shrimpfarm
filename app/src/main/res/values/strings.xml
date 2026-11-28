@@ -811,7 +811,7 @@
     <string name="finance_income">收入</string>
     <string name="finance_profit">利润</string>
     <string name="finance_expense_life">生活支出</string>
-    <string name="finance_expense_daily">日常支出</string>
+    <string name="finance_expense_daily">设施设备维护</string>
     <string name="finance_expense_breeding">养殖成本</string>
     <string name="finance_sub_repair">维修维护</string>
     <string name="finance_sub_pond">清塘支出</string>
@@ -892,9 +892,9 @@
     <string name="finance_person_customer_manage">客户管理</string>
     <string name="finance_choose_type">请选择联系人类型</string>
     <string name="finance_sub_depreciation">固定资产折旧</string>
-    <string name="finance_sub_breeding_expense">养殖支出</string>
-    <string name="finance_seed_list">苗种购买</string>
-    <string name="finance_ticket_list2">动保票据</string>
+    <string name="finance_sub_breeding_expense">杂费</string>
+    <string name="finance_seed_list">苗种入塘</string>
+    <string name="finance_ticket_list2">动保</string>
     <string name="finance_seed_count">总量</string>
     <string name="finance_total_price">总价</string>
     <string name="finance_actual_pay">实际付款</string>
@@ -928,7 +928,7 @@
     <string name="finance_due_wage">应发</string>
     <string name="finance_paid_wage">实发</string>
     <string name="finance_no_rest_period">请先设置开始上班日期</string>
-    <string name="finance_wage_list">工资发放</string>
+    <string name="finance_wage_list">人工发放历史</string>
     <string name="finance_employee_pick">选择员工</string>
     <string name="finance_no_supplier">暂无供应商,请先添加</string>
     <string name="finance_no_product_category">该品类暂无品名,可点击添加</string>

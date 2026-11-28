@@ -802,7 +802,7 @@
     <string name="finance_income">Income</string>
     <string name="finance_profit">Profit</string>
     <string name="finance_expense_life">Living Expense</string>
-    <string name="finance_expense_daily">Daily Expense</string>
+    <string name="finance_expense_daily">Facility Maintenance</string>
     <string name="finance_expense_breeding">Farming Cost</string>
     <string name="finance_sub_repair">Repair &amp; Maintenance</string>
     <string name="finance_sub_pond">Pond Cleaning</string>
@@ -874,9 +874,9 @@
     <string name="finance_person_customer_manage">Manage Customers</string>
     <string name="finance_choose_type">Select contact type</string>
     <string name="finance_sub_depreciation">Fixed-asset Depreciation</string>
-    <string name="finance_sub_breeding_expense">Breeding Expense</string>
-    <string name="finance_seed_list">Fry Purchase</string>
-    <string name="finance_ticket_list2">Medicine Tickets</string>
+    <string name="finance_sub_breeding_expense">Miscellaneous</string>
+    <string name="finance_seed_list">Seed Stocking</string>
+    <string name="finance_ticket_list2">Animal Health</string>
     <string name="finance_seed_count">Total Count</string>
     <string name="finance_total_price">Total</string>
     <string name="finance_actual_pay">Actual Paid</string>
@@ -905,7 +905,7 @@
     <string name="finance_due_wage">Due</string>
     <string name="finance_paid_wage">Paid</string>
     <string name="finance_no_rest_period">Set the start date first</string>
-    <string name="finance_wage_list">Wage Payments</string>
+    <string name="finance_wage_list">Wage History</string>
     <string name="finance_employee_pick">Select Employee</string>
     <string name="finance_no_supplier">No supplier yet, add one first</string>
     <string name="finance_no_product_category">No product under this category, tap to add</string>
