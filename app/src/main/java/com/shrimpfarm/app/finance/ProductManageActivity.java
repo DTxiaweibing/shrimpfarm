@@ -1,13 +1,12 @@
 package com.shrimpfarm.app.finance;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -15,13 +14,10 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.BaseActivity;
-import com.shrimpfarm.app.finance.FinanceDb.FinCategory;
 import com.shrimpfarm.app.finance.FinanceDb.FinProduct;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class ProductManageActivity extends BaseActivity {
 
@@ -39,7 +35,8 @@ public class ProductManageActivity extends BaseActivity {
         listView = findViewById(R.id.list_view);
         adapter = new ProductAdapter();
         listView.setAdapter(adapter);
-        findViewById(R.id.btn_add).setOnClickListener(v -> showEditDialog(null));
+        ((TextView) findViewById(R.id.tv_tip)).setText(R.string.finance_product_filing_tip);
+        findViewById(R.id.btn_add).setOnClickListener(v -> openSupplierFiling());
         loadData();
     }
 
@@ -63,68 +60,14 @@ public class ProductManageActivity extends BaseActivity {
         adapter.notifyDataSetChanged();
     }
 
-    private void showEditDialog(final FinProduct product) {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad / 2, pad, 0);
-
-        final EditText etName = new EditText(this);
-        etName.setHint(R.string.finance_product);
-        final EditText etUnit = new EditText(this);
-        etUnit.setHint(R.string.finance_unit);
-        layout.addView(etName);
-        layout.addView(etUnit);
-
-        if (product != null) {
-            etName.setText(product.name);
-            etUnit.setText(product.unit);
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(product == null ? R.string.finance_add : R.string.finance_edit);
-        builder.setView(layout);
-        builder.setPositiveButton(R.string.btn_ok, (d, w) -> {
-            String name = etName.getText().toString().trim();
-            String unit = etUnit.getText().toString().trim();
-            if (name.isEmpty()) return;
-            if (product == null) {
-                financeDb.insertProduct(name, unit);
-            } else {
-                financeDb.renameProduct(product.id, name, unit);
-            }
-            loadData();
+    /** A2: product filing always starts from a supplier; quick-add is offered in the picker. */
+    private void openSupplierFiling() {
+        ProductFilingUi.pickSupplier(this, financeDb, (id, name) -> {
+            Intent intent = new Intent(this, SupplierProductActivity.class);
+            intent.putExtra("supplierId", id);
+            intent.putExtra("supplierName", name);
+            startActivity(intent);
         });
-        builder.setNegativeButton(R.string.btn_cancel, null);
-        builder.show();
-    }
-
-    private void showCategoryPicker(final FinProduct product) {
-        List<FinCategory> categories = financeDb.getCategories();
-        final List<String> items = new ArrayList<>();
-        final List<Long> ids = new ArrayList<>();
-        Set<Long> selected = new HashSet<>(product.categoryIds);
-        final boolean[] checked = new boolean[categories.size()];
-        for (int i = 0; i < categories.size(); i++) {
-            FinCategory cat = categories.get(i);
-            items.add(cat.name);
-            ids.add(cat.id);
-            checked[i] = selected.contains(cat.id);
-        }
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(R.string.finance_category);
-        builder.setMultiChoiceItems(items.toArray(new String[0]), checked,
-                (dialog, which, isChecked) -> checked[which] = isChecked);
-        builder.setPositiveButton(R.string.btn_ok, (d, w) -> {
-            List<Long> picked = new ArrayList<>();
-            for (int i = 0; i < checked.length; i++) {
-                if (checked[i]) picked.add(ids.get(i));
-            }
-            financeDb.setProductCategories(product.id, picked);
-            loadData();
-        });
-        builder.setNegativeButton(R.string.btn_cancel, null);
-        builder.show();
     }
 
     private class ProductAdapter extends BaseAdapter {
@@ -193,16 +136,8 @@ public class ProductManageActivity extends BaseActivity {
                 }
             });
 
-            tvEdit.setOnClickListener(v -> new AlertDialog.Builder(ProductManageActivity.this)
-                    .setTitle(R.string.finance_product_manage)
-                    .setItems(new String[]{
-                            getString(R.string.finance_edit),
-                            getString(R.string.finance_category)
-                    }, (d, which) -> {
-                        if (which == 0) showEditDialog(p);
-                        else showCategoryPicker(p);
-                    })
-                    .show());
+            tvEdit.setText(R.string.finance_add_product);
+            tvEdit.setOnClickListener(v -> openSupplierFiling());
             return convertView;
         }
     }

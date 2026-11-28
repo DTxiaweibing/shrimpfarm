@@ -895,6 +895,11 @@
     <string name="finance_actual_pay">实际付款</string>
     <string name="finance_add_product">添加品名</string>
     <string name="finance_choose_category">选择品类</string>
+    <string name="finance_quick_add_category">新增品类...</string>
+    <string name="finance_quick_add_supplier">新增供应商...</string>
+    <string name="finance_quick_add_product">新增商品...</string>
+    <string name="finance_name_required">名称不能为空</string>
+    <string name="finance_product_filing_tip">商品须归属供应商并指定品类；新增商品请先选择供应商。</string>
     <string name="finance_choose_product">选择品名</string>
     <string name="finance_input_unit">请输入单位</string>
     <string name="finance_pick_agent">选</string>

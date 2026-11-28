@@ -6,8 +6,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -92,21 +90,35 @@ public class SupplierProductActivity extends BaseActivity {
     }
 
     private void showAddDialog() {
+        if (supplierId <= 0) {
+            ProductFilingUi.pickSupplier(this, financeDb, (id, name) -> {
+                supplierId = id;
+                supplierName = name;
+                setupToolbar(name);
+                showAddDialog();
+            });
+            return;
+        }
         List<FinProduct> standard = financeDb.getProducts();
         final List<FinProduct> enabled = new ArrayList<>();
         for (FinProduct p : standard) if (p.enabled) enabled.add(p);
-        final List<String> names = new ArrayList<>();
+        List<String> names = new ArrayList<>();
         for (FinProduct p : enabled) names.add(p.name + (p.unit.isEmpty() ? "" : " (" + p.unit + ")"));
-        if (names.isEmpty()) {
-            new AlertDialog.Builder(this)
-                    .setMessage(R.string.finance_product_manage)
-                    .setPositiveButton(R.string.btn_ok, null)
-                    .show();
-            return;
-        }
+        names.add(getString(R.string.finance_quick_add_product));
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(R.string.finance_product);
-        builder.setItems(names.toArray(new String[0]), (d, which) -> showSpecDialog(enabled.get(which)));
+        builder.setItems(names.toArray(new String[0]), (d, which) -> {
+            if (which < enabled.size()) {
+                showSpecDialog(enabled.get(which));
+                return;
+            }
+            ProductFilingUi.promptName(this, R.string.finance_quick_add_product, name -> {
+                FinProduct p = new FinProduct();
+                p.name = name;
+                p.enabled = true;
+                showSpecDialog(p);
+            });
+        });
         builder.setNegativeButton(R.string.btn_cancel, null);
         builder.show();
     }
@@ -123,10 +135,9 @@ public class SupplierProductActivity extends BaseActivity {
         final EditText etPrice = view.findViewById(R.id.et_price);
         final TextView tvPackSpec = view.findViewById(R.id.tv_pack_spec);
 
-        spCategory.setAdapter(categoryAdapter());
         bindCategory(spCategory, 0);
-        spUnit.setAdapter(unitAdapter(product.unit));
-        bindPackUnit(spPackUnit, view, etPackQty, tvPackSpec, null);
+        spUnit.setAdapter(ProductFilingUi.unitAdapter(this, product.unit));
+        ProductFilingUi.bindPackUnit(this, spPackUnit, view, etPackQty, tvPackSpec, null);
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(product.name)
@@ -138,10 +149,11 @@ public class SupplierProductActivity extends BaseActivity {
             long catId = selectedCategoryId(spCategory);
             String unit = selectedText(spUnit);
             String packUnit = selectedText(spPackUnit);
-            double packQty = parse(etPackQty.getText().toString());
-            double price = parse(etPrice.getText().toString());
+            double packQty = ProductFilingUi.parseAmount(etPackQty.getText().toString());
+            double price = ProductFilingUi.parseAmount(etPrice.getText().toString());
             String spec = etSpec.getText().toString().trim();
 
+            if (!ensureCategory(spCategory, catId)) return;
             if (unit.isEmpty()) unit = product.unit;
             if (unit.isEmpty()) {
                 Toast.makeText(this, R.string.finance_purchase_pick_base_unit, Toast.LENGTH_SHORT).show();
@@ -179,10 +191,9 @@ public class SupplierProductActivity extends BaseActivity {
         if (sp.price > 0) etPrice.setText(String.valueOf(sp.price));
         if (sp.packQty > 0) etPackQty.setText(String.valueOf(sp.packQty));
 
-        spCategory.setAdapter(categoryAdapter());
         bindCategory(spCategory, sp.categoryId);
-        spUnit.setAdapter(unitAdapter(sp.unit));
-        bindPackUnit(spPackUnit, view, etPackQty, tvPackSpec, sp.packUnit);
+        spUnit.setAdapter(ProductFilingUi.unitAdapter(this, sp.unit));
+        ProductFilingUi.bindPackUnit(this, spPackUnit, view, etPackQty, tvPackSpec, sp.packUnit);
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(sp.productName)
@@ -194,10 +205,11 @@ public class SupplierProductActivity extends BaseActivity {
             long catId = selectedCategoryId(spCategory);
             String unit = selectedText(spUnit);
             String packUnit = selectedText(spPackUnit);
-            double packQty = parse(etPackQty.getText().toString());
-            double price = parse(etPrice.getText().toString());
+            double packQty = ProductFilingUi.parseAmount(etPackQty.getText().toString());
+            double price = ProductFilingUi.parseAmount(etPrice.getText().toString());
             String spec = etSpec.getText().toString().trim();
 
+            if (!ensureCategory(spCategory, catId)) return;
             if (unit.isEmpty()) {
                 Toast.makeText(this, R.string.finance_purchase_pick_base_unit, Toast.LENGTH_SHORT).show();
                 return;
@@ -215,77 +227,25 @@ public class SupplierProductActivity extends BaseActivity {
 
     // ---------------- 鍝佺被 / 鍗曚綅 涓嬫媺 ----------------
 
-    private ArrayAdapter<String> categoryAdapter() {
-        List<String> names = new ArrayList<>();
-        for (FinanceDb.FinCategory c : categories) names.add(c.name);
-        if (names.isEmpty()) names.add(getString(R.string.finance_choose_category));
-        return new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names);
-    }
-
-    private ArrayAdapter<String> unitAdapter(String prefer) {
-        String[] builtins = FinanceDb.getBuiltinUnits();
-        List<String> units = new ArrayList<>();
-        if (prefer != null && !prefer.isEmpty()) units.add(prefer);
-        for (String u : builtins) if (!units.contains(u)) units.add(u);
-        return new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, units);
-    }
-
-    private void bindCategory(Spinner sp, long categoryId) {
-        for (int i = 0; i < categories.size(); i++) {
-            if (categories.get(i).id == categoryId) {
-                sp.setSelection(i);
-                return;
-            }
-        }
-    }
-
-    /** 鍖呰鍗曚綅涓嬫媺锛氱 0 椤逛负銆屾棤銆嶏紝鍚庨潰鏄唴缃崟浣?*/
-    private void bindPackUnit(final Spinner sp, final View parent, final EditText etQty,
-                              final TextView tvSpec, String current) {
-        String[] builtins = FinanceDb.getBuiltinUnits();
-        List<String> units = new ArrayList<>();
-        units.add(getString(R.string.finance_purchase_no_pack_unit));
-        for (String u : builtins) units.add(u);
-        sp.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, units));
-        if (current != null && !current.isEmpty()) {
-            for (int i = 0; i < units.size(); i++) {
-                if (units.get(i).equals(current)) {
-                    sp.setSelection(i);
-                    break;
-                }
-            }
-        }
-        refreshPackSpec(parent, sp, etQty, tvSpec);
-        sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parentView, View view, int position, long id) {
-                refreshPackSpec(parent, sp, etQty, tvSpec);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parentView) { }
+    private void bindCategory(final Spinner sp, long categoryId) {
+        ProductFilingUi.bindCategorySpinner(this, sp, categories, categoryId, financeDb, id -> {
+            categories = financeDb.getCategories();
+            bindCategory(sp, id);
         });
     }
 
-    private void refreshPackSpec(View parent, Spinner spPackUnit, EditText etQty, TextView tvSpec) {
-        String unit = selectedText((Spinner) parent.findViewById(R.id.sp_unit));
-        String packUnit = selectedText(spPackUnit);
-        double packQty = parse(etQty.getText().toString());
-        if (packUnit.isEmpty() || packUnit.equals(getString(R.string.finance_purchase_no_pack_unit))
-                || packQty <= 1) {
-            tvSpec.setVisibility(View.GONE);
-            return;
-        }
-        tvSpec.setVisibility(View.VISIBLE);
-        tvSpec.setText(getString(R.string.finance_purchase_pack_spec_fmt,
-                FinanceDb.stripTrailingZeros(packQty) + unit, packUnit));
+    private boolean ensureCategory(Spinner sp, long catId) {
+        if (catId > 0) return true;
+        ProductFilingUi.quickAddCategory(this, financeDb, id -> {
+            categories = financeDb.getCategories();
+            bindCategory(sp, id);
+        });
+        return false;
     }
 
+    /** 鍖呰鍗曚綅涓嬫媺锛氱 0 椤逛负銆屾棤銆嶏紝鍚庨潰鏄唴缃崟浣?*/
     private long selectedCategoryId(Spinner sp) {
-        int i = sp.getSelectedItemPosition();
-        if (i < 0 || i >= categories.size()) return 0;
-        return categories.get(i).id;
+        return ProductFilingOptions.categoryIdAt(categories, sp.getSelectedItemPosition());
     }
 
     private String selectedText(Spinner sp) {
@@ -293,15 +253,6 @@ public class SupplierProductActivity extends BaseActivity {
         if (o == null) return "";
         String s = o.toString().trim();
         return s.equals(getString(R.string.finance_purchase_no_pack_unit)) ? "" : s;
-    }
-
-    private static double parse(String s) {
-        try {
-            if (s == null || s.trim().isEmpty()) return 0;
-            return Double.parseDouble(s.trim());
-        } catch (Exception e) {
-            return 0;
-        }
     }
 
     private class SupplierProductAdapter extends BaseAdapter {
@@ -333,21 +284,7 @@ public class SupplierProductActivity extends BaseActivity {
             TextView tvStatus = convertView.findViewById(R.id.tv_status);
 
             tvName.setText(sp.productName);
-            StringBuilder spec = new StringBuilder();
-            if (!sp.categoryName.isEmpty()) spec.append(sp.categoryName);
-            if (!sp.spec.isEmpty()) {
-                if (spec.length() > 0) spec.append(" 路 ");
-                spec.append(sp.spec);
-            }
-            if (!sp.unit.isEmpty()) {
-                if (spec.length() > 0) spec.append(" 路 ");
-                spec.append("楼").append(FinanceDb.stripTrailingZeros(sp.price))
-                        .append("/").append(sp.unit);
-            }
-            if (!sp.packUnit.isEmpty()) {
-                spec.append(" (").append(sp.packSpec()).append(")");
-            }
-            tvSpec.setText(spec.toString());
+            tvSpec.setText(ProductFilingUi.productDetail(sp));
             if (sp.lastPrice > 0) {
                 double rounded = FinanceDb.round2(sp.lastPrice);
                 tvPrice.setText(getString(R.string.finance_history_price) + ": " + rounded);
