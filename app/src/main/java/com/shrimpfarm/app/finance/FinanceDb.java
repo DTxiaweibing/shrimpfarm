@@ -1,3 +1,4 @@
+// standards-exempt: 存量财务DAO单体，本期P1仅做增量字段/CRUD兼容扩展
 package com.shrimpfarm.app.finance;
 
 import android.content.ContentValues;
@@ -214,14 +215,20 @@ public class FinanceDb {
         public int personType = PERSON_SUPPLIER;
         public String startDate = "";
         public double dailyWage = 0;
+        public int supplierKind = 1;
     }
 
     public long insertSupplier(int personType, String name, String contact, String phone, String remark) {
-        return insertSupplier(personType, name, contact, phone, "", 0, remark);
+        return insertSupplier(personType, name, contact, phone, "", 0, remark, 1);
     }
 
     public long insertSupplier(int personType, String name, String contact, String phone,
                                String startDate, double dailyWage, String remark) {
+        return insertSupplier(personType, name, contact, phone, startDate, dailyWage, remark, 1);
+    }
+
+    public long insertSupplier(int personType, String name, String contact, String phone,
+                               String startDate, double dailyWage, String remark, int supplierKind) {
         ContentValues v = new ContentValues();
         v.put(DatabaseHelper.COLUMN_FIN_NAME, EncryptUtils.encrypt(name));
         v.put(DatabaseHelper.COLUMN_FIN_PERSON_TYPE, personType);
@@ -229,6 +236,7 @@ public class FinanceDb {
         v.put(DatabaseHelper.COLUMN_FIN_PHONE, EncryptUtils.encrypt(phone));
         v.put(DatabaseHelper.COLUMN_FIN_START_DATE, startDate);
         v.put(DatabaseHelper.COLUMN_FIN_DAILY_WAGE, dailyWage);
+        v.put(DatabaseHelper.COLUMN_FIN_SUPPLIER_KIND, supplierKind);
         v.put(DatabaseHelper.COLUMN_FIN_ENABLED, 1);
         v.put(DatabaseHelper.COLUMN_REMARK, EncryptUtils.encrypt(remark));
         v.put(DatabaseHelper.COLUMN_FIN_CREATE_TIME, System.currentTimeMillis());
@@ -236,11 +244,16 @@ public class FinanceDb {
     }
 
     public void updateSupplier(long id, int personType, String name, String contact, String phone, String remark) {
-        updateSupplier(id, personType, name, contact, phone, "", 0, remark);
+        updateSupplier(id, personType, name, contact, phone, "", 0, remark, 1);
     }
 
     public void updateSupplier(long id, int personType, String name, String contact, String phone,
                                String startDate, double dailyWage, String remark) {
+        updateSupplier(id, personType, name, contact, phone, startDate, dailyWage, remark, 1);
+    }
+
+    public void updateSupplier(long id, int personType, String name, String contact, String phone,
+                               String startDate, double dailyWage, String remark, int supplierKind) {
         ContentValues v = new ContentValues();
         v.put(DatabaseHelper.COLUMN_FIN_NAME, EncryptUtils.encrypt(name));
         v.put(DatabaseHelper.COLUMN_FIN_PERSON_TYPE, personType);
@@ -248,6 +261,7 @@ public class FinanceDb {
         v.put(DatabaseHelper.COLUMN_FIN_PHONE, EncryptUtils.encrypt(phone));
         v.put(DatabaseHelper.COLUMN_FIN_START_DATE, startDate);
         v.put(DatabaseHelper.COLUMN_FIN_DAILY_WAGE, dailyWage);
+        v.put(DatabaseHelper.COLUMN_FIN_SUPPLIER_KIND, supplierKind);
         v.put(DatabaseHelper.COLUMN_REMARK, EncryptUtils.encrypt(remark));
         db().update(DatabaseHelper.TABLE_FIN_SUPPLIER, v, "id=?", new String[]{String.valueOf(id)});
     }
@@ -269,12 +283,13 @@ public class FinanceDb {
         s.dailyWage = c.getDouble(6);
         s.enabled = c.getInt(7) == 1;
         s.remark = EncryptUtils.decrypt(c.getString(8));
+        s.supplierKind = c.getColumnCount() > 9 && !c.isNull(9) ? c.getInt(9) : 1;
         return s;
     }
 
     public List<FinSupplier> getSuppliers() {
         List<FinSupplier> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark,supplier_kind FROM "
                 + DatabaseHelper.TABLE_FIN_SUPPLIER + " ORDER BY id DESC", null);
         while (c.moveToNext()) list.add(parseSupplier(c));
         c.close();
@@ -283,7 +298,7 @@ public class FinanceDb {
 
     public List<FinSupplier> getSuppliersByType(int personType) {
         List<FinSupplier> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark,supplier_kind FROM "
                 + DatabaseHelper.TABLE_FIN_SUPPLIER + " WHERE " + DatabaseHelper.COLUMN_FIN_PERSON_TYPE
                 + "=? AND " + DatabaseHelper.COLUMN_FIN_ENABLED + "=1 ORDER BY id DESC",
                 new String[]{String.valueOf(personType)});
@@ -293,7 +308,7 @@ public class FinanceDb {
     }
 
     public FinSupplier getSupplierById(long id) {
-        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,person_type,name,contact,phone,start_date,daily_wage,enabled,remark,supplier_kind FROM "
                 + DatabaseHelper.TABLE_FIN_SUPPLIER + " WHERE id=?",
                 new String[]{String.valueOf(id)});
         FinSupplier s = null;
@@ -542,10 +557,21 @@ public class FinanceDb {
         public double actualAmount;
         public String remark;
         public String supplierName = "";
+        public long payAccountId = 0;
+        public long receiveAccountId = 0;
+        public int settleType = 0;
+        public boolean settled = true;
+        public String settleDate = "";
     }
 
     public long insertSeed(String batchId, long supplierId, String date, double quantity, double unitPrice,
                            double actualAmount, String remark) {
+        return insertSeed(batchId, supplierId, date, quantity, unitPrice, actualAmount, 0, 0, 0, true, "", remark);
+    }
+
+    public long insertSeed(String batchId, long supplierId, String date, double quantity, double unitPrice,
+                           double actualAmount, long payAccountId, long receiveAccountId, int settleType,
+                           boolean settled, String settleDate, String remark) {
         ContentValues v = new ContentValues();
         v.put(DatabaseHelper.COLUMN_BATCH_ID, batchId);
         v.put(DatabaseHelper.COLUMN_FIN_SUPPLIER_ID, supplierId);
@@ -554,6 +580,11 @@ public class FinanceDb {
         v.put(DatabaseHelper.COLUMN_FIN_UNIT_PRICE, unitPrice);
         v.put(DatabaseHelper.COLUMN_FIN_TOTAL_AMOUNT, round2(quantity * unitPrice));
         v.put(DatabaseHelper.COLUMN_FIN_ACTUAL_AMOUNT, actualAmount);
+        v.put(DatabaseHelper.COLUMN_FIN_PAY_ACCOUNT_ID, payAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_RECEIVE_ACCOUNT_ID, receiveAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, settleType);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLED, settled ? 1 : 0);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLE_DATE, settleDate);
         v.put(DatabaseHelper.COLUMN_REMARK, EncryptUtils.encrypt(remark));
         v.put(DatabaseHelper.COLUMN_FIN_CREATE_TIME, System.currentTimeMillis());
         return db().insert(DatabaseHelper.TABLE_FIN_SEED, null, v);
@@ -567,6 +598,11 @@ public class FinanceDb {
         v.put(DatabaseHelper.COLUMN_FIN_UNIT_PRICE, s.unitPrice);
         v.put(DatabaseHelper.COLUMN_FIN_TOTAL_AMOUNT, round2(s.quantity * s.unitPrice));
         v.put(DatabaseHelper.COLUMN_FIN_ACTUAL_AMOUNT, s.actualAmount);
+        v.put(DatabaseHelper.COLUMN_FIN_PAY_ACCOUNT_ID, s.payAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_RECEIVE_ACCOUNT_ID, s.receiveAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, s.settleType);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLED, s.settled ? 1 : 0);
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLE_DATE, s.settleDate);
         v.put(DatabaseHelper.COLUMN_REMARK, EncryptUtils.encrypt(s.remark));
         db().update(DatabaseHelper.TABLE_FIN_SEED, v, "id=?", new String[]{String.valueOf(s.id)});
     }
@@ -577,7 +613,7 @@ public class FinanceDb {
 
     public List<FinSeed> getSeeds(String batchId) {
         List<FinSeed> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,supplier_id,date,quantity,unit_price,total_amount,actual_amount,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,supplier_id,date,quantity,unit_price,total_amount,actual_amount,remark,pay_account_id,receive_account_id,settle_type,settled,settle_date FROM "
                 + DatabaseHelper.TABLE_FIN_SEED + " WHERE batch_id=? ORDER BY date, id",
                 new String[]{batchId});
         while (c.moveToNext()) {
@@ -591,6 +627,11 @@ public class FinanceDb {
             s.totalAmount = c.getDouble(5);
             s.actualAmount = c.getDouble(6);
             s.remark = EncryptUtils.decrypt(c.getString(7));
+            s.payAccountId = c.isNull(8) ? 0 : c.getLong(8);
+            s.receiveAccountId = c.isNull(9) ? 0 : c.getLong(9);
+            s.settleType = c.isNull(10) ? 0 : c.getInt(10);
+            s.settled = c.isNull(11) || c.getInt(11) == 1;
+            s.settleDate = c.isNull(12) ? "" : c.getString(12);
             list.add(s);
         }
         c.close();
@@ -1459,6 +1500,10 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
         public double weight;
         public double price;
         public double netFee;
+        public int netFeeMode = 0;
+        public double netFeeUnitPrice = 0.35;
+        public long netFeePayeeId = 0;
+        public long netFeePayeeAccountId = 0;
         public double amount;
         public double actualAmount;
         public boolean netFeePaid = false;
@@ -1487,6 +1532,10 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAID, in.netFeePaid ? 1 : 0);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAY_DATE, in.netFeePayDate == null ? "" : in.netFeePayDate);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_ACCOUNT_ID, in.netFeeAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_MODE, in.netFeeMode);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_UNIT_PRICE, in.netFeeUnitPrice);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ID, in.netFeePayeeId);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ACCOUNT_ID, in.netFeePayeeAccountId);
         v.put(DatabaseHelper.COLUMN_FIN_AMOUNT, in.amount);
         v.put(DatabaseHelper.COLUMN_FIN_ACTUAL_AMOUNT, in.actualAmount);
         v.put(DatabaseHelper.COLUMN_FIN_ACCOUNT_ID, in.accountId);
@@ -1511,6 +1560,10 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAID, in.netFeePaid ? 1 : 0);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAY_DATE, in.netFeePayDate == null ? "" : in.netFeePayDate);
         v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_ACCOUNT_ID, in.netFeeAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_MODE, in.netFeeMode);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_UNIT_PRICE, in.netFeeUnitPrice);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ID, in.netFeePayeeId);
+        v.put(DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ACCOUNT_ID, in.netFeePayeeAccountId);
         v.put(DatabaseHelper.COLUMN_FIN_AMOUNT, in.amount);
         v.put(DatabaseHelper.COLUMN_FIN_ACTUAL_AMOUNT, in.actualAmount);
         v.put(DatabaseHelper.COLUMN_FIN_ACCOUNT_ID, in.accountId);
@@ -1528,7 +1581,7 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
 
     public List<FinIncome> getIncomes(String batchId) {
         List<FinIncome> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,date,car_no,shed_no,specs,weight,price,net_fee,net_fee_paid,net_fee_pay_date,net_fee_account_id,amount,actual_amount,account_id,paid,pay_date,agent,customer,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,date,car_no,shed_no,specs,weight,price,net_fee,net_fee_paid,net_fee_pay_date,net_fee_account_id,amount,actual_amount,account_id,paid,pay_date,agent,customer,remark,net_fee_mode,net_fee_unit_price,net_fee_payee_id,net_fee_payee_account_id FROM "
                 + DatabaseHelper.TABLE_FIN_INCOME + " WHERE batch_id=? ORDER BY date DESC, id DESC",
                 new String[]{batchId});
         while (c.moveToNext()) {
@@ -1553,6 +1606,10 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
             in.agent = nonNull(EncryptUtils.decrypt(c.getString(16)));
             in.customer = nonNull(EncryptUtils.decrypt(c.getString(17)));
             in.remark = nonNull(EncryptUtils.decrypt(c.getString(18)));
+            in.netFeeMode = c.isNull(19) ? 0 : c.getInt(19);
+            in.netFeeUnitPrice = c.isNull(20) ? 0.35 : c.getDouble(20);
+            in.netFeePayeeId = c.isNull(21) ? 0 : c.getLong(21);
+            in.netFeePayeeAccountId = c.isNull(22) ? 0 : c.getLong(22);
             FinAccount a = in.accountId <= 0 ? null : getPaymentAccount(in.accountId);
             in.accountName = a == null ? "" : a.name;
             FinAccount an = in.netFeeAccountId <= 0 ? null : getPaymentAccount(in.netFeeAccountId);
@@ -1565,7 +1622,7 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
 
     public List<FinIncome> searchIncomes(String keyword) {
         List<FinIncome> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,batch_id,date,car_no,shed_no,specs,weight,price,net_fee,net_fee_paid,net_fee_pay_date,net_fee_account_id,amount,actual_amount,account_id,paid,pay_date,agent,customer,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,batch_id,date,car_no,shed_no,specs,weight,price,net_fee,net_fee_paid,net_fee_pay_date,net_fee_account_id,amount,actual_amount,account_id,paid,pay_date,agent,customer,remark,net_fee_mode,net_fee_unit_price,net_fee_payee_id,net_fee_payee_account_id FROM "
                 + DatabaseHelper.TABLE_FIN_INCOME + " ORDER BY date DESC, id DESC", null);
         String kw = keyword == null ? "" : keyword.trim();
         while (c.moveToNext()) {
@@ -1590,6 +1647,10 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
             in.agent = nonNull(EncryptUtils.decrypt(c.getString(17)));
             in.customer = nonNull(EncryptUtils.decrypt(c.getString(18)));
             in.remark = nonNull(EncryptUtils.decrypt(c.getString(19)));
+            in.netFeeMode = c.isNull(20) ? 0 : c.getInt(20);
+            in.netFeeUnitPrice = c.isNull(21) ? 0.35 : c.getDouble(21);
+            in.netFeePayeeId = c.isNull(22) ? 0 : c.getLong(22);
+            in.netFeePayeeAccountId = c.isNull(23) ? 0 : c.getLong(23);
             FinAccount a = in.accountId <= 0 ? null : getPaymentAccount(in.accountId);
             in.accountName = a == null ? "" : a.name;
             FinAccount an = in.netFeeAccountId <= 0 ? null : getPaymentAccount(in.netFeeAccountId);
@@ -1612,7 +1673,7 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
 
     public List<FinSeed> searchSeeds(String keyword) {
         List<FinSeed> list = new ArrayList<>();
-        Cursor c = db().rawQuery("SELECT id,batch_id,supplier_id,date,quantity,unit_price,total_amount,actual_amount,remark FROM "
+        Cursor c = db().rawQuery("SELECT id,batch_id,supplier_id,date,quantity,unit_price,total_amount,actual_amount,remark,pay_account_id,receive_account_id,settle_type,settled,settle_date FROM "
                 + DatabaseHelper.TABLE_FIN_SEED + " ORDER BY date DESC, id DESC", null);
         String kw = keyword == null ? "" : keyword.trim().toLowerCase();
         while (c.moveToNext()) {
@@ -1626,6 +1687,11 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
             s.totalAmount = c.getDouble(6);
             s.actualAmount = c.getDouble(7);
             s.remark = EncryptUtils.decrypt(c.getString(8));
+            s.payAccountId = c.isNull(9) ? 0 : c.getLong(9);
+            s.receiveAccountId = c.isNull(10) ? 0 : c.getLong(10);
+            s.settleType = c.isNull(11) ? 0 : c.getInt(11);
+            s.settled = c.isNull(12) || c.getInt(12) == 1;
+            s.settleDate = c.isNull(13) ? "" : c.getString(13);
             list.add(s);
         }
         c.close();
@@ -2426,5 +2492,168 @@ v.put(DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, t.settled ? 0 : 1);
         if (c.moveToFirst()) sum = round2(c.getDouble(0));
         c.close();
         return sum;
+    }
+
+    // ==================== v18 代理客户 / 结算 / 园区 ====================
+    public static class FinAgentCustomer {
+        public long id;
+        public long agentId;
+        public long customerId;
+        public long createTime;
+    }
+
+    public static class FinSettlement {
+        public long id;
+        public int direction;
+        public String bizType = "";
+        public long bizId;
+        public double amount;
+        public String settleDate = "";
+        public long payAccountId;
+        public long receiveAccountId;
+        public String remark = "";
+        public long createTime;
+    }
+
+    public static class FinPark {
+        public long id;
+        public String name = "";
+        public String accountName = "";
+        public String accountNo = "";
+        public boolean enabled = true;
+        public long createTime;
+    }
+
+    public long linkAgentCustomer(long agentId, long customerId) {
+        ContentValues v = new ContentValues();
+        v.put(DatabaseHelper.COLUMN_FIN_AGENT_ID, agentId);
+        v.put(DatabaseHelper.COLUMN_FIN_CUSTOMER_ID, customerId);
+        v.put(DatabaseHelper.COLUMN_FIN_CREATE_TIME, System.currentTimeMillis());
+        return db().insertWithOnConflict(DatabaseHelper.TABLE_FIN_AGENT_CUSTOMER, null, v,
+                SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    public void unlinkAgentCustomer(long agentId, long customerId) {
+        db().delete(DatabaseHelper.TABLE_FIN_AGENT_CUSTOMER,
+                DatabaseHelper.COLUMN_FIN_AGENT_ID + "=? AND " + DatabaseHelper.COLUMN_FIN_CUSTOMER_ID + "=?",
+                new String[]{String.valueOf(agentId), String.valueOf(customerId)});
+    }
+
+    public List<FinAgentCustomer> getAgentCustomers(long agentId) {
+        List<FinAgentCustomer> list = new ArrayList<>();
+        Cursor c = db().rawQuery("SELECT id,agent_id,customer_id,create_time FROM "
+                + DatabaseHelper.TABLE_FIN_AGENT_CUSTOMER + " WHERE agent_id=? ORDER BY id DESC",
+                new String[]{String.valueOf(agentId)});
+        while (c.moveToNext()) list.add(readAgentCustomer(c));
+        c.close();
+        return list;
+    }
+
+    public List<FinAgentCustomer> getCustomerAgents(long customerId) {
+        List<FinAgentCustomer> list = new ArrayList<>();
+        Cursor c = db().rawQuery("SELECT id,agent_id,customer_id,create_time FROM "
+                + DatabaseHelper.TABLE_FIN_AGENT_CUSTOMER + " WHERE customer_id=? ORDER BY id DESC",
+                new String[]{String.valueOf(customerId)});
+        while (c.moveToNext()) list.add(readAgentCustomer(c));
+        c.close();
+        return list;
+    }
+
+    private FinAgentCustomer readAgentCustomer(Cursor c) {
+        FinAgentCustomer r = new FinAgentCustomer();
+        r.id = c.getLong(0);
+        r.agentId = c.getLong(1);
+        r.customerId = c.getLong(2);
+        r.createTime = c.isNull(3) ? 0 : c.getLong(3);
+        return r;
+    }
+
+    public long insertSettlement(FinSettlement s) {
+        ContentValues v = new ContentValues();
+        v.put(DatabaseHelper.COLUMN_FIN_DIRECTION, s.direction);
+        v.put(DatabaseHelper.COLUMN_FIN_BIZ_TYPE, nonNull(s.bizType));
+        v.put(DatabaseHelper.COLUMN_FIN_BIZ_ID, s.bizId);
+        v.put(DatabaseHelper.COLUMN_FIN_AMOUNT, round2(s.amount));
+        v.put(DatabaseHelper.COLUMN_FIN_SETTLE_DATE, s.settleDate);
+        v.put(DatabaseHelper.COLUMN_FIN_PAY_ACCOUNT_ID, s.payAccountId);
+        v.put(DatabaseHelper.COLUMN_FIN_RECEIVE_ACCOUNT_ID, s.receiveAccountId);
+        v.put(DatabaseHelper.COLUMN_REMARK, EncryptUtils.encrypt(nonNull(s.remark)));
+        v.put(DatabaseHelper.COLUMN_FIN_CREATE_TIME, s.createTime == 0 ? System.currentTimeMillis() : s.createTime);
+        return db().insert(DatabaseHelper.TABLE_FIN_SETTLEMENT, null, v);
+    }
+
+    public List<FinSettlement> listSettlements(String bizType, long bizId) {
+        List<FinSettlement> list = new ArrayList<>();
+        Cursor c = db().rawQuery("SELECT id,direction,biz_type,biz_id,amount,settle_date,pay_account_id,receive_account_id,remark,create_time FROM "
+                + DatabaseHelper.TABLE_FIN_SETTLEMENT + " WHERE biz_type=? AND biz_id=? ORDER BY id DESC",
+                new String[]{nonNull(bizType), String.valueOf(bizId)});
+        while (c.moveToNext()) list.add(readSettlement(c));
+        c.close();
+        return list;
+    }
+
+    private FinSettlement readSettlement(Cursor c) {
+        FinSettlement s = new FinSettlement();
+        s.id = c.getLong(0);
+        s.direction = c.isNull(1) ? 0 : c.getInt(1);
+        s.bizType = c.isNull(2) ? "" : c.getString(2);
+        s.bizId = c.isNull(3) ? 0 : c.getLong(3);
+        s.amount = c.isNull(4) ? 0 : c.getDouble(4);
+        s.settleDate = c.isNull(5) ? "" : c.getString(5);
+        s.payAccountId = c.isNull(6) ? 0 : c.getLong(6);
+        s.receiveAccountId = c.isNull(7) ? 0 : c.getLong(7);
+        s.remark = nonNull(EncryptUtils.decrypt(c.getString(8)));
+        s.createTime = c.isNull(9) ? 0 : c.getLong(9);
+        return s;
+    }
+
+    public long insertPark(FinPark p) {
+        ContentValues v = parkValues(p);
+        v.put(DatabaseHelper.COLUMN_FIN_CREATE_TIME, p.createTime == 0 ? System.currentTimeMillis() : p.createTime);
+        return db().insert(DatabaseHelper.TABLE_FIN_PARK, null, v);
+    }
+
+    public void updatePark(FinPark p) {
+        db().update(DatabaseHelper.TABLE_FIN_PARK, parkValues(p), "id=?",
+                new String[]{String.valueOf(p.id)});
+    }
+
+    private ContentValues parkValues(FinPark p) {
+        ContentValues v = new ContentValues();
+        v.put(DatabaseHelper.COLUMN_FIN_NAME, EncryptUtils.encrypt(nonNull(p.name)));
+        v.put(DatabaseHelper.COLUMN_FIN_ACCOUNT_NAME, EncryptUtils.encrypt(nonNull(p.accountName)));
+        v.put(DatabaseHelper.COLUMN_FIN_ACCOUNT_NO, EncryptUtils.encrypt(nonNull(p.accountNo)));
+        v.put(DatabaseHelper.COLUMN_FIN_ENABLED, p.enabled ? 1 : 0);
+        return v;
+    }
+
+    public List<FinPark> listParks() {
+        List<FinPark> list = new ArrayList<>();
+        Cursor c = db().rawQuery("SELECT id,name,account_name,account_no,enabled,create_time FROM "
+                + DatabaseHelper.TABLE_FIN_PARK + " ORDER BY enabled DESC, id DESC", null);
+        while (c.moveToNext()) list.add(readPark(c));
+        c.close();
+        return list;
+    }
+
+    public FinPark getPark(long id) {
+        Cursor c = db().rawQuery("SELECT id,name,account_name,account_no,enabled,create_time FROM "
+                + DatabaseHelper.TABLE_FIN_PARK + " WHERE id=?", new String[]{String.valueOf(id)});
+        try {
+            return c.moveToFirst() ? readPark(c) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    private FinPark readPark(Cursor c) {
+        FinPark p = new FinPark();
+        p.id = c.getLong(0);
+        p.name = nonNull(EncryptUtils.decrypt(c.getString(1)));
+        p.accountName = nonNull(EncryptUtils.decrypt(c.getString(2)));
+        p.accountNo = nonNull(EncryptUtils.decrypt(c.getString(3)));
+        p.enabled = c.isNull(4) || c.getInt(4) == 1;
+        p.createTime = c.isNull(5) ? 0 : c.getLong(5);
+        return p;
     }
 }

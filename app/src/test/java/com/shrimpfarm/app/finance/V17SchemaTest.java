@@ -12,6 +12,6 @@ public class V17SchemaTest {
         Field v = Class.forName("com.shrimpfarm.app.DatabaseHelper")
                 .getDeclaredField("DATABASE_VERSION");
         v.setAccessible(true);
-        assertEquals(17, v.getInt(null));
+        assertEquals(18, v.getInt(null));
     }
 }

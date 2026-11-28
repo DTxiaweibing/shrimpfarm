@@ -161,6 +161,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_FIN_SP_PACK_UNIT = "sp_pack_unit";
     public static final String COLUMN_FIN_SP_PACK_QTY = "sp_pack_qty";
 
+    // ==================== v18 AR/AP 字段 ====================
+    public static final String COLUMN_FIN_SUPPLIER_KIND = "supplier_kind";
+    public static final String COLUMN_FIN_NET_FEE_MODE = "net_fee_mode";
+    public static final String COLUMN_FIN_NET_FEE_UNIT_PRICE = "net_fee_unit_price";
+    public static final String COLUMN_FIN_NET_FEE_PAYEE_ID = "net_fee_payee_id";
+    public static final String COLUMN_FIN_NET_FEE_PAYEE_ACCOUNT_ID = "net_fee_payee_account_id";
+    public static final String COLUMN_FIN_PAY_ACCOUNT_ID = "pay_account_id";
+    public static final String COLUMN_FIN_SETTLE_DATE = "settle_date";
+    public static final String COLUMN_FIN_DIRECTION = "direction";
+    public static final String COLUMN_FIN_BIZ_TYPE = "biz_type";
+    public static final String COLUMN_FIN_BIZ_ID = "biz_id";
+    public static final String COLUMN_FIN_AGENT_ID = "agent_id";
+    public static final String COLUMN_FIN_CUSTOMER_ID = "customer_id";
+
     // ==================== 批次ID字段 ====================
     public static final String COLUMN_BATCH_ID = "batch_id";
 
@@ -479,7 +493,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_DAILY_WAGE + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1, " +
                     COLUMN_REMARK + " TEXT, " +
-                    "supplier_kind INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_SUPPLIER_KIND + " INTEGER DEFAULT 1, " +
                     COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
     private static final String CREATE_FIN_SUPPLIER_PRODUCT_TABLE =
@@ -615,10 +629,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_NET_FEE_PAID + " INTEGER DEFAULT 0, " +
                     COLUMN_FIN_NET_FEE_PAY_DATE + " TEXT, " +
                     COLUMN_FIN_NET_FEE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
-                    "net_fee_mode INTEGER DEFAULT 0, " +
-                    "net_fee_unit_price REAL DEFAULT 0.35, " +
-                    "net_fee_payee_id INTEGER DEFAULT 0, " +
-                    "net_fee_payee_account_id INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE_MODE + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE_UNIT_PRICE + " REAL DEFAULT 0.35, " +
+                    COLUMN_FIN_NET_FEE_PAYEE_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_NET_FEE_PAYEE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
                     COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
                     COLUMN_FIN_PAID + " INTEGER DEFAULT 1, " +
@@ -639,11 +653,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_FIN_UNIT_PRICE + " REAL DEFAULT 0, " +
                     COLUMN_FIN_TOTAL_AMOUNT + " REAL DEFAULT 0, " +
                     COLUMN_FIN_ACTUAL_AMOUNT + " REAL DEFAULT 0, " +
-                    "pay_account_id INTEGER DEFAULT 0, " +
-                    "receive_account_id INTEGER DEFAULT 0, " +
-                    "settle_type INTEGER DEFAULT 0, " +
-                    "settled INTEGER DEFAULT 1, " +
-                    "settle_date TEXT, " +
+                    COLUMN_FIN_PAY_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_SETTLE_TYPE + " INTEGER DEFAULT 0, " +
+                    COLUMN_FIN_SETTLED + " INTEGER DEFAULT 1, " +
+                    COLUMN_FIN_SETTLE_DATE + " TEXT, " +
                     COLUMN_REMARK + " TEXT, " +
                     COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
@@ -714,33 +728,33 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String CREATE_FIN_AGENT_CUSTOMER_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_AGENT_CUSTOMER + " ("
-                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + "agent_id INTEGER NOT NULL,"
-                    + "customer_id INTEGER NOT NULL,"
-                    + "create_time INTEGER DEFAULT 0,"
-                    + "UNIQUE(agent_id,customer_id))";
+                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_FIN_AGENT_ID + " INTEGER NOT NULL,"
+                    + COLUMN_FIN_CUSTOMER_ID + " INTEGER NOT NULL,"
+                    + COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0,"
+                    + "UNIQUE(" + COLUMN_FIN_AGENT_ID + "," + COLUMN_FIN_CUSTOMER_ID + "))";
 
     private static final String CREATE_FIN_SETTLEMENT_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_SETTLEMENT + " ("
-                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + "direction INTEGER NOT NULL,"
-                    + "biz_type TEXT NOT NULL,"
-                    + "biz_id INTEGER NOT NULL,"
-                    + "amount REAL DEFAULT 0,"
-                    + "settle_date TEXT,"
-                    + "pay_account_id INTEGER DEFAULT 0,"
-                    + "receive_account_id INTEGER DEFAULT 0,"
-                    + "remark TEXT,"
-                    + "create_time INTEGER DEFAULT 0)";
+                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_FIN_DIRECTION + " INTEGER NOT NULL,"
+                    + COLUMN_FIN_BIZ_TYPE + " TEXT NOT NULL,"
+                    + COLUMN_FIN_BIZ_ID + " INTEGER NOT NULL,"
+                    + COLUMN_FIN_AMOUNT + " REAL DEFAULT 0,"
+                    + COLUMN_FIN_SETTLE_DATE + " TEXT,"
+                    + COLUMN_FIN_PAY_ACCOUNT_ID + " INTEGER DEFAULT 0,"
+                    + COLUMN_FIN_RECEIVE_ACCOUNT_ID + " INTEGER DEFAULT 0,"
+                    + COLUMN_REMARK + " TEXT,"
+                    + COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
     private static final String CREATE_FIN_PARK_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_FIN_PARK + " ("
-                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + "name TEXT,"
-                    + "account_name TEXT,"
-                    + "account_no TEXT,"
-                    + "enabled INTEGER DEFAULT 1,"
-                    + "create_time INTEGER DEFAULT 0)";
+                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_FIN_NAME + " TEXT,"
+                    + COLUMN_FIN_ACCOUNT_NAME + " TEXT,"
+                    + COLUMN_FIN_ACCOUNT_NO + " TEXT,"
+                    + COLUMN_FIN_ENABLED + " INTEGER DEFAULT 1,"
+                    + COLUMN_FIN_CREATE_TIME + " INTEGER DEFAULT 0)";
 
     private static DatabaseHelper instance;
 

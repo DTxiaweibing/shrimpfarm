@@ -4,6 +4,8 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
+import com.shrimpfarm.app.DatabaseHelper;
+
 public final class V18Schema {
 
     public static final String TABLE_FIN_AGENT_CUSTOMER = "fin_agent_customer";
@@ -47,16 +49,16 @@ public final class V18Schema {
     }
 
     public static void ensureAll(SQLiteDatabase db) {
-        ensureColumn(db, "fin_supplier", "supplier_kind", "INTEGER DEFAULT 1");
-        ensureColumn(db, "fin_income", "net_fee_mode", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_income", "net_fee_unit_price", "REAL DEFAULT 0.35");
-        ensureColumn(db, "fin_income", "net_fee_payee_id", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_income", "net_fee_payee_account_id", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_seed", "pay_account_id", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_seed", "receive_account_id", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_seed", "settle_type", "INTEGER DEFAULT 0");
-        ensureColumn(db, "fin_seed", "settled", "INTEGER DEFAULT 1");
-        ensureColumn(db, "fin_seed", "settle_date", "TEXT");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SUPPLIER, DatabaseHelper.COLUMN_FIN_SUPPLIER_KIND, "INTEGER DEFAULT 1");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_MODE, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_UNIT_PRICE, "REAL DEFAULT 0.35");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ID, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_INCOME, DatabaseHelper.COLUMN_FIN_NET_FEE_PAYEE_ACCOUNT_ID, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SEED, DatabaseHelper.COLUMN_FIN_PAY_ACCOUNT_ID, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SEED, DatabaseHelper.COLUMN_FIN_RECEIVE_ACCOUNT_ID, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SEED, DatabaseHelper.COLUMN_FIN_SETTLE_TYPE, "INTEGER DEFAULT 0");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SEED, DatabaseHelper.COLUMN_FIN_SETTLED, "INTEGER DEFAULT 1");
+        ensureColumn(db, DatabaseHelper.TABLE_FIN_SEED, DatabaseHelper.COLUMN_FIN_SETTLE_DATE, "TEXT");
     }
 
     private static void ensureColumn(SQLiteDatabase db, String table, String column, String ddl) {
