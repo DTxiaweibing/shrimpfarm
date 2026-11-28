@@ -58,6 +58,10 @@ public final class V18BackupHook {
             logW("Failed to create backup dir: " + backupDir.getAbsolutePath(), null);
             return null;
         }
+        if (!DatabaseSnapshot.prepare(dbFile)) {
+            logW("WAL snapshot not ready, skipping pre-v18 backup: " + dbFile.getAbsolutePath(), null);
+            return null;
+        }
         File dst = new File(backupDir, backupFileName(nowMs, userVersion));
         copyDatabase(dbFile, dst);
         cleanupExpired(backupDir, nowMs, RETAIN_MS);
