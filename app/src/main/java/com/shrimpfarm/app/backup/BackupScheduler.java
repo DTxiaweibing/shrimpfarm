@@ -15,7 +15,16 @@ public class BackupScheduler {
 
     private static final String WORK_NAME = "auto_backup_jianguoyun";
 
+    /** 启动时用 KEEP，避免每次 onResume 都把凌晨的周期重置掉。 */
+    public static void scheduleIfAbsent(Context context) {
+        enqueue(context, ExistingPeriodicWorkPolicy.KEEP);
+    }
+
     public static void schedule(Context context) {
+        enqueue(context, ExistingPeriodicWorkPolicy.UPDATE);
+    }
+
+    private static void enqueue(Context context, ExistingPeriodicWorkPolicy policy) {
         Calendar now = Calendar.getInstance();
         Calendar target = Calendar.getInstance();
         target.set(Calendar.HOUR_OF_DAY, 1);
@@ -43,7 +52,7 @@ public class BackupScheduler {
         WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(
                         WORK_NAME,
-                        ExistingPeriodicWorkPolicy.UPDATE,
+                        policy,
                         request);
     }
 

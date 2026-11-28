@@ -2,7 +2,10 @@ package com.shrimpfarm.app.backup;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
+import android.widget.Toast;
 
+import com.shrimpfarm.app.R;
 import com.shrimpfarm.app.utils.StoragePermissionHelper;
 
 import java.io.File;
@@ -11,95 +14,109 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BackgroundBackupManager {
 
+    private static final String TAG = "BgBackup";
     private static final String PREF_NAME = "webdav_config";
-    private static final String KEY_USERNAME = "webdav_username";
-    private static final String KEY_PASSWORD = "webdav_password";
-    private static final String KEY_LAST_BACKGROUND_BACKUP = "last_background_backup_time";
+    private static final String KEY_LAST_BACKUP_TIME = "last_background_backup_time";
+    private static final String KEY_LAST_ATTEMPT_TIME = "last_backup_attempt_time";
     private static final String KEY_LAST_BACKUP_HASH = "last_backup_db_hash";
     private static final String DB_NAME = "FeedingRecord.db";
-    private static final long MIN_INTERVAL_MS = 2 * 60 * 60 * 1000;
+    private static final long SUCCESS_INTERVAL_MS = 2 * 60 * 60 * 1000;
+    private static final long RETRY_COOLDOWN_MS = 10 * 60 * 1000;
+    private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
 
     public static void onAppBackground(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String username = prefs.getString(KEY_USERNAME, "");
-        String password = prefs.getString(KEY_PASSWORD, "");
-
+        WebDavManager webDav = new WebDavManager(context);
+        String username = webDav.getSavedUsername();
+        String password = webDav.getSavedPassword();
         boolean cloudConfigured = !username.isEmpty() && !password.isEmpty();
         boolean localAllowed = StoragePermissionHelper.hasStoragePermission(context);
         if (!cloudConfigured && !localAllowed) return;
 
-        long lastTime = prefs.getLong(KEY_LAST_BACKGROUND_BACKUP, 0);
         long now = System.currentTimeMillis();
-        if (now - lastTime < MIN_INTERVAL_MS) return;
+        boolean allowed = BackupTimingPolicy.shouldRun(now,
+                prefs.getLong(KEY_LAST_BACKUP_TIME, 0),
+                prefs.getLong(KEY_LAST_ATTEMPT_TIME, 0),
+                SUCCESS_INTERVAL_MS, RETRY_COOLDOWN_MS);
+        if (!allowed || !RUNNING.compareAndSet(false, true)) return;
 
-        prefs.edit().putLong(KEY_LAST_BACKGROUND_BACKUP, now).apply();
-
+        prefs.edit().putLong(KEY_LAST_ATTEMPT_TIME, now).apply();
         Thread t = new Thread(() -> {
             try {
-                File dbFile = context.getDatabasePath(DB_NAME);
-                if (dbFile == null || !dbFile.exists()) {
-                    dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
-                    if (!dbFile.exists()) {
-                        android.util.Log.w("BgBackup", "数据库文件不存在，跳过");
-                        return;
-                    }
-                }
-
-                checkpointDatabase(context);
-                String currentHash = md5(dbFile);
-
-                String lastHash = prefs.getString(KEY_LAST_BACKUP_HASH, "");
-                if (!lastHash.isEmpty() && lastHash.equals(currentHash)) {
-                    android.util.Log.i("BgBackup", "数据库无变化，跳过自动备份");
-                    return;
-                }
-
-                String localName = null;
-                if (localAllowed) {
-                    localName = new LocalBackupManager(context).exportToLocal(false);
-                    if (!verifyLocalBackup(context, localName, dbFile.length())) {
-                        throw new Exception("本地备份校验失败");
-                    }
-                    android.util.Log.i("BgBackup", "本地备份完成: " + localName);
-                }
-
-                if (cloudConfigured) {
-                    WebDavManager webDav = new WebDavManager(context);
-                    webDav.initConnection(username, password);
-                    String fileName = webDav.uploadBackup(false);
-                    long remoteSize = webDav.getRemoteFileSize(fileName);
-                    if (remoteSize < dbFile.length()) {
-                        throw new Exception("云端备份校验失败，远端大小=" + remoteSize);
-                    }
-                    android.util.Log.i("BgBackup", "云端备份完成: " + fileName);
-                }
-
-                prefs.edit().putString(KEY_LAST_BACKUP_HASH, currentHash).apply();
-                android.util.Log.i("BgBackup", "自动备份全部完成并记录快照");
+                runBackup(context, prefs, webDav, username, password,
+                        cloudConfigured, localAllowed, now);
             } catch (Exception e) {
-                android.util.Log.e("BgBackup", "后台备份失败: " + e.getMessage());
+                Log.e(TAG, "后台备份失败: " + e.getMessage());
+                notifyFailure(context, e);
+            } finally {
+                RUNNING.set(false);
             }
         }, "BackgroundBackup-run");
         t.setDaemon(true);
         t.start();
     }
 
-    private static void checkpointDatabase(Context context) {
-        try {
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
-            com.shrimpfarm.app.DatabaseHelper helper = new com.shrimpfarm.app.DatabaseHelper(context);
-            android.database.sqlite.SQLiteDatabase db = helper.getWritableDatabase();
-            if (db != null) {
-                db.execSQL("PRAGMA wal_checkpoint(TRUNCATE)");
-            }
-            helper.close();
-        } catch (Exception ignored) {
-        } finally {
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
+    private static void runBackup(Context context, SharedPreferences prefs, WebDavManager webDav,
+                                  String username, String password, boolean cloudConfigured,
+                                  boolean localAllowed, long now) throws Exception {
+        File dbFile = resolveDbFile(context);
+        if (dbFile == null) return;
+        if (!DatabaseSnapshot.prepare(dbFile)) {
+            Log.i(TAG, "数据库正被写入，跳过本次自动备份");
+            return;
         }
+        String currentHash = md5(dbFile);
+        if (currentHash.equals(prefs.getString(KEY_LAST_BACKUP_HASH, ""))) {
+            Log.i(TAG, "数据库无变化，跳过自动备份");
+            return;
+        }
+        if (localAllowed) backupLocal(context, dbFile);
+        if (cloudConfigured) backupCloud(webDav, username, password, dbFile);
+
+        prefs.edit().putLong(KEY_LAST_BACKUP_TIME, now)
+                .putString(KEY_LAST_BACKUP_HASH, currentHash).apply();
+        Log.i(TAG, "自动备份全部完成并记录快照");
+    }
+
+    private static File resolveDbFile(Context context) {
+        File dbFile = context.getDatabasePath(DB_NAME);
+        if (dbFile == null || !dbFile.exists()) {
+            dbFile = new File(context.getFilesDir().getParent() + "/databases/" + DB_NAME);
+        }
+        if (!dbFile.exists()) {
+            Log.w(TAG, "数据库文件不存在，跳过");
+            return null;
+        }
+        return dbFile;
+    }
+
+    private static void backupLocal(Context context, File dbFile) throws Exception {
+        String localName = new LocalBackupManager(context).exportToLocal(false);
+        if (!verifyLocalBackup(context, localName, dbFile.length())) {
+            throw new Exception("本地备份校验失败");
+        }
+        Log.i(TAG, "本地备份完成: " + localName);
+    }
+
+    private static void backupCloud(WebDavManager webDav, String username, String password,
+                                    File dbFile) throws Exception {
+        webDav.initConnection(username, password);
+        String fileName = webDav.uploadBackup(false);
+        long remoteSize = webDav.getRemoteFileSize(fileName);
+        if (remoteSize < dbFile.length()) {
+            throw new Exception("云端备份校验失败，远端大小=" + remoteSize);
+        }
+        Log.i(TAG, "云端备份完成: " + fileName);
+    }
+
+    private static void notifyFailure(Context context, Exception e) {
+        String msg = context.getString(R.string.backup_toast_auto_failed) + e.getMessage();
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                Toast.makeText(context.getApplicationContext(), msg, Toast.LENGTH_LONG).show());
     }
 
     private static String md5(File file) throws Exception {
@@ -128,10 +145,10 @@ public class BackgroundBackupManager {
                     return true;
                 }
             }
-            android.util.Log.w("BgBackup", "本地备份未在列表中找到或大小不符: " + exportedName);
+            Log.w(TAG, "本地备份未在列表中找到或大小不符: " + exportedName);
             return false;
         } catch (Exception e) {
-            android.util.Log.e("BgBackup", "本地备份校验异常: " + e.getMessage());
+            Log.e(TAG, "本地备份校验异常: " + e.getMessage());
             return false;
         }
     }

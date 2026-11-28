@@ -1,21 +1,16 @@
 package com.shrimpfarm.app.backup;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
+import android.content.Context;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 public class AutoBackupWorker extends Worker {
-
-    private static final String PREF_NAME = "webdav_config";
-    private static final String KEY_USERNAME = "webdav_username";
-    private static final String KEY_PASSWORD = "webdav_password";
 
     public AutoBackupWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -24,17 +19,15 @@ public class AutoBackupWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        SharedPreferences prefs = getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String username = prefs.getString(KEY_USERNAME, "");
-        String password = prefs.getString(KEY_PASSWORD, "");
-
+        WebDavManager webDav = new WebDavManager(getApplicationContext());
+        // pref 里存的是密文，必须通过 getSavedPassword() 解密后再做 Basic 认证。
+        String username = webDav.getSavedUsername();
+        String password = webDav.getSavedPassword();
         if (username.isEmpty() || password.isEmpty()) {
             return Result.failure();
         }
 
-        WebDavManager webDav = new WebDavManager(getApplicationContext());
         webDav.initConnection(username, password);
-
         try {
             webDav.testConnection();
             String fileName = webDav.uploadBackup();

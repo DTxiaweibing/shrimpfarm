@@ -3,7 +3,6 @@ package com.shrimpfarm.app.backup;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.shrimpfarm.app.DatabaseHelper;
 import com.shrimpfarm.app.R;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -86,10 +85,15 @@ public class WebDavManager {
     }
 
     public void clearConfig() {
+        // 只清凭据：last_background_backup_time / last_backup_db_hash 也在同一个 pref 里，
+        // 整文件 clear() 会把备份状态一起抹掉。
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .clear()
+                .remove(KEY_USERNAME)
+                .remove(KEY_PASSWORD)
+                .remove(KEY_CONNECTED)
                 .apply();
+        BackupScheduler.cancel(context);
         username = null;
         password = null;
     }
@@ -125,16 +129,8 @@ public class WebDavManager {
             if (!dbFile.exists()) throw new Exception(BackupActivity.ERR_DB_FILE_MISSING);
         }
 
-        try {
-            com.shrimpfarm.app.DatabaseHelper helper = new com.shrimpfarm.app.DatabaseHelper(context);
-            android.database.sqlite.SQLiteDatabase db = helper.getWritableDatabase();
-            if (db != null) {
-                db.execSQL("PRAGMA wal_checkpoint(TRUNCATE)");
-            }
-            helper.close();
-        } catch (Exception ignored) {
-        } finally {
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
+        if (!DatabaseSnapshot.prepare(dbFile)) {
+            throw new Exception(context.getString(R.string.backup_error_db_busy));
         }
 
         ensureBackupDir();

@@ -270,6 +270,7 @@ public class BackupActivity extends BaseActivity {
         if (!account.isEmpty() && !password.isEmpty()) {
             webDavManager.initConnection(account, password);
             webDavManager.saveConfig(account, password);
+            BackupScheduler.schedule(this);
             updateUI();
         }
         // always try to refresh from cloud
@@ -282,6 +283,7 @@ public class BackupActivity extends BaseActivity {
                     if (!wa.isEmpty() && !wp.isEmpty()) {
                         webDavManager.initConnection(wa, wp);
                         webDavManager.saveConfig(wa, wp);
+                        BackupScheduler.schedule(BackupActivity.this);
                         updateUI();
                     }
                 });
@@ -303,6 +305,7 @@ public class BackupActivity extends BaseActivity {
                 runOnUiThread(() -> {
                     pd.dismiss();
                     webDavManager.saveConfig(finalUsername, finalPassword);
+                    BackupScheduler.schedule(BackupActivity.this);
                     authManager.cacheWebDavLocally(finalUsername, finalPassword);
                     updateUI();
                 });

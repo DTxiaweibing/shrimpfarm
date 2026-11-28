@@ -53,17 +53,8 @@ public class LocalBackupManager {
             if (!dbFile.exists()) throw new Exception(BackupActivity.ERR_DB_FILE_MISSING);
         }
 
-        try {
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
-            com.shrimpfarm.app.DatabaseHelper helper = new com.shrimpfarm.app.DatabaseHelper(context);
-            android.database.sqlite.SQLiteDatabase db = helper.getWritableDatabase();
-            if (db != null) {
-                db.execSQL("PRAGMA wal_checkpoint(TRUNCATE)");
-            }
-            helper.close();
-        } catch (Exception ignored) {
-        } finally {
-            com.shrimpfarm.app.DatabaseHelper.closeInstance();
+        if (!DatabaseSnapshot.prepare(dbFile)) {
+            throw new Exception(context.getString(R.string.backup_error_db_busy));
         }
 
         long fileSize = dbFile.length();

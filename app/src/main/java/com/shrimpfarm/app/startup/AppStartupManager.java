@@ -39,6 +39,9 @@ public class AppStartupManager {
         checkVersionUpdate();
         // 3. 广告图 + help + zhaomu 文件更新
         triggerBannerUpdate();
+        // 4. 坚果云定时备份：每天凌晨一次，需联网且电量充足。
+        //    未配置凭据时 Worker 会直接失败，不会上传任何东西。
+        com.shrimpfarm.app.backup.BackupScheduler.scheduleIfAbsent(context);
     }
 
     private void checkVersionUpdate() {

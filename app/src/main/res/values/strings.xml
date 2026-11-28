@@ -735,6 +735,8 @@
     <string name="backup_error_read_file">无法读取备份文件</string>
     <string name="backup_error_device_not_supported">不支持在此设备版本上还原</string>
     <string name="backup_error_restore_failed">还原失败，已恢复原数据库: </string>
+    <string name="backup_error_db_busy">数据库正在写入，本次备份已跳过，请稍后重试</string>
+    <string name="backup_toast_auto_failed">自动备份失败：</string>
     <string name="webdav_connection_success">连接成功，根目录共 %d 个文件/文件夹</string>
     <string name="mix_summary_header">拌料数据汇总\n</string>
     <string name="mix_summary_water_pct">水百分比: </string>
