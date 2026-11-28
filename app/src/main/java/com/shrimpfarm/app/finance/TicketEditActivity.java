@@ -97,7 +97,7 @@ public class TicketEditActivity extends BaseActivity {
         FinProduct product;
         /** 解析出的供应商商品，落库用 */
         FinSupplierProduct sp;
-        List<FinProduct> productList = new ArrayList<>();
+        List<FinSupplierProduct> productList = new ArrayList<>();
         double historyPrice = 0;
         boolean hasHistory = false;
         /** 回填期间抑制联动，避免递归 */
@@ -381,36 +381,25 @@ public class TicketEditActivity extends BaseActivity {
     private void bindExisting(Row r, FinTicketItem it) {
         FinSupplierProduct sp = financeDb.getSupplierProduct(it.supplierProductId);
         if (sp == null) return;
-
         r.binding = true;
         r.categoryId = sp.categoryId;
         selectCategory(r, sp.categoryId);
-
-        List<FinProduct> list = new ArrayList<>();
-        if (sp.categoryId > 0) list.addAll(financeDb.getProductsByCategory(sp.categoryId));
-        FinProduct cur = financeDb.getProduct(sp.productId);
-        if (cur != null && !containsProduct(list, cur.id)) list.add(cur);
+        List<FinSupplierProduct> list = new ArrayList<>();
+        if (sp.categoryId > 0 && currentSupplierId > 0) list.addAll(financeDb.getSupplierProductsByCategory(currentSupplierId, sp.categoryId));
+        if (sp.id > 0 && indexOfSp(list, sp.id) < 0) list.add(sp);
         fillProducts(r, list);
-
-        int idx = indexOfProduct(r, sp.productId);
-        if (idx >= 0) {
-            r.spName.setSelection(idx);
-        }
-        r.product = cur;
-        r.sp = sp;
-
+        int idx = indexOfSp(list, sp.id);
+        if (idx >= 0) r.spName.setSelection(idx + 1);
+        r.sp = sp; r.product = null;
         applyHistory(r, false);
         r.etCurrent.setText(PurchaseItemRowView.trimNum(it.unitPrice));
         r.etQty.setText(PurchaseItemRowView.trimNum(it.quantity));
-        r.binding = false;
-        recalcRow(r);
+        r.binding = false; recalcRow(r);
     }
 
-    private boolean containsProduct(List<FinProduct> list, long id) {
-        for (FinProduct p : list) {
-            if (p.id == id) return true;
-        }
-        return false;
+    private int indexOfSp(List<FinSupplierProduct> list, long spId) {
+        for (int i = 0; i < list.size(); i++) if (list.get(i).id == spId) return i;
+        return -1;
     }
 
     // ==================== 明细行 ====================
@@ -485,7 +474,7 @@ public class TicketEditActivity extends BaseActivity {
 
     private void onNameSelected(Row r, int pos) {
         if (r.binding) return;
-        List<FinProduct> list = r.productList;
+        List<FinSupplierProduct> list = r.productList;
         int size = list == null ? 0 : list.size();
         if (pos == size + 1) { promptAddProduct(r); return; }
         if (pos <= 0) {
@@ -493,8 +482,9 @@ public class TicketEditActivity extends BaseActivity {
             r.tvSpec.setText(""); r.tvHistory.setText(""); r.tvChange.setText(""); r.tvAmount.setText("");
             recalcRow(r); return;
         }
-        r.product = list.get(pos - 1);
-        if (resolveSupplierProduct(r)) applyHistory(r, true); else { r.product = null; r.sp = null; }
+        r.sp = list.get(pos - 1);
+        r.product = null;
+        applyHistory(r, true);
         recalcRow(r);
     }
 
@@ -523,75 +513,39 @@ public class TicketEditActivity extends BaseActivity {
     }
 
     private void fillProducts(Row r) {
-        List<FinProduct> list = new ArrayList<>();
-        if (r.categoryId > 0) list.addAll(financeDb.getProductsByCategory(r.categoryId));
+        List<FinSupplierProduct> list = new ArrayList<>();
+        if (r.categoryId > 0 && currentSupplierId > 0) list.addAll(financeDb.getSupplierProductsByCategory(currentSupplierId, r.categoryId));
         fillProducts(r, list);
     }
 
-    private void fillProducts(Row r, List<FinProduct> list) {
+    private void fillProducts(Row r, List<FinSupplierProduct> list) {
         List<String> opts = new ArrayList<>();
         opts.add(getString(R.string.finance_po_pick_name_hint));
-        for (FinProduct p : list) {
-            opts.add(p.name + (p.unit == null || p.unit.isEmpty() ? "" : " (" + p.unit + ")"));
-        }
+        for (FinSupplierProduct p : list) opts.add(p.productName + (p.unit == null || p.unit.isEmpty() ? "" : " (" + p.unit + ")"));
         opts.add(getString(R.string.finance_add_product));
-        ArrayAdapter<String> ad = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, opts);
+        ArrayAdapter<String> ad = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, opts);
         ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        boolean prev = r.binding;
-        r.binding = true;
-        r.spName.setAdapter(ad);
-        r.binding = prev;
-        r.productList = list;
-        r.product = null;
-        r.sp = null;
+        boolean prev = r.binding; r.binding = true; r.spName.setAdapter(ad); r.binding = prev;
+        r.productList = list; r.product = null; r.sp = null;
     }
 
     private int indexOfProduct(Row r, long productId) {
-        List<FinProduct> list = r.productList;
+        List<FinSupplierProduct> list = r.productList;
         if (list == null) return -1;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).id == productId) return i + 1;
-        }
+        for (int i = 0; i < list.size(); i++) { if (list.get(i).productId == productId) return i + 1; }
         return -1;
     }
 
     private void clearProduct(Row r) {
-        r.product = null;
-        r.sp = null;
-        r.hasHistory = false;
-        r.historyPrice = 0;
-        r.tvSpec.setText("");
-        r.tvHistory.setText("");
-        r.tvChange.setText("");
-        r.tvAmount.setText("");
-        List<String> opts = new ArrayList<>();
-        opts.add(getString(R.string.finance_po_pick_name_hint));
-        ArrayAdapter<String> ad = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, opts);
-        r.binding = true;
-        r.spName.setAdapter(ad);
-        r.binding = false;
+        r.product = null; r.sp = null; r.hasHistory = false; r.historyPrice = 0;
+        r.tvSpec.setText(""); r.tvHistory.setText(""); r.tvChange.setText(""); r.tvAmount.setText("");
+        List<String> opts = new ArrayList<>(); opts.add(getString(R.string.finance_po_pick_name_hint));
+        ArrayAdapter<String> ad = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, opts);
+        r.binding = true; r.spName.setAdapter(ad); r.binding = false;
         r.productList = new ArrayList<>();
     }
 
     /** 把全局商品挂到当前供应商下，拿到供应商商品 */
-    private boolean resolveSupplierProduct(Row r) {
-        if (currentSupplierId <= 0 || r.product == null || r.categoryId <= 0) {
-            r.sp = null;
-            return false;
-        }
-        long spId = financeDb.ensureSupplierProductByCategory(
-                currentSupplierId, r.categoryId, r.product.id);
-        if (spId <= 0) {
-            Toast.makeText(this, R.string.finance_product_manage, Toast.LENGTH_SHORT).show();
-            r.sp = null;
-            return false;
-        }
-        r.sp = financeDb.getSupplierProduct(spId);
-        return r.sp != null;
-    }
-
     private void applyHistory(Row r, boolean fillCurrent) {
         r.hasHistory = false;
         r.historyPrice = 0;
@@ -738,37 +692,27 @@ public class TicketEditActivity extends BaseActivity {
     }
 
     private void promptAddProduct(final Row r) {
-        if (r.categoryId <= 0) {
-            Toast.makeText(this, R.string.finance_po_pick_category_hint, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        box.setPadding(pad, pad / 2, pad, 0);
-
-        final EditText etName = new EditText(this);
-        etName.setHint(R.string.finance_input_name);
-        final EditText etUnit = new EditText(this);
-        etUnit.setHint(R.string.finance_input_unit);
-        box.addView(etName);
-        box.addView(etUnit);
-
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.finance_add_product)
-                .setView(box)
+        if (r.categoryId <= 0) { Toast.makeText(this, R.string.finance_po_pick_category_hint, Toast.LENGTH_SHORT).show(); return; }
+        if (currentSupplierId <= 0) { Toast.makeText(this, R.string.finance_po_pick_supplier, Toast.LENGTH_SHORT).show(); r.spName.setSelection(0); return; }
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density); box.setPadding(pad, pad / 2, pad, 0);
+        final EditText etName = new EditText(this); etName.setHint(R.string.finance_input_name);
+        final EditText etUnit = new EditText(this); etUnit.setHint(R.string.finance_input_unit);
+        box.addView(etName); box.addView(etUnit);
+        new AlertDialog.Builder(this).setTitle(R.string.finance_add_product).setView(box)
                 .setPositiveButton(R.string.btn_ok, (d, w) -> {
                     String name = etName.getText().toString().trim();
+                    String unit = etUnit.getText().toString().trim();
                     if (name.isEmpty()) { r.spName.setSelection(0); return; }
-                    long productId = financeDb.insertProduct(name, etUnit.getText().toString().trim());
+                    long productId = financeDb.insertProduct(name, unit);
                     if (productId <= 0) { r.spName.setSelection(0); return; }
                     financeDb.setProductCategories(productId, java.util.Collections.singletonList(r.categoryId));
+                    financeDb.insertSupplierProduct(currentSupplierId, productId, name, "", r.categoryId, unit, "", 0, 1);
                     fillProducts(r);
                     int idx = indexOfProduct(r, productId);
                     if (idx >= 0) r.spName.setSelection(idx); else r.spName.setSelection(0);
                 })
-                .setNegativeButton(R.string.btn_cancel, (d, w) -> r.spName.setSelection(0))
-                .show();
+                .setNegativeButton(R.string.btn_cancel, (d, w) -> r.spName.setSelection(0)).show();
     }
 
     // ==================== 保存 ====================
